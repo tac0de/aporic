@@ -1,0 +1,229 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aporic.dev/schema/commit-request-v1.json",
+  "title": "Aporic commit request v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "idempotency_key",
+    "expected_revision",
+    "actor",
+    "scope",
+    "event"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "event_id": { "type": "string", "minLength": 1 },
+    "idempotency_key": { "type": "string", "minLength": 1 },
+    "expected_revision": { "type": "integer", "minimum": 0 },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "provenance"],
+      "properties": {
+        "kind": { "enum": ["human", "agent", "evidence", "host"] },
+        "id": { "type": "string", "minLength": 1 },
+        "provenance": { "type": "string", "minLength": 1 }
+      }
+    },
+    "scope": { "type": "string", "minLength": 1 },
+    "event": {
+      "oneOf": [
+        { "$ref": "#/$defs/aporiaOpened" },
+        { "$ref": "#/$defs/aporiaResolved" },
+        { "$ref": "#/$defs/delegationGranted" },
+        { "$ref": "#/$defs/delegationRevoked" },
+        { "$ref": "#/$defs/decisionCommitted" },
+        { "$ref": "#/$defs/decisionSuperseded" },
+        { "$ref": "#/$defs/riskAccepted" },
+        { "$ref": "#/$defs/toolHoldPlaced" },
+        { "$ref": "#/$defs/toolHoldReleased" },
+        { "$ref": "#/$defs/planRegistered" },
+        { "$ref": "#/$defs/planAuthorized" },
+        { "$ref": "#/$defs/planAuthorizationRevoked" }
+      ]
+    }
+  },
+  "$defs": {
+    "transitionKind": {
+      "enum": [
+        "decision_commit",
+        "plan_authorize",
+        "scope_change",
+        "direction_supersede",
+        "risk_accept",
+        "completion_claim"
+      ]
+    },
+    "aporiaOpened": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "aporia_id", "question", "blocks"],
+      "properties": {
+        "type": { "const": "aporia_opened" },
+        "aporia_id": { "type": "string", "minLength": 1 },
+        "question": { "type": "string", "minLength": 1 },
+        "blocks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/transitionKind" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "aporiaResolved": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "aporia_id", "resolution_ref"],
+      "properties": {
+        "type": { "const": "aporia_resolved" },
+        "aporia_id": { "type": "string", "minLength": 1 },
+        "resolution_ref": { "type": "string", "minLength": 1 }
+      }
+    },
+    "delegationGranted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "delegation_id", "grantee", "transition_kinds"],
+      "properties": {
+        "type": { "const": "delegation_granted" },
+        "delegation_id": { "type": "string", "minLength": 1 },
+        "grantee": { "type": "string", "minLength": 1 },
+        "transition_kinds": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/transitionKind" },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      }
+    },
+    "delegationRevoked": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "delegation_id"],
+      "properties": {
+        "type": { "const": "delegation_revoked" },
+        "delegation_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "decisionCommitted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "decision_id", "question", "value"],
+      "properties": {
+        "type": { "const": "decision_committed" },
+        "decision_id": { "type": "string", "minLength": 1 },
+        "question": { "type": "string", "minLength": 1 },
+        "value": { "type": "string", "minLength": 1 },
+        "authority_ref": {
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "decisionSuperseded": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "decision_id", "replacement_id"],
+      "properties": {
+        "type": { "const": "decision_superseded" },
+        "decision_id": { "type": "string", "minLength": 1 },
+        "replacement_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "riskAccepted": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "risk_id", "subject", "review_condition"],
+      "properties": {
+        "type": { "const": "risk_accepted" },
+        "risk_id": { "type": "string", "minLength": 1 },
+        "subject": { "type": "string", "minLength": 1 },
+        "review_condition": { "type": "string", "minLength": 1 }
+      }
+    },
+    "toolHoldPlaced": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "tool_hold_id", "tool_name", "reason"],
+      "properties": {
+        "type": { "const": "tool_hold_placed" },
+        "tool_hold_id": { "type": "string", "minLength": 1 },
+        "tool_name": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
+    "toolHoldReleased": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "tool_hold_id"],
+      "properties": {
+        "type": { "const": "tool_hold_released" },
+        "tool_hold_id": { "type": "string", "minLength": 1 }
+      }
+    },
+    "planRegistered": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "plan_id",
+        "objective",
+        "acceptance_checks",
+        "unresolved_questions"
+      ],
+      "properties": {
+        "type": { "const": "plan_registered" },
+        "plan_id": { "type": "string", "minLength": 1 },
+        "objective": { "type": "string", "minLength": 1 },
+        "acceptance_checks": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "unresolved_questions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "planAuthorized": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "authorization_id",
+        "plan_id",
+        "session_id",
+        "tool_name"
+      ],
+      "properties": {
+        "type": { "const": "plan_authorized" },
+        "authorization_id": { "type": "string", "minLength": 1 },
+        "plan_id": { "type": "string", "minLength": 1 },
+        "session_id": { "type": "string", "minLength": 1 },
+        "tool_name": { "type": "string", "minLength": 1 },
+        "authority_ref": {
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "planAuthorizationRevoked": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "authorization_id"],
+      "properties": {
+        "type": { "const": "plan_authorization_revoked" },
+        "authorization_id": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}
