@@ -61,6 +61,305 @@ fn init_and_status_are_wired_through_the_binary() {
 }
 
 #[test]
+fn one_global_adapter_discovers_only_explicitly_bound_projects() {
+    let workspace = temp_path("global-workspace");
+    let nested = workspace.join("src");
+    let data_root = temp_path("global-data");
+    std::fs::create_dir_all(&nested).unwrap();
+
+    let setup = run(
+        &[
+            "project-init",
+            "--workspace",
+            workspace.to_str().unwrap(),
+            "--scope",
+            "global-test",
+            "--data-root",
+            data_root.to_str().unwrap(),
+        ],
+        None,
+    );
+    assert!(
+        setup.status.success(),
+        "{}",
+        String::from_utf8_lossy(&setup.stderr)
+    );
+
+    let session_input = serde_json::json!({
+        "session_id": "session-global",
+        "hook_event_name": "SessionStart",
+        "cwd": nested,
+        "source": "startup"
+    });
+    let session = run(
+        &[
+            "codex-global-session-start",
+            "--data-root",
+            data_root.to_str().unwrap(),
+        ],
+        Some(&serde_json::to_string(&session_input).unwrap()),
+    );
+    assert!(session.status.success());
+    let response: Value = serde_json::from_slice(&session.stdout).unwrap();
+    let context = response["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .unwrap();
+    assert!(context.contains("\"scope\":\"global-test\""));
+    assert!(data_root.join("workspaces").exists());
+
+    let unrelated = temp_path("global-unrelated");
+    std::fs::create_dir_all(&unrelated).unwrap();
+    let unrelated_input = serde_json::json!({
+        "session_id": "session-unrelated",
+        "hook_event_name": "SessionStart",
+        "cwd": unrelated,
+        "source": "startup"
+    });
+    let skipped = run(
+        &[
+            "codex-global-session-start",
+            "--data-root",
+            data_root.to_str().unwrap(),
+        ],
+        Some(&serde_json::to_string(&unrelated_input).unwrap()),
+    );
+    assert!(skipped.status.success());
+    assert_eq!(
+        serde_json::from_slice::<Value>(&skipped.stdout).unwrap(),
+        serde_json::json!({"continue": true})
+    );
+}
+
+#[test]
+fn global_adapter_fails_closed_when_a_bound_project_is_invalid() {
+    let workspace = temp_path("global-invalid");
+    let data_root = temp_path("global-invalid-data");
+    std::fs::create_dir_all(workspace.join(".aporic")).unwrap();
+    std::fs::write(
+        workspace.join(".aporic/config.json"),
+        r#"{"schema_version":1,"scope":"repo"}"#,
+    )
+    .unwrap();
+    let input = serde_json::json!({
+        "session_id": "session-global",
+        "hook_event_name": "PreToolUse",
+        "cwd": workspace,
+        "turn_id": "turn-global",
+        "tool_name": "apply_patch",
+        "tool_use_id": "tool-global",
+        "tool_input": {"patch": "ignored"}
+    });
+    let output = run(
+        &[
+            "codex-global-pre-tool-use",
+            "--data-root",
+            data_root.to_str().unwrap(),
+        ],
+        Some(&serde_json::to_string(&input).unwrap()),
+    );
+    assert!(output.status.success());
+    let response: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(response["hookSpecificOutput"]["permissionDecision"], "deny");
+    assert!(
+        response["hookSpecificOutput"]["permissionDecisionReason"]
+            .as_str()
+            .unwrap()
+            .starts_with("APORIC_PROJECT_INVALID")
+    );
+}
+
+#[test]
+fn global_session_start_never_recreates_a_missing_bound_store() {
+    let workspace = temp_path("global-missing-store");
+    let data_root = temp_path("global-missing-store-data");
+    std::fs::create_dir_all(&workspace).unwrap();
+    let setup = run(
+        &[
+            "project-init",
+            "--workspace",
+            workspace.to_str().unwrap(),
+            "--scope",
+            "repo",
+            "--data-root",
+            data_root.to_str().unwrap(),
+        ],
+        None,
+    );
+    assert!(setup.status.success());
+    let setup: Value = serde_json::from_slice(&setup.stdout).unwrap();
+    let store = std::path::PathBuf::from(setup["store"].as_str().unwrap());
+    std::fs::remove_file(&store).unwrap();
+
+    let input = serde_json::json!({
+        "session_id": "session-global",
+        "hook_event_name": "SessionStart",
+        "cwd": workspace,
+        "source": "resume"
+    });
+    let output = run(
+        &[
+            "codex-global-session-start",
+            "--data-root",
+            data_root.to_str().unwrap(),
+        ],
+        Some(&serde_json::to_string(&input).unwrap()),
+    );
+    assert!(output.status.success());
+    let response: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let context = response["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .unwrap();
+    assert!(context.contains("\"coverage\":\"unavailable\""));
+    assert!(context.contains("\"reason_code\":\"STORE_NOT_FOUND\""));
+    assert!(!store.exists());
+}
+
+#[test]
+fn invalid_global_data_root_fails_closed_for_pre_tool_use() {
+    let workspace = temp_path("global-relative-data-root");
+    std::fs::create_dir_all(&workspace).unwrap();
+    let input = serde_json::json!({
+        "session_id": "session-global",
+        "hook_event_name": "PreToolUse",
+        "cwd": workspace,
+        "turn_id": "turn-global",
+        "tool_name": "apply_patch",
+        "tool_use_id": "tool-global",
+        "tool_input": {"patch": "ignored"}
+    });
+    let output = run(
+        &["codex-global-pre-tool-use", "--data-root", "relative/data"],
+        Some(&serde_json::to_string(&input).unwrap()),
+    );
+    assert!(output.status.success());
+    let response: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(response["hookSpecificOutput"]["permissionDecision"], "deny");
+    assert!(
+        response["hookSpecificOutput"]["permissionDecisionReason"]
+            .as_str()
+            .unwrap()
+            .starts_with("APORIC_PROJECT_INVALID")
+    );
+}
+
+#[test]
+fn project_init_rejects_a_data_root_inside_the_workspace() {
+    let workspace = temp_path("inside-workspace-data-root");
+    std::fs::create_dir_all(&workspace).unwrap();
+    let output = run(
+        &[
+            "project-init",
+            "--workspace",
+            workspace.to_str().unwrap(),
+            "--scope",
+            "repo",
+            "--data-root",
+            workspace.join("data").to_str().unwrap(),
+        ],
+        None,
+    );
+    assert_eq!(output.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("outside the bound workspace"));
+    assert!(!workspace.join(".aporic").exists());
+}
+
+#[test]
+fn project_init_can_migrate_a_v1_store_without_changing_the_source() {
+    let workspace = temp_path("project-init-migration");
+    let data_root = temp_path("project-init-migration-data");
+    let source = temp_path("project-init-migration-source").join("events-v1.jsonl");
+    std::fs::create_dir_all(&workspace).unwrap();
+    std::fs::create_dir_all(source.parent().unwrap()).unwrap();
+    let record = serde_json::json!({
+        "sequence": 1,
+        "schema_version": 1,
+        "event_id": "migration-hold",
+        "idempotency_key": "migration-hold-key",
+        "expected_revision": 0,
+        "actor": {"kind": "human", "id": "user", "provenance": "cli-test"},
+        "scope": "repo",
+        "event": {
+            "type": "tool_hold_placed",
+            "tool_hold_id": "migration-hold",
+            "tool_name": "apply_patch",
+            "reason": "preserve this hold"
+        }
+    });
+    let source_bytes = format!("{record}\n");
+    std::fs::write(&source, &source_bytes).unwrap();
+
+    let setup = run(
+        &[
+            "project-init",
+            "--workspace",
+            workspace.to_str().unwrap(),
+            "--scope",
+            "repo",
+            "--data-root",
+            data_root.to_str().unwrap(),
+            "--migrate-from-v1-store",
+            source.to_str().unwrap(),
+        ],
+        None,
+    );
+    assert!(
+        setup.status.success(),
+        "{}",
+        String::from_utf8_lossy(&setup.stderr)
+    );
+    let setup: Value = serde_json::from_slice(&setup.stdout).unwrap();
+    assert_eq!(setup["status"], "migrated");
+    assert_eq!(setup["migration"]["from_schema"], 1);
+    assert_eq!(setup["migration"]["to_schema"], 2);
+    assert_eq!(std::fs::read_to_string(&source).unwrap(), source_bytes);
+
+    let status = run(
+        &["status", "--store", setup["store"].as_str().unwrap()],
+        None,
+    );
+    assert!(status.status.success());
+    let state: Value = serde_json::from_slice(&status.stdout).unwrap();
+    assert_eq!(state["revision"], 1);
+    assert_eq!(state["tool_holds"]["migration-hold"]["active"], true);
+}
+
+#[test]
+fn failed_project_migration_does_not_publish_a_binding_and_can_retry() {
+    let workspace = temp_path("project-init-migration-retry");
+    let data_root = temp_path("project-init-migration-retry-data");
+    let source = temp_path("project-init-migration-retry-source").join("events-v1.jsonl");
+    std::fs::create_dir_all(&workspace).unwrap();
+
+    let args = [
+        "project-init",
+        "--workspace",
+        workspace.to_str().unwrap(),
+        "--scope",
+        "repo",
+        "--data-root",
+        data_root.to_str().unwrap(),
+        "--migrate-from-v1-store",
+        source.to_str().unwrap(),
+    ];
+    let failed = run(&args, None);
+    assert_eq!(failed.status.code(), Some(1));
+    assert!(!workspace.join(".aporic").exists());
+
+    std::fs::create_dir_all(source.parent().unwrap()).unwrap();
+    std::fs::write(&source, b"").unwrap();
+    let retried = run(&args, None);
+    assert!(
+        retried.status.success(),
+        "{}",
+        String::from_utf8_lossy(&retried.stderr)
+    );
+    let result: Value = serde_json::from_slice(&retried.stdout).unwrap();
+    assert_eq!(result["status"], "migrated");
+    assert!(workspace.join(".aporic/config.json").is_file());
+    assert!(std::path::Path::new(result["store"].as_str().unwrap()).is_file());
+}
+
+#[test]
 fn policy_rejection_uses_exit_two_and_structured_json() {
     let store = temp_path("policy-rejection").join("events.jsonl");
     let store_arg = store.to_str().unwrap();

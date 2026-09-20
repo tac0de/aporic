@@ -2,6 +2,24 @@
 
 All notable changes are documented here. Aporic is experimental; its contracts may change between minor releases.
 
+## 0.3.0 - 2026-09-20
+
+### Added
+
+- One globally installed Codex adapter that discovers explicit `.aporic/config.json` project bindings.
+- `project-init` for non-overwriting project binding, exact-tool policy creation, and optional non-destructive v1-store migration.
+- Canonical workspace-path isolation for project stores under a configurable user data root.
+
+### Changed
+
+- Plugin packages are workspace-independent and no longer embed a repository path, scope, or policy.
+- `project-init` initializes the empty store for a new binding; hooks never recreate missing state, and protected pre-tool checks fail closed when state cannot be verified.
+
+### Known limitations
+
+- Moving or renaming a repository changes its resolved store path and requires explicit state migration.
+- Binding and policy files are controlled by the same operating-system user and are not a hostile-user security boundary.
+
 ## 0.2.0 - 2026-09-20
 
 ### Added

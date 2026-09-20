@@ -370,11 +370,39 @@ pub fn invalid_policy_pre_tool_output(tool_name: &str) -> PreToolUseOutput {
     ))
 }
 
+pub fn invalid_project_pre_tool_output(tool_name: &str) -> PreToolUseOutput {
+    deny_pre_tool(format!(
+        "APORIC_PROJECT_INVALID: {tool_name} is fail-closed because the project binding cannot be loaded."
+    ))
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HookSpecificOutput {
     pub hook_event_name: &'static str,
     pub additional_context: String,
+}
+
+pub fn invalid_project_output(input: &SessionStartInput) -> SessionStartOutput {
+    let data = tag_safe_json(&serde_json::json!({
+        "schema": PROJECTION_SCHEMA_VERSION,
+        "session_id": input.session_id,
+        "scope": "<unavailable:project-invalid>",
+        "coverage": "unavailable",
+        "reason_code": "PROJECT_INVALID",
+        "executions": []
+    }));
+    SessionStartOutput {
+        continue_: true,
+        system_message: Some("Aporic project binding unavailable (PROJECT_INVALID).".into()),
+        hook_specific_output: HookSpecificOutput {
+            hook_event_name: "SessionStart",
+            additional_context: format!(
+                "Aporic project binding is invalid. Do not infer prior decisions or approvals.\n<aporic-recorded-data>{data}</aporic-recorded-data>"
+            ),
+        },
+        projection_report: None,
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -808,7 +836,7 @@ pub fn unavailable_output(
 
 #[cfg(test)]
 mod tests {
-    use super::consumption_identity;
+    use super::{SessionSource, SessionStartInput, consumption_identity, invalid_project_output};
 
     #[test]
     fn consumption_identity_is_unambiguous_for_colon_containing_ids() {
@@ -816,5 +844,28 @@ mod tests {
             consumption_identity("a:b", "c"),
             consumption_identity("a", "b:c")
         );
+    }
+
+    #[test]
+    fn invalid_project_projection_keeps_the_required_v3_shape() {
+        let input = SessionStartInput {
+            session_id: "session-1".into(),
+            hook_event_name: "SessionStart".into(),
+            cwd: "/missing".into(),
+            source: SessionSource::Startup,
+            model: None,
+            permission_mode: None,
+        };
+        let output = invalid_project_output(&input);
+        let context = &output.hook_specific_output.additional_context;
+        let start =
+            context.find("<aporic-recorded-data>").unwrap() + "<aporic-recorded-data>".len();
+        let end = context.find("</aporic-recorded-data>").unwrap();
+        let projection: serde_json::Value = serde_json::from_str(&context[start..end]).unwrap();
+        assert_eq!(projection["schema"], 3);
+        assert_eq!(projection["session_id"], "session-1");
+        assert!(projection["scope"].is_string());
+        assert_eq!(projection["coverage"], "unavailable");
+        assert!(projection["executions"].is_array());
     }
 }

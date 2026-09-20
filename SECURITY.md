@@ -2,13 +2,15 @@
 
 ## Project status
 
-Aporic `0.2.x` is an experimental governance kernel, not a hardened security boundary. Do not rely on it as the sole control for untrusted code execution, secrets, production deployment, or access control.
+Aporic `0.3.x` is an experimental governance kernel, not a hardened security boundary. Do not rely on it as the sole control for untrusted code execution, secrets, production deployment, or access control.
 
 ## Current trust boundary
 
 - Event actor identity and provenance are caller-declared and are not cryptographically authenticated.
 - File locking coordinates cooperating processes under the same operating-system user; it does not prevent same-user tampering.
 - The Codex adapter can fail closed when its configured store is missing, invalid, or busy, but it cannot guarantee behavior when the hook process itself is bypassed, killed, or never invoked.
+- The global Codex adapter activates only for an explicit `.aporic/config.json` binding. An invalid binding or policy fails closed, while an absent binding intentionally skips Aporic. A same-user attacker can edit, remove, or replace project files and remains outside the security boundary.
+- Project stores are separated under `${APORIC_DATA_HOME:-$HOME/.local/share/aporic}` by a lossless versioned encoding of the canonical absolute workspace path, and the data root must resolve outside the workspace. Moving a repository selects a new store; Aporic does not infer identity across moves or merge old state automatically.
 - The initial preventive configuration covers a named tool such as `apply_patch`; shell commands, hosted tools, and other mutation paths remain outside that gate unless separately integrated.
 - Plan authorization proves that a matching record exists. It does not prove that the plan is good or that a proposed patch semantically follows it.
 - Authorization is checked before a tool runs; it is not atomically bound to the later filesystem effect. State can change between the check and the effect.

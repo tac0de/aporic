@@ -8,6 +8,7 @@ use std::path::Path;
 pub mod codex;
 pub mod governance;
 pub mod policy;
+pub mod project;
 
 pub const SCHEMA_VERSION: u32 = 2;
 

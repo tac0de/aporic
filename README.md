@@ -1,6 +1,6 @@
 # Aporic
 
-Aporic is an experimental local commitment-state kernel for coding agents. Version `0.2.0` adds an exact-action governance router: one deterministic evaluator drives multi-tool policy, Codex prevention, explanation, bounded execution grants, and action-specific context.
+Aporic is an experimental local commitment-state kernel for coding agents. Version `0.3.0` adds one-time global Codex installation with explicit per-project binding while retaining the v0.2 exact-action governance contracts.
 
 Repository: [github.com/tac0de/aporic](https://github.com/tac0de/aporic)
 
@@ -8,7 +8,7 @@ Website: [tac0de.github.io/aporic](https://tac0de.github.io/aporic/)
 
 ## Status
 
-`0.2.0` is the current experimental release. Event schema v2, policy schema v1, and Codex projection schema v3 are independent contracts. Existing v1 stores are rejected until explicitly copied through `migrate`; installed plugins and live stores are not upgraded automatically. Authenticated actors, semantic command interpretation, broad host coverage, and cross-platform plugin binaries are not promised. See [SECURITY.md](SECURITY.md) before relying on Aporic for consequential work.
+`0.3.0` is the current development release. Event schema v2, policy schema v1, project-binding schema v1, and Codex projection schema v3 are independent contracts. Existing v1 stores are rejected until explicitly copied through `migrate`; installed plugins and live stores are not upgraded automatically. Authenticated actors, semantic command interpretation, broad host coverage, and cross-platform plugin binaries are not promised. See [SECURITY.md](SECURITY.md) before relying on Aporic for consequential work.
 
 ## Build and verify
 
@@ -37,10 +37,13 @@ The lock is cooperative, not a security boundary. Actor provenance is recorded b
 
 ## CLI
 
-The storage path is explicit because its final user-local location is not yet decided.
+Direct event-log commands keep an explicit storage path. Global Codex hooks resolve their store from an explicit project binding and `${APORIC_DATA_HOME:-$HOME/.local/share/aporic}`.
 
 ```console
 aporic init --store /path/to/events.jsonl
+aporic project-init --workspace /absolute/repo --scope repo
+aporic project-init --workspace /absolute/repo --scope repo --migrate-from-v1-store /path/to/events-v1.jsonl
+aporic project-paths --workspace /absolute/repo
 aporic status --store /path/to/events.jsonl
 aporic commit --store /path/to/events.jsonl < request.json
 aporic doctor --store /path/to/events.jsonl --policy /path/to/policy.json
@@ -59,6 +62,8 @@ The Codex hook schemas intentionally allow additional host fields and nullable o
 
 `init` creates and syncs a new empty store and refuses to overwrite an existing path.
 
+`project-init` creates `.aporic/config.json`, `.aporic/policy.json`, and an external store, refusing to overwrite any of them. By default the store is empty; `--migrate-from-v1-store` instead creates it as a validated, non-destructive v1-to-v2 snapshot while leaving the source untouched. Before migration, stop writers to the old store and confirm that its recorded scope matches the new binding; otherwise the snapshot can be stale or its retained authority can be out of scope. The config is published only after the destination store is valid. It is the opt-in marker used by the global adapter; the policy starts by protecting exact `apply_patch` calls that require a registered plan. `project-paths` resolves the policy and event-log path for direct `status`, `commit`, `doctor`, and `explain` operations. The nearest binding above the hook `cwd` wins, so nested independently bound workspaces remain isolated. Set `APORIC_DATA_HOME` to an absolute path before setup and runtime to override the default user data root.
+
 `codex-session-start` implements only the documented Codex `SessionStart` command-hook response. It projects exact-scope state as bounded, untrusted developer context on startup, resume, clear, and post-compaction `source: "compact"`. Startup uses a nonblocking store read: missing, invalid, or busy state is reported as `coverage: "unavailable"` rather than an empty successful capsule or a wait. A configured workspace must canonically match the hook `cwd`; other workspaces receive only `{ "continue": true }`. It does not authenticate human authority, read transcripts, infer scope from `cwd`, enforce tool calls, or provide prompt-injection immunity.
 
 Projection schema v3 reports exact tools retained within the byte budget, whether plan or bounded-grant authority is required, sampled gate status, and matching counts. For an observed store, when a large policy forces tool-name omission, aggregate status and authority counts for every omitted tool remain in `omitted_execution_summary`. An unavailable store has no trusted status to aggregate; it reports retained unknown-status tools plus protected and omitted counts. The same deterministic evaluator drives `SessionStart`, `PreToolUse`, and `explain`; holds take precedence. Details are removed deterministically when needed, with retained/omitted counts, `complete: false`, and, for observed state, a versioned selection rule and non-cryptographic informational omission identity. The complete wrapped context is limited to 6,000 UTF-8 bytes. This is byte bounding, not tokenizer-level or general Codex token optimization. See `schemas/aporic-projection-v3.schema.json`.
@@ -71,21 +76,22 @@ Grant consumption records preflight admission, not successful execution or files
 
 Unresolved questions are disclosure, not an automatic veto; an authorizer may accept a plan that records them. Authorization checks authority and blocking Aporia at commit time. A later Aporia or delegation revocation does not retroactively remove existing authority. Reclaiming execution authority requires `plan_authorization_revoked`, `execution_grant_revoked`, grant exhaustion, or an active tool hold as appropriate. This non-retroactive rule keeps replay deterministic and avoids silently inferring dependencies that were never recorded.
 
-For configured tools, missing, invalid, or busy state fails closed; unrelated workspaces and unlisted tool names exit successfully without hook output. The packaged default policy protects only `apply_patch`, but its all-tool hook matcher dispatches exact names through the policy so additional tools can be added without a matcher mismatch. Shell semantics, hosted tools, special tool paths, already-running processes, plan quality, and same-user bypasses remain outside this gate. Session-bound authority is not reused after a new session starts.
+For configured tools, missing, invalid, or busy state fails closed; unbound workspaces and unlisted tool names exit successfully without hook output. A malformed binding fails closed for every tool because its intended exact-tool policy cannot be trusted. The generated project policy initially protects only `apply_patch`, but the global plugin's all-tool matcher dispatches exact names through each project's policy so additional tools can be added without reinstalling the plugin. Shell semantics, hosted tools, special tool paths, already-running processes, plan quality, and same-user bypasses remain outside this gate. Session-bound authority is not reused after a new session starts.
 
 ## Codex plugin package
 
-The local package uses Codex's default `hooks/hooks.json` discovery and invokes the release binary from `PLUGIN_ROOT`. Its append-only store lives under `PLUGIN_DATA`, outside the repository. Generated hooks are pinned to an explicit canonical workspace and scope, so enabling the plugin globally does not inject state into other workspaces.
+The package uses Codex's default `hooks/hooks.json` discovery and invokes one release binary from `PLUGIN_ROOT`. Install and trust this package once. Its append-only stores live under the Aporic user data root, which must resolve outside the bound repository. A lossless versioned encoding of each canonical project path prevents projects and nested paths from sharing a store accidentally. The hooks activate only when the current directory or an ancestor has a valid `.aporic/config.json`; unbound projects are skipped.
 
-On macOS arm64, build a fresh installable package with `config/policy.json` into a new directory:
+On macOS arm64, build a fresh globally installable package into a new directory:
 
 ```console
-./scripts/package-codex-plugin.sh /tmp/aporic-plugin /absolute/repo aporic
+./scripts/package-codex-plugin.sh /tmp/aporic-plugin
+aporic project-init --workspace /absolute/repo --scope repo
 ```
 
-The template under `packaging/codex-plugin` contains no personal filesystem path. The packager builds the locked release binary, copies the strict JSON policy, renders the workspace and scope into both hooks, and refuses to overwrite an existing output directory. Validate the generated directory with Codex's plugin validator before installation.
+The template under `packaging/codex-plugin` contains no personal filesystem path. The packager builds the locked release binary, copies static global hooks, and refuses to overwrite an existing output directory. Each repository owns its small binding and policy files; it does not receive another kernel binary or plugin installation. Validate the generated directory with Codex's plugin validator before installation.
 
-Codex plugin installation and hook trust are host state, not repository state. Hook definitions are hash-trusted by Codex; changing the packaged command requires a new review and a new Codex task to pick up the package. The v0.2 package supports macOS arm64 only and is not a cross-platform distribution artifact. Migration creates a snapshot; before switching a live plugin to the new path, stop writes and confirm the source revision still equals the reported migrated revision. Rollback means restoring the old binary and untouched v1 store; a v2 store containing grant-consumption history cannot be downgraded by changing only the binary.
+Codex plugin installation and hook trust are host state, not repository state. Hook definitions are hash-trusted by Codex; changing the packaged command requires a new review and a new Codex task to pick up the package. The v0.3 package supports macOS arm64 only and is not a cross-platform distribution artifact. Moving or renaming a bound project changes its canonical storage path; migrate the old store deliberately rather than silently merging state. Rollback means restoring the v0.2 plugin package and its old workspace-specific store. The global adapter does not discover or migrate old plugin stores automatically.
 
 ## Source standards
 
@@ -95,7 +101,7 @@ Codex plugin installation and hook trust are host state, not repository state. H
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Release history and known limitations are tracked in [CHANGELOG.md](CHANGELOG.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md). Release history and known limitations are tracked in [CHANGELOG.md](CHANGELOG.md), with the current verification record in [docs/v0.3.0-evaluation.md](docs/v0.3.0-evaluation.md).
 
 ## License
 

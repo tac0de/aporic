@@ -1,9 +1,13 @@
 use aporic::codex::{
     DEFAULT_PROJECTION_LIMIT_BYTES, GatePolicy, MAX_SCOPE_BYTES, PreToolUseInput,
-    SessionStartInput, explain_action, invalid_policy_pre_tool_output, pre_tool_use_transaction,
-    session_start_output, skipped_output, unavailable_output, unavailable_pre_tool_output,
+    SessionStartInput, explain_action, invalid_policy_pre_tool_output, invalid_project_output,
+    invalid_project_pre_tool_output, pre_tool_use_transaction, session_start_output,
+    skipped_output, unavailable_output, unavailable_pre_tool_output,
 };
 use aporic::policy::PolicyDocument;
+use aporic::project::{
+    default_data_root, discover_project, initialize_project, store_path as project_store_path,
+};
 use aporic::{
     CommitRequest, CommitStatus, SCHEMA_VERSION, commit, initialize, load, load_nonblocking,
     migrate_v1_to_v2,
@@ -50,6 +54,17 @@ fn optional_argument(args: &[String], name: &str) -> Result<Option<String>, Stri
     argument(args, name).map(Some)
 }
 
+fn data_root(args: &[String]) -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let path = match optional_argument(args, "--data-root")? {
+        Some(path) => PathBuf::from(path),
+        None => default_data_root()?,
+    };
+    if !path.is_absolute() {
+        return Err("data root must be absolute".into());
+    }
+    Ok(path)
+}
+
 fn gate_policy(args: &[String]) -> Result<GatePolicy, Box<dyn std::error::Error>> {
     let policy_path = optional_argument(args, "--policy")?;
     let protected_tool = optional_argument(args, "--protected-tool")?;
@@ -72,6 +87,11 @@ fn gate_policy(args: &[String]) -> Result<GatePolicy, Box<dyn std::error::Error>
         .map_err(Into::into)
 }
 
+fn gate_policy_from_path(path: &std::path::Path) -> Result<GatePolicy, Box<dyn std::error::Error>> {
+    let document: PolicyDocument = serde_json::from_slice(&std::fs::read(path)?)?;
+    GatePolicy::from_document(document).map_err(Into::into)
+}
+
 fn workspace_matches(cwd: &str, workspace: &PathBuf) -> bool {
     matches!(
         (std::fs::canonicalize(cwd), std::fs::canonicalize(workspace)),
@@ -83,22 +103,70 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().skip(1).collect();
     let Some(command) = args.first().map(String::as_str) else {
         return Err(
-            "usage: aporic <init|status|commit|explain|doctor|migrate|codex-session-start|codex-pre-tool-use> --store <events.jsonl>".into(),
+            "usage: aporic <project-init|project-paths|init|status|commit|explain|doctor|migrate|codex-session-start|codex-pre-tool-use|codex-global-session-start|codex-global-pre-tool-use>".into(),
         );
     };
-    let path = store_path(&args)?;
 
     match command {
+        "project-init" => {
+            let workspace = PathBuf::from(argument(&args, "--workspace")?);
+            let scope = argument(&args, "--scope")?;
+            let migration_source = optional_argument(&args, "--migrate-from-v1-store")?;
+            let data_root = data_root(&args)?;
+            let canonical_workspace = std::fs::canonicalize(&workspace)?;
+            let store = project_store_path(&data_root, &canonical_workspace)?;
+            if store.try_exists()? {
+                return Err("project store already exists; refusing to replace it".into());
+            }
+            let migration = if let Some(source) = migration_source {
+                Some(migrate_v1_to_v2(source, &store)?)
+            } else {
+                initialize(&store)?;
+                None
+            };
+            let project = match initialize_project(workspace, scope) {
+                Ok(project) => project,
+                Err(error) => {
+                    let _ = std::fs::remove_file(&store);
+                    return Err(error.into());
+                }
+            };
+            print_json(&serde_json::json!({
+                "status": if migration.is_some() { "migrated" } else { "initialized" },
+                "workspace": project.workspace,
+                "scope": project.scope,
+                "config": project.workspace.join(".aporic/config.json"),
+                "policy": project.policy_path,
+                "store": store,
+                "migration": migration
+            }))?;
+            Ok(0)
+        }
+        "project-paths" => {
+            let workspace = PathBuf::from(argument(&args, "--workspace")?);
+            let project = discover_project(workspace, data_root(&args)?)?
+                .ok_or("workspace is not bound to Aporic")?;
+            print_json(&serde_json::json!({
+                "workspace": project.workspace,
+                "scope": project.scope,
+                "policy": project.policy_path,
+                "store": project.store_path
+            }))?;
+            Ok(0)
+        }
         "init" => {
+            let path = store_path(&args)?;
             initialize(path)?;
             print_json(&serde_json::json!({ "status": "initialized" }))?;
             Ok(0)
         }
         "status" => {
+            let path = store_path(&args)?;
             print_json(load(path)?.state())?;
             Ok(0)
         }
         "commit" => {
+            let path = store_path(&args)?;
             let mut input = String::new();
             io::stdin().read_to_string(&mut input)?;
             let request: CommitRequest = serde_json::from_str(&input)?;
@@ -111,6 +179,7 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
             })
         }
         "migrate" => {
+            let path = store_path(&args)?;
             let from = argument(&args, "--from")?;
             if from != "1" {
                 return Err("only --from 1 is supported".into());
@@ -120,6 +189,7 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
             Ok(0)
         }
         "codex-session-start" => {
+            let path = store_path(&args)?;
             let scope = argument(&args, "--scope")?;
             let workspace = PathBuf::from(argument(&args, "--workspace")?);
             if scope.trim().is_empty() || scope.len() > MAX_SCOPE_BYTES {
@@ -149,6 +219,7 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
             Ok(0)
         }
         "codex-pre-tool-use" => {
+            let path = store_path(&args)?;
             let scope = argument(&args, "--scope")?;
             let workspace = PathBuf::from(argument(&args, "--workspace")?);
             if scope.trim().is_empty() || scope.len() > MAX_SCOPE_BYTES {
@@ -180,7 +251,96 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
             }
             Ok(0)
         }
+        "codex-global-session-start" => {
+            let mut input = String::new();
+            io::stdin().read_to_string(&mut input)?;
+            let input: SessionStartInput = serde_json::from_str(&input)?;
+            input.validate().map_err(String::from)?;
+            let data_root = match data_root(&args) {
+                Ok(path) => path,
+                Err(_) => {
+                    print_json(&invalid_project_output(&input))?;
+                    return Ok(0);
+                }
+            };
+            let project = match discover_project(&input.cwd, &data_root) {
+                Ok(Some(project)) => project,
+                Ok(None) => {
+                    print_json(&skipped_output())?;
+                    return Ok(0);
+                }
+                Err(_) => {
+                    print_json(&invalid_project_output(&input))?;
+                    return Ok(0);
+                }
+            };
+            let policy = match gate_policy_from_path(&project.policy_path) {
+                Ok(policy) => policy,
+                Err(_) => {
+                    print_json(&invalid_project_output(&input))?;
+                    return Ok(0);
+                }
+            };
+            let output = match load_nonblocking(&project.store_path) {
+                Ok(log) => session_start_output(
+                    log.state(),
+                    &input,
+                    &project.scope,
+                    &policy,
+                    DEFAULT_PROJECTION_LIMIT_BYTES,
+                )
+                .map_err(String::from)?,
+                Err(error) => unavailable_output(&error, &input, &project.scope, &policy),
+            };
+            print_json(&output)?;
+            Ok(0)
+        }
+        "codex-global-pre-tool-use" => {
+            let mut input = String::new();
+            io::stdin().read_to_string(&mut input)?;
+            let input: PreToolUseInput = serde_json::from_str(&input)?;
+            input.validate().map_err(String::from)?;
+            let data_root = match data_root(&args) {
+                Ok(path) => path,
+                Err(_) => {
+                    print_json(&invalid_project_pre_tool_output(&input.tool_name))?;
+                    return Ok(0);
+                }
+            };
+            let project = match discover_project(&input.cwd, &data_root) {
+                Ok(Some(project)) => project,
+                Ok(None) => return Ok(0),
+                Err(_) => {
+                    print_json(&invalid_project_pre_tool_output(&input.tool_name))?;
+                    return Ok(0);
+                }
+            };
+            let policy = match gate_policy_from_path(&project.policy_path) {
+                Ok(policy) => policy,
+                Err(_) => {
+                    print_json(&invalid_policy_pre_tool_output(&input.tool_name))?;
+                    return Ok(0);
+                }
+            };
+            if policy.document().tool(&input.tool_name).is_none() {
+                return Ok(0);
+            }
+            let output = match pre_tool_use_transaction(
+                &project.store_path,
+                &input,
+                &project.scope,
+                &policy,
+            ) {
+                Ok(output) => output,
+                Err(error) => Some(unavailable_pre_tool_output(&error, &input.tool_name)),
+            };
+            if let Some(output) = output {
+                print_json(&output)?;
+            }
+            Ok(0)
+        }
         "explain" => {
+            let path = store_path(&args)?;
             let scope = argument(&args, "--scope")?;
             let policy = gate_policy(&args)?;
             let mut input = String::new();
@@ -193,6 +353,7 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
             Ok(0)
         }
         "doctor" => {
+            let path = store_path(&args)?;
             let policy = match gate_policy(&args) {
                 Ok(policy) => policy,
                 Err(error) => {
