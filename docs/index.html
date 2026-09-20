@@ -4,18 +4,193 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
-<title>Aporic — Governance Flow</title>
+<meta name="description" content="Aporic makes plans, authority, and unresolved questions explicit before a configured coding-agent tool can act.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Aporic — Explicit authority for coding agents</title>
 <style>
-:root { color-scheme: light dark; background: light-dark(#f5f4ef, #090b0f); }
+:root {
+  color-scheme: dark;
+  --site-bg: #090b0f;
+  --site-panel: #11141a;
+  --site-panel-soft: #171a21;
+  --site-ink: #f1f2f5;
+  --site-muted: #9297a3;
+  --site-faint: #2b2f38;
+  --site-violet: #a99cff;
+  --site-cyan: #63dbe1;
+  --site-green: #54dda2;
+  --site-max: 1180px;
+  background: var(--site-bg);
+}
 * { box-sizing: border-box; }
 html, body { margin: 0; min-height: 100%; }
-body { padding: 16px; background: light-dark(#f5f4ef, #090b0f); }
-@media (max-width: 560px) { body { padding: 0; } }
+html { scroll-behavior: smooth; }
+body {
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 80% 8%, rgba(169, 156, 255, .1), transparent 26rem),
+    var(--site-bg);
+  color: var(--site-ink);
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; }
+.site-shell { width: min(calc(100% - 48px), var(--site-max)); margin-inline: auto; }
+.site-header { position: relative; z-index: 10; padding: 28px 0; }
+.site-nav { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.site-mark { font: 650 14px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .28em; text-decoration: none; }
+.site-nav-links { display: flex; align-items: center; gap: 24px; color: var(--site-muted); font-size: 13px; }
+.site-nav-links a { text-decoration: none; }
+.site-nav-links a:hover, .site-nav-links a:focus-visible { color: var(--site-ink); }
+.site-version { padding: 7px 10px; border: 1px solid var(--site-faint); border-radius: 999px; font: 600 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; color: var(--site-cyan); }
+.site-hero { display: grid; min-height: min(760px, calc(100svh - 72px)); align-content: center; padding: 80px 0 112px; }
+.eyebrow { display: flex; align-items: center; gap: 12px; margin: 0 0 26px; color: var(--site-cyan); font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .16em; text-transform: uppercase; }
+.eyebrow::before { width: 26px; height: 1px; background: currentColor; content: ""; }
+.site-hero h1 { max-width: 970px; margin: 0; font-size: clamp(54px, 8.5vw, 116px); font-weight: 530; line-height: .9; letter-spacing: -.065em; text-wrap: balance; }
+.site-hero h1 em { color: var(--site-violet); font-style: normal; }
+.hero-bottom { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 430px); align-items: end; gap: 48px; margin-top: 56px; }
+.hero-line { height: 1px; background: linear-gradient(90deg, var(--site-violet), var(--site-cyan), transparent); }
+.hero-copy { margin: 0; color: var(--site-muted); font-size: clamp(18px, 2vw, 23px); line-height: 1.5; }
+.hero-actions { display: flex; gap: 12px; margin-top: 28px; }
+.button { display: inline-flex; align-items: center; justify-content: center; min-height: 46px; padding: 0 18px; border: 1px solid var(--site-faint); border-radius: 999px; color: var(--site-ink); font-size: 13px; font-weight: 650; text-decoration: none; transition: border-color .2s, background .2s, transform .2s; }
+.button:hover { border-color: var(--site-violet); transform: translateY(-2px); }
+.button-primary { border-color: var(--site-violet); background: var(--site-violet); color: #0b0c11; }
+.button-primary:hover { background: #beb5ff; }
+.section { padding: 120px 0; border-top: 1px solid var(--site-faint); }
+.section-heading { display: grid; grid-template-columns: .45fr 1fr; gap: 48px; margin-bottom: 64px; }
+.section-index { color: var(--site-muted); font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .15em; }
+.section-heading h2 { max-width: 760px; margin: 0; font-size: clamp(36px, 5.2vw, 70px); font-weight: 520; line-height: 1; letter-spacing: -.045em; text-wrap: balance; }
+.principles { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--site-faint); border-radius: 24px; overflow: hidden; }
+.principle { min-height: 300px; padding: 30px; background: linear-gradient(145deg, rgba(255,255,255,.025), transparent); }
+.principle + .principle { border-left: 1px solid var(--site-faint); }
+.principle-number { display: block; margin-bottom: 100px; color: var(--site-violet); font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.principle h3 { margin: 0 0 12px; font-size: 22px; font-weight: 560; }
+.principle p { margin: 0; color: var(--site-muted); line-height: 1.6; }
+.demo-intro { display: grid; grid-template-columns: .45fr 1fr; gap: 48px; margin-bottom: 36px; }
+.demo-intro p { max-width: 720px; margin: 0; color: var(--site-muted); font-size: 17px; line-height: 1.65; }
+.demo-note { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 24px; }
+.demo-note p { padding-left: 16px; border-left: 1px solid var(--site-faint); color: var(--site-muted); font-size: 13px; line-height: 1.55; }
+.demo-note strong { display: block; margin-bottom: 5px; color: var(--site-ink); font-weight: 600; }
+.capability-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+.capability { min-height: 230px; padding: 30px; border: 1px solid var(--site-faint); border-radius: 20px; background: var(--site-panel); }
+.capability-tag { color: var(--site-cyan); font: 600 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .14em; }
+.capability h3 { margin: 56px 0 12px; font-size: 24px; font-weight: 550; }
+.capability p { max-width: 450px; margin: 0; color: var(--site-muted); line-height: 1.6; }
+.evaluation { display: grid; grid-template-columns: .72fr 1fr; gap: 64px; align-items: start; }
+.code-card { padding: 26px; border: 1px solid var(--site-faint); border-radius: 20px; background: #07090c; overflow-x: auto; }
+.code-card pre { margin: 0; color: #c9cbd1; font: 500 13px/1.9 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.code-card .prompt { color: var(--site-green); }
+.requirements { padding: 8px 0; }
+.requirements h3 { margin: 0 0 18px; font-size: 28px; font-weight: 550; }
+.requirements p { margin: 0 0 24px; color: var(--site-muted); line-height: 1.65; }
+.requirements ul { display: grid; gap: 14px; margin: 0; padding: 0; list-style: none; color: var(--site-muted); }
+.requirements li { display: flex; gap: 12px; }
+.requirements li::before { color: var(--site-violet); content: "→"; }
+.limits { display: grid; grid-template-columns: .72fr 1fr; gap: 64px; }
+.limits h2 { margin: 0; font-size: clamp(40px, 5vw, 68px); font-weight: 520; line-height: 1; letter-spacing: -.045em; }
+.limits-list { margin: 0; padding: 0; list-style: none; }
+.limits-list li { padding: 20px 0; border-top: 1px solid var(--site-faint); color: var(--site-muted); line-height: 1.55; }
+.limits-list li:last-child { border-bottom: 1px solid var(--site-faint); }
+.limits-list strong { color: var(--site-ink); font-weight: 600; }
+.site-footer { padding: 42px 0 52px; border-top: 1px solid var(--site-faint); }
+.footer-row { display: flex; justify-content: space-between; gap: 32px; color: var(--site-muted); font-size: 12px; }
+.footer-row a { text-underline-offset: 4px; }
+.reveal { opacity: 1; transform: none; }
+.motion-ready .reveal { opacity: 0; transform: translateY(26px); transition: opacity .7s ease, transform .7s cubic-bezier(.2,.8,.2,1); }
+.motion-ready .reveal.is-visible { opacity: 1; transform: none; }
+:focus-visible { outline: 2px solid var(--site-cyan); outline-offset: 4px; }
+@media (max-width: 760px) {
+  .site-shell { width: min(calc(100% - 32px), var(--site-max)); }
+  .site-nav-links a:not([href*="github.com"]) { display: none; }
+  .site-hero { min-height: auto; padding: 90px 0 96px; }
+  .site-hero h1 { font-size: clamp(50px, 15vw, 72px); }
+  .hero-bottom, .section-heading, .demo-intro, .evaluation, .limits { grid-template-columns: 1fr; gap: 28px; }
+  .hero-line { display: none; }
+  .section { padding: 88px 0; }
+  .section-heading { margin-bottom: 40px; }
+  .principles, .capability-grid, .demo-note { grid-template-columns: 1fr; }
+  .principle { min-height: 230px; }
+  .principle + .principle { border-top: 1px solid var(--site-faint); border-left: 0; }
+  .principle-number { margin-bottom: 56px; }
+  .capability { min-height: 200px; }
+  .footer-row { flex-direction: column; }
+}
+@media (max-width: 360px) {
+  .site-shell { width: min(calc(100% - 24px), var(--site-max)); }
+  .site-version { display: none; }
+  .hero-actions { align-items: stretch; flex-direction: column; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  .motion-ready .reveal { opacity: 1; transform: none; }
+}
 </style>
+<script>if (!matchMedia('(prefers-reduced-motion: reduce)').matches) document.documentElement.classList.add('motion-ready');</script>
 </head>
 <body>
-<div id="aporic-flow" aria-label="Interactive Aporic governance flow">
+<header class="site-header site-shell">
+  <nav class="site-nav" aria-label="Primary navigation">
+    <a class="site-mark" href="#top">APORIC</a>
+    <div class="site-nav-links">
+      <a href="#system">System</a>
+      <a href="#evaluate">Evaluate</a>
+      <a href="https://github.com/tac0de/aporic" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+      <span class="site-version">EXPERIMENTAL · v0.1.0</span>
+    </div>
+  </nav>
+</header>
+
+<main id="top">
+  <section class="site-hero site-shell">
+    <p class="eyebrow reveal">Local commitment-state kernel</p>
+    <h1 class="reveal">Make execution<br><em>authority explicit.</em></h1>
+    <div class="hero-bottom reveal">
+      <div class="hero-line" aria-hidden="true"></div>
+      <div>
+        <p class="hero-copy">Aporic records the plan, the authority behind it, and what remains unresolved—then checks a configured tool before execution.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#demo">Try the flow</a>
+          <a class="button" href="#evaluate">Evaluate locally</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section site-shell" id="system">
+    <div class="section-heading reveal">
+      <span class="section-index">01 / THE SYSTEM</span>
+      <h2>From plausible intent to bounded action.</h2>
+    </div>
+    <div class="principles reveal">
+      <article class="principle">
+        <span class="principle-number">01</span>
+        <h3>Record the plan</h3>
+        <p>State the objective, acceptance checks, and unresolved questions before a protected change begins.</p>
+      </article>
+      <article class="principle">
+        <span class="principle-number">02</span>
+        <h3>Bind the authority</h3>
+        <p>Authorization is tied to the exact plan, session, scope, and configured tool—not inferred from conversation.</p>
+      </article>
+      <article class="principle">
+        <span class="principle-number">03</span>
+        <h3>Check at execution</h3>
+        <p>A deterministic pre-tool gate reads recorded state and denies the configured action when authority is missing.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section site-shell" id="demo">
+    <div class="section-heading reveal">
+      <span class="section-index">02 / INTERACTIVE MODEL</span>
+      <h2>A small gate with explicit inputs.</h2>
+    </div>
+    <div class="demo-intro reveal">
+      <span></span>
+      <p>This illustration compresses the v0.1.0 flow. Complete the plan, choose a valid authority path, then attempt the change. Reading or scrolling never grants authority.</p>
+    </div>
+<div id="aporic-flow" class="reveal" aria-label="Interactive Aporic governance flow">
   <div class="af-stage">
     <svg class="af-canvas" viewBox="0 0 1000 540" role="img" aria-labelledby="af-title af-desc">
       <title id="af-title">Aporic governance flow</title>
@@ -237,23 +412,107 @@ body { padding: 16px; background: light-dark(#f5f4ef, #090b0f); }
     </svg>
 
     <button class="af-hit af-hit-request cursor-interaction" type="button" aria-label="Attempt code change"></button>
-    <button class="af-hit af-hit-intent cursor-interaction" type="button" aria-label="Set plan intent"></button>
-    <button class="af-hit af-hit-proof cursor-interaction" type="button" aria-label="Set plan proof"></button>
-    <button class="af-hit af-hit-unknown cursor-interaction" type="button" aria-label="Record plan uncertainty"></button>
-    <button class="af-hit af-hit-human cursor-interaction" type="button" aria-label="Authorize as human"></button>
-    <button class="af-hit af-hit-agent cursor-interaction" type="button" aria-label="Authorize as delegated agent"></button>
+    <button class="af-hit af-hit-intent cursor-interaction" type="button" aria-label="Set plan intent" aria-pressed="false"></button>
+    <button class="af-hit af-hit-proof cursor-interaction" type="button" aria-label="Set plan proof" aria-pressed="false"></button>
+    <button class="af-hit af-hit-unknown cursor-interaction" type="button" aria-label="Record plan uncertainty" aria-pressed="false"></button>
+    <button class="af-hit af-hit-human cursor-interaction" type="button" aria-label="Authorize as human" aria-pressed="false"></button>
+    <button class="af-hit af-hit-agent cursor-interaction" type="button" aria-label="Authorize as delegated agent" aria-pressed="false"></button>
     <button class="af-hit af-hit-reset cursor-interaction" type="button" aria-label="Reset demonstration"></button>
     <button class="af-mobile-hit af-mobile-hit-request cursor-interaction" type="button" aria-label="Attempt code change"></button>
-    <button class="af-mobile-hit af-mobile-hit-intent cursor-interaction" type="button" aria-label="Set plan intent"></button>
-    <button class="af-mobile-hit af-mobile-hit-proof cursor-interaction" type="button" aria-label="Set plan proof"></button>
-    <button class="af-mobile-hit af-mobile-hit-unknown cursor-interaction" type="button" aria-label="Record plan uncertainty"></button>
-    <button class="af-mobile-hit af-mobile-hit-human cursor-interaction" type="button" aria-label="Authorize as human"></button>
-    <button class="af-mobile-hit af-mobile-hit-agent cursor-interaction" type="button" aria-label="Authorize as delegated agent"></button>
+    <button class="af-mobile-hit af-mobile-hit-intent cursor-interaction" type="button" aria-label="Set plan intent" aria-pressed="false"></button>
+    <button class="af-mobile-hit af-mobile-hit-proof cursor-interaction" type="button" aria-label="Set plan proof" aria-pressed="false"></button>
+    <button class="af-mobile-hit af-mobile-hit-unknown cursor-interaction" type="button" aria-label="Record plan uncertainty" aria-pressed="false"></button>
+    <button class="af-mobile-hit af-mobile-hit-human cursor-interaction" type="button" aria-label="Authorize as human" aria-pressed="false"></button>
+    <button class="af-mobile-hit af-mobile-hit-agent cursor-interaction" type="button" aria-label="Authorize as delegated agent" aria-pressed="false"></button>
     <button class="af-mobile-hit af-mobile-hit-reset cursor-interaction" type="button" aria-label="Reset demonstration"></button>
     <a class="af-github" href="https://github.com/tac0de/aporic" target="_blank" rel="noopener noreferrer" aria-label="Open the Aporic GitHub repository">GITHUB ↗</a>
     <div class="af-status" aria-live="polite">PLAN REQUIRED</div>
-  </div>
 </div>
+</div>
+
+    <div class="demo-note reveal">
+      <p><strong>Proof is a check</strong>It describes how success will be assessed; it does not claim the result is already verified.</p>
+      <p><strong>Unknown stays visible</strong>Disclosure is required. An unresolved question is not automatically a veto.</p>
+      <p><strong>Agent means delegated</strong>An agent can authorize only through an exact active delegation; actor identity is not cryptographically authenticated.</p>
+    </div>
+  </section>
+
+  <section class="section site-shell">
+    <div class="section-heading reveal">
+      <span class="section-index">03 / v0.1.0</span>
+      <h2>Useful governance primitives, kept deliberately narrow.</h2>
+    </div>
+    <div class="capability-grid">
+      <article class="capability reveal">
+        <span class="capability-tag">REPLAY</span>
+        <h3>Deterministic state</h3>
+        <p>Append-only JSONL events replay in sequence with strict schema, revision, and state-application checks.</p>
+      </article>
+      <article class="capability reveal">
+        <span class="capability-tag">CONTEXT</span>
+        <h3>Bounded projection</h3>
+        <p>Codex receives an explicit execution-state projection capped at 6,000 UTF-8 bytes—not a general token optimizer.</p>
+      </article>
+      <article class="capability reveal">
+        <span class="capability-tag">GATE</span>
+        <h3>Preventive check</h3>
+        <p>The first plugin gates <code>apply_patch</code> for one configured workspace and scope, failing closed when required state is unavailable.</p>
+      </article>
+      <article class="capability reveal">
+        <span class="capability-tag">LOCAL</span>
+        <h3>Inspectable record</h3>
+        <p>The local event log makes plans, authorizations, holds, decisions, risks, and open Aporia inspectable.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="section site-shell" id="evaluate">
+    <div class="section-heading reveal">
+      <span class="section-index">04 / EVALUATE</span>
+      <h2>Build it. Test it. Inspect the record.</h2>
+    </div>
+    <div class="evaluation reveal">
+      <div class="code-card" aria-label="Build and test commands">
+<pre><span class="prompt">$</span> git clone https://github.com/tac0de/aporic
+<span class="prompt">$</span> cd aporic
+<span class="prompt">$</span> cargo build --locked
+<span class="prompt">$</span> cargo test --locked
+<span class="prompt">$</span> cargo clippy --all-targets --locked -- -D warnings</pre>
+      </div>
+      <div class="requirements">
+        <h3>Evaluation release</h3>
+        <p>Aporic v0.1.0 is for dogfooding and evaluation, not yet a broad security boundary.</p>
+        <ul>
+          <li>Rust 1.89 or newer</li>
+          <li>macOS arm64 for the packaged Codex plugin</li>
+          <li>MIT or Apache-2.0, at your option</li>
+        </ul>
+        <div class="hero-actions">
+          <a class="button button-primary" href="https://github.com/tac0de/aporic#build-and-verify" target="_blank" rel="noopener noreferrer">Open the repository ↗</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section site-shell">
+    <div class="limits reveal">
+      <h2>What it does<br>not promise.</h2>
+      <ul class="limits-list">
+        <li><strong>Not all agent actions.</strong> The initial package protects only its configured <code>apply_patch</code> path.</li>
+        <li><strong>Not authenticated identity.</strong> Actor provenance is caller-declared, not cryptographically proven.</li>
+        <li><strong>Not an atomic sandbox.</strong> A preventive decision is not atomically bound to the later filesystem effect.</li>
+        <li><strong>Not tamper-proof storage.</strong> Cooperative locks and local records do not resist a hostile same-user process.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="site-shell footer-row">
+    <span>APORIC · EXPERIMENTAL v0.1.0</span>
+    <span><a href="https://github.com/tac0de/aporic/blob/main/SECURITY.md" target="_blank" rel="noopener noreferrer">Security</a> · <a href="https://github.com/tac0de/aporic" target="_blank" rel="noopener noreferrer">Source</a></span>
+  </div>
+</footer>
 
 <style>
 #aporic-flow {
@@ -275,7 +534,7 @@ body { padding: 16px; background: light-dark(#f5f4ef, #090b0f); }
   position: relative;
   width: 100%;
   aspect-ratio: 1000 / 540;
-  min-height: 340px;
+  min-height: 0;
   overflow: hidden;
   border-radius: 28px;
   background:
@@ -391,6 +650,7 @@ body { padding: 16px; background: light-dark(#f5f4ef, #090b0f); }
 #aporic-flow .af-github:hover, #aporic-flow .af-github:focus { color: var(--af-ink); text-decoration: underline; text-underline-offset: 4px; }
 
 #aporic-flow .af-hit { position: absolute; border: 0; background: transparent; padding: 0; }
+#aporic-flow .af-hit:focus-visible, #aporic-flow .af-mobile-hit:focus-visible { outline: 2px solid var(--af-cyan); outline-offset: -2px; border-radius: 16px; }
 #aporic-flow .af-hit-request { left: 4.5%; top: 38%; width: 12.5%; height: 24%; }
 #aporic-flow .af-hit-intent { left: 27.4%; top: 38%; width: 22.2%; height: 10%; }
 #aporic-flow .af-hit-proof { left: 27.4%; top: 50%; width: 22.2%; height: 10%; }
@@ -477,6 +737,11 @@ body { padding: 16px; background: light-dark(#f5f4ef, #090b0f); }
     root.classList.toggle('is-authorized', ready && !!state.authority);
     root.querySelectorAll('.human').forEach(node => node.classList.toggle('is-selected', state.authority === 'human'));
     root.querySelectorAll('.agent').forEach(node => node.classList.toggle('is-selected', state.authority === 'agent'));
+    root.querySelectorAll('.af-hit-intent, .af-mobile-hit-intent').forEach(node => node.setAttribute('aria-pressed', String(state.intent)));
+    root.querySelectorAll('.af-hit-proof, .af-mobile-hit-proof').forEach(node => node.setAttribute('aria-pressed', String(state.proof)));
+    root.querySelectorAll('.af-hit-unknown, .af-mobile-hit-unknown').forEach(node => node.setAttribute('aria-pressed', String(state.unknown)));
+    root.querySelectorAll('.af-hit-human, .af-mobile-hit-human').forEach(node => node.setAttribute('aria-pressed', String(state.authority === 'human')));
+    root.querySelectorAll('.af-hit-agent, .af-mobile-hit-agent').forEach(node => node.setAttribute('aria-pressed', String(state.authority === 'agent')));
   };
 
   const attempt = async () => {
@@ -514,10 +779,12 @@ body { padding: 16px; background: light-dark(#f5f4ef, #090b0f); }
 
   const authorize = async kind => {
     if (count() !== 3) { attempt(); return; }
+    const currentEpoch = ++epoch;
     state.authority = kind;
     render(); save();
     status.textContent = 'AUTHORIZED';
     await pause(420);
+    if (currentEpoch !== epoch) return;
     attempt();
   };
 
@@ -525,7 +792,7 @@ body { padding: 16px; background: light-dark(#f5f4ef, #090b0f); }
     ++epoch;
     state.intent = state.proof = state.unknown = false;
     state.authority = null;
-    root.className = '';
+    root.classList.remove('has-intent', 'has-proof', 'has-unknown', 'plan-0', 'plan-1', 'plan-2', 'plan-3', 'is-ready', 'is-authorized', 'is-rejected', 'is-complete', 'is-passing', 'is-travelling');
     placePacket(164, 132);
     render(); save();
     status.textContent = 'PLAN REQUIRED';
@@ -547,7 +814,20 @@ body { padding: 16px; background: light-dark(#f5f4ef, #090b0f); }
   root.querySelector('.af-mobile-hit-reset').addEventListener('click', reset);
 
   render();
-  setTimeout(attempt, 700);
+})();
+</script>
+
+<script>
+(() => {
+  if (!document.documentElement.classList.contains('motion-ready')) return;
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      entry.target.classList.add('is-visible');
+      observer.unobserve(entry.target);
+    });
+  }, { threshold: 0.14, rootMargin: '0px 0px -5% 0px' });
+  document.querySelectorAll('.reveal').forEach(node => observer.observe(node));
 })();
 </script>
 
