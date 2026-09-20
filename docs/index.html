@@ -66,8 +66,45 @@ a { color: inherit; }
 .principle-number { display: block; margin-bottom: 100px; color: var(--site-violet); font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .principle h3 { margin: 0 0 12px; font-size: 22px; font-weight: 560; }
 .principle p { margin: 0; color: var(--site-muted); line-height: 1.6; }
-.demo-intro { display: grid; grid-template-columns: .45fr 1fr; gap: 48px; margin-bottom: 36px; }
-.demo-intro p { max-width: 720px; margin: 0; color: var(--site-muted); font-size: 17px; line-height: 1.65; }
+.scroll-story { --story-progress: 0; margin: 0 0 104px; }
+.story-sticky { display: grid; min-height: 680px; padding: 32px; border: 1px solid var(--site-faint); border-radius: 24px; background: linear-gradient(145deg, rgba(169,156,255,.055), transparent 38%), #0b0d12; overflow: hidden; }
+.motion-ready .scroll-story { min-height: 260vh; position: relative; }
+.motion-ready .story-sticky { position: sticky; top: 10vh; height: 80vh; min-height: 560px; }
+.story-meta { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; color: var(--site-muted); font: 600 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .16em; }
+.story-meta output { color: var(--site-cyan); }
+.story-stage { display: grid; grid-template-columns: .62fr 1fr; gap: 64px; align-items: center; min-height: 0; }
+.story-instrument { position: relative; display: grid; width: min(30vw, 330px); aspect-ratio: 1; place-items: center; justify-self: center; }
+.story-ring, .story-crosshair, .story-signal { position: absolute; border-radius: 50%; }
+.story-ring { inset: 0; border: 1px solid var(--site-faint); box-shadow: inset 0 0 80px rgba(169,156,255,.035); }
+.story-ring::before, .story-ring::after { position: absolute; border: 1px solid var(--site-faint); border-radius: inherit; content: ""; }
+.story-ring::before { inset: 16%; }
+.story-ring::after { inset: 34%; border-color: color-mix(in srgb, var(--site-violet) 42%, var(--site-faint)); }
+.story-crosshair { inset: 7%; background: linear-gradient(90deg, transparent calc(50% - .5px), var(--site-faint) 50%, transparent calc(50% + .5px)), linear-gradient(transparent calc(50% - .5px), var(--site-faint) 50%, transparent calc(50% + .5px)); opacity: .7; }
+.story-signal { width: 18%; aspect-ratio: 1; border: 1px solid var(--site-violet); background: var(--site-bg); box-shadow: 0 0 30px rgba(169,156,255,.2); transform: scale(var(--story-scale, .82)); transition: border-color .24s, box-shadow .24s; }
+.story-signal::after { position: absolute; inset: 34%; border-radius: 50%; background: var(--site-violet); content: ""; }
+.scroll-story[data-story-stage="3"] .story-signal, .scroll-story[data-story-stage="4"] .story-signal { border-color: var(--site-cyan); box-shadow: 0 0 34px rgba(99,219,225,.2); }
+.scroll-story[data-story-stage="3"] .story-signal::after, .scroll-story[data-story-stage="4"] .story-signal::after { background: var(--site-cyan); }
+.scroll-story[data-story-stage="5"] .story-signal { border-color: var(--site-green); box-shadow: 0 0 38px rgba(84,221,162,.24); }
+.scroll-story[data-story-stage="5"] .story-signal::after { background: var(--site-green); }
+.story-copy { position: relative; min-height: 250px; margin: 0; padding: 0; list-style: none; }
+.story-copy li { padding: 24px 0; }
+.motion-ready .story-copy li { position: absolute; inset: 0; display: grid; align-content: center; opacity: 0; transform: translateY(18px); transition: opacity .26s ease, transform .38s cubic-bezier(.2,.8,.2,1); pointer-events: none; }
+.motion-ready .story-copy li.is-active { opacity: 1; transform: none; }
+.story-step-index { display: block; margin-bottom: 24px; color: var(--site-violet); font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .15em; }
+.story-copy h3 { margin: 0 0 18px; font-size: clamp(46px, 6vw, 86px); font-weight: 520; line-height: .9; letter-spacing: -.055em; }
+.story-copy p { max-width: 590px; margin: 0; color: var(--site-muted); font-size: 17px; line-height: 1.65; }
+.story-rail { align-self: end; }
+.story-track { position: relative; height: 2px; margin: 0 8px 18px; background: var(--site-faint); }
+.story-track-fill { position: absolute; inset: 0; background: linear-gradient(90deg, var(--site-violet), var(--site-cyan), var(--site-green)); transform: scaleX(var(--story-progress)); transform-origin: left; }
+.story-marker { position: absolute; top: 50%; left: calc(var(--story-progress) * 100%); width: 12px; aspect-ratio: 1; border: 2px solid var(--site-bg); border-radius: 50%; background: var(--site-ink); box-shadow: 0 0 0 1px var(--site-muted); transform: translate(-50%, -50%); }
+.story-labels { display: grid; grid-template-columns: repeat(5, 1fr); color: var(--site-muted); font: 600 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; }
+.story-labels span { transition: color .2s; }
+.story-labels span:last-child { text-align: right; }
+.story-labels span:not(:first-child):not(:last-child) { text-align: center; }
+.story-labels .is-active { color: var(--site-ink); }
+.demo-interactive-header { display: grid; grid-template-columns: .45fr 1fr; gap: 48px; margin-bottom: 36px; padding-top: 64px; border-top: 1px solid var(--site-faint); }
+.demo-interactive-header h3 { margin: 0 0 14px; font-size: clamp(30px, 4vw, 48px); font-weight: 530; letter-spacing: -.035em; }
+.demo-interactive-header p { max-width: 720px; margin: 0; color: var(--site-muted); font-size: 17px; line-height: 1.65; }
 .demo-note { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 24px; }
 .demo-note p { padding-left: 16px; border-left: 1px solid var(--site-faint); color: var(--site-muted); font-size: 13px; line-height: 1.55; }
 .demo-note strong { display: block; margin-bottom: 5px; color: var(--site-ink); font-weight: 600; }
@@ -104,7 +141,7 @@ a { color: inherit; }
   .site-nav-links a:not([href*="github.com"]) { display: none; }
   .site-hero { min-height: auto; padding: 90px 0 96px; }
   .site-hero h1 { font-size: clamp(50px, 15vw, 72px); }
-  .hero-bottom, .section-heading, .demo-intro, .evaluation, .limits { grid-template-columns: 1fr; gap: 28px; }
+  .hero-bottom, .section-heading, .demo-interactive-header, .evaluation, .limits { grid-template-columns: 1fr; gap: 28px; }
   .hero-line { display: none; }
   .section { padding: 88px 0; }
   .section-heading { margin-bottom: 40px; }
@@ -114,6 +151,24 @@ a { color: inherit; }
   .principle-number { margin-bottom: 56px; }
   .capability { min-height: 200px; }
   .footer-row { flex-direction: column; }
+  .scroll-story, .motion-ready .scroll-story { min-height: 0; margin-bottom: 72px; }
+  .story-sticky, .motion-ready .story-sticky { position: relative; top: auto; height: auto; min-height: 0; padding: 24px; }
+  .story-stage { grid-template-columns: 1fr; gap: 18px; }
+  .story-instrument { width: min(66vw, 260px); margin: 36px auto 18px; }
+  .story-copy { min-height: 0; }
+  .motion-ready .story-copy li { position: static; display: block; opacity: 1; transform: none; pointer-events: auto; }
+  .story-copy li + li { border-top: 1px solid var(--site-faint); }
+  .story-copy h3 { font-size: 38px; }
+  .story-rail { display: none; }
+  .demo-interactive-header { padding-top: 48px; }
+}
+@media (min-width: 761px) and (max-height: 700px) {
+  .motion-ready .story-sticky { top: 24px; height: calc(100vh - 48px); min-height: 0; padding: 24px; }
+  .story-stage { gap: 40px; }
+  .story-instrument { width: min(24vw, 240px); }
+  .story-copy { min-height: 210px; }
+  .story-copy h3 { font-size: clamp(40px, 5vw, 68px); }
+  .story-copy p { font-size: 15px; }
 }
 @media (max-width: 360px) {
   .site-shell { width: min(calc(100% - 24px), var(--site-max)); }
@@ -124,6 +179,10 @@ a { color: inherit; }
   html { scroll-behavior: auto; }
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   .motion-ready .reveal { opacity: 1; transform: none; }
+  .scroll-story, .motion-ready .scroll-story { min-height: 0; }
+  .story-sticky, .motion-ready .story-sticky { position: relative; top: auto; height: auto; min-height: 0; }
+  .story-copy li, .motion-ready .story-copy li { position: static; display: block; opacity: 1; transform: none; pointer-events: auto; }
+  .story-rail { display: none; }
 }
 </style>
 <script>if (!matchMedia('(prefers-reduced-motion: reduce)').matches) document.documentElement.classList.add('motion-ready');</script>
@@ -183,12 +242,63 @@ a { color: inherit; }
 
   <section class="section site-shell" id="demo">
     <div class="section-heading reveal">
-      <span class="section-index">02 / INTERACTIVE MODEL</span>
-      <h2>A small gate with explicit inputs.</h2>
+      <span class="section-index">02 / GOVERNANCE SEQUENCE</span>
+      <h2>Trace how authority becomes explicit.</h2>
     </div>
-    <div class="demo-intro reveal">
-      <span></span>
-      <p>This illustration compresses the v0.1.0 flow. Complete the plan, choose a valid authority path, then attempt the change. Reading or scrolling never grants authority.</p>
+
+    <div class="scroll-story" data-scroll-story data-story-stage="1">
+      <div class="story-sticky">
+        <div class="story-meta">
+          <span>REVERSIBLE TRACE · SCROLL</span>
+          <output aria-hidden="true">01 / 05</output>
+        </div>
+        <div class="story-stage">
+          <div class="story-instrument" aria-hidden="true">
+            <span class="story-ring"></span>
+            <span class="story-crosshair"></span>
+            <span class="story-signal"></span>
+          </div>
+          <ol class="story-copy">
+            <li class="is-active">
+              <span class="story-step-index">01 / REQUEST</span>
+              <h3>Action is proposed.</h3>
+              <p>A coding request exists, but intent alone is not execution authority.</p>
+            </li>
+            <li>
+              <span class="story-step-index">02 / PLAN</span>
+              <h3>Commitments become inspectable.</h3>
+              <p>The objective, acceptance checks, and unresolved questions are recorded as explicit inputs.</p>
+            </li>
+            <li>
+              <span class="story-step-index">03 / AUTHORITY</span>
+              <h3>Permission gets a boundary.</h3>
+              <p>Authorization binds the exact plan, session, scope, and configured tool.</p>
+            </li>
+            <li>
+              <span class="story-step-index">04 / GATE</span>
+              <h3>Recorded state is checked.</h3>
+              <p>The preventive gate deterministically allows or denies the configured action.</p>
+            </li>
+            <li>
+              <span class="story-step-index">05 / DIFF</span>
+              <h3>Only bounded action proceeds.</h3>
+              <p>The gate permits execution; it does not claim that the resulting change is correct.</p>
+            </li>
+          </ol>
+        </div>
+        <div class="story-rail" aria-hidden="true">
+          <div class="story-track"><span class="story-track-fill"></span><span class="story-marker"></span></div>
+          <div class="story-labels"><span class="is-active">REQUEST</span><span>PLAN</span><span>AUTHORITY</span><span>GATE</span><span>DIFF</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="demo-interactive-header reveal">
+      <span class="section-index">LIVE / INTERACTIVE MODEL</span>
+      <div>
+        <h3>Now test the model.</h3>
+        <p>Complete the plan, choose a valid authority path, then attempt the change. This browser simulation illustrates the flow; the scroll trace above never grants authority or changes its state.</p>
+      </div>
     </div>
 <div id="aporic-flow" class="reveal" aria-label="Interactive Aporic governance flow">
   <div class="af-stage">
@@ -209,8 +319,6 @@ a { color: inherit; }
           <stop offset="1" stop-color="var(--af-green)"/>
         </linearGradient>
       </defs>
-
-      <text class="af-wordmark" x="42" y="52">APORIC</text>
 
       <path class="af-route" d="M151 270 H252 M518 270 H606 M694 270 H756"/>
       <path class="af-route-flow" d="M151 270 H252 M518 270 H606 M694 270 H756"/>
@@ -316,7 +424,6 @@ a { color: inherit; }
     </svg>
 
     <svg class="af-mobile-canvas" viewBox="0 0 390 820" role="img" aria-label="Aporic governance flow in a vertical mobile layout">
-      <text class="af-wordmark" x="24" y="37">APORIC</text>
       <g class="af-reset mobile-reset" transform="translate(338 32)">
         <rect x="-34" y="-16" width="68" height="32" rx="11"/>
         <text y="4" text-anchor="middle">RESET</text>
@@ -425,7 +532,6 @@ a { color: inherit; }
     <button class="af-mobile-hit af-mobile-hit-human cursor-interaction" type="button" aria-label="Authorize as human" aria-pressed="false"></button>
     <button class="af-mobile-hit af-mobile-hit-agent cursor-interaction" type="button" aria-label="Authorize as delegated agent" aria-pressed="false"></button>
     <button class="af-mobile-hit af-mobile-hit-reset cursor-interaction" type="button" aria-label="Reset demonstration"></button>
-    <a class="af-github" href="https://github.com/tac0de/aporic" target="_blank" rel="noopener noreferrer" aria-label="Open the Aporic GitHub repository">GITHUB ↗</a>
     <div class="af-status" aria-live="polite">PLAN REQUIRED</div>
 </div>
 </div>
@@ -547,7 +653,6 @@ a { color: inherit; }
 }
 #aporic-flow .af-canvas { width: 100%; height: 100%; display: block; }
 #aporic-flow .af-mobile-canvas { display: none; width: 100%; height: 100%; }
-#aporic-flow .af-wordmark { fill: var(--af-ink); font: 500 14px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .24em; }
 #aporic-flow .af-section-label,
 #aporic-flow .af-small-label { fill: var(--af-muted); font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .14em; }
 #aporic-flow .af-card-title { fill: var(--af-ink); font: 500 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .16em; }
@@ -646,9 +751,6 @@ a { color: inherit; }
 #aporic-flow .af-reset:hover rect { stroke: var(--af-ink); }
 #aporic-flow .af-reset:hover text { fill: var(--af-ink); }
 #aporic-flow .af-status { position: absolute; left: 28px; bottom: 22px; color: var(--af-muted); font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; }
-#aporic-flow .af-github { position: absolute; right: 12%; top: 6.4%; color: var(--af-muted); font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; text-decoration: none; transition: color .2s; }
-#aporic-flow .af-github:hover, #aporic-flow .af-github:focus { color: var(--af-ink); text-decoration: underline; text-underline-offset: 4px; }
-
 #aporic-flow .af-hit { position: absolute; border: 0; background: transparent; padding: 0; }
 #aporic-flow .af-hit:focus-visible, #aporic-flow .af-mobile-hit:focus-visible { outline: 2px solid var(--af-cyan); outline-offset: -2px; border-radius: 16px; }
 #aporic-flow .af-hit-request { left: 4.5%; top: 38%; width: 12.5%; height: 24%; }
@@ -680,7 +782,6 @@ a { color: inherit; }
   #aporic-flow .af-mobile-hit-human { left: 33.8%; top: 61.7%; width: 14.5%; height: 5.8%; }
   #aporic-flow .af-mobile-hit-agent { left: 51.8%; top: 61.7%; width: 14.5%; height: 5.8%; }
   #aporic-flow .af-mobile-hit-reset { right: 4%; top: 1.9%; width: 18%; height: 4.5%; }
-  #aporic-flow .af-github { right: 26%; top: 2.8%; }
   #aporic-flow .af-status { left: 20px; bottom: 10px; }
 }
 @media (prefers-reduced-motion: reduce) { #aporic-flow * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
@@ -814,6 +915,40 @@ a { color: inherit; }
   root.querySelector('.af-mobile-hit-reset').addEventListener('click', reset);
 
   render();
+})();
+</script>
+
+<script>
+(() => {
+  const story = document.querySelector('[data-scroll-story]');
+  if (!story || !document.documentElement.classList.contains('motion-ready')) return;
+  const steps = [...story.querySelectorAll('.story-copy li')];
+  const labels = [...story.querySelectorAll('.story-labels span')];
+  const output = story.querySelector('output');
+  const total = steps.length;
+  let frame = 0;
+
+  const update = () => {
+    frame = 0;
+    const rect = story.getBoundingClientRect();
+    const travel = Math.max(1, rect.height - innerHeight);
+    const progress = Math.max(0, Math.min(1, -rect.top / travel));
+    const active = Math.min(total - 1, Math.floor(progress * (total - .001)));
+    story.style.setProperty('--story-progress', progress.toFixed(4));
+    story.style.setProperty('--story-scale', (.82 + progress * .55).toFixed(3));
+    story.dataset.storyStage = String(active + 1);
+    output.textContent = `${String(active + 1).padStart(2, '0')} / ${String(total).padStart(2, '0')}`;
+    steps.forEach((step, index) => step.classList.toggle('is-active', index === active));
+    labels.forEach((label, index) => label.classList.toggle('is-active', index === active));
+  };
+
+  const schedule = () => {
+    if (!frame) frame = requestAnimationFrame(update);
+  };
+
+  addEventListener('scroll', schedule, { passive: true });
+  addEventListener('resize', schedule, { passive: true });
+  update();
 })();
 </script>
 
