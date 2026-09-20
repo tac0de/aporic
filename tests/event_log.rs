@@ -94,7 +94,7 @@ fn unsupported_stored_schema_stops_replay_and_further_writes() {
     let stored = StoredEvent {
         sequence: 1,
         request: CommitRequest {
-            schema_version: 2,
+            schema_version: 99,
             event_id: "future-event".into(),
             idempotency_key: "future-key".into(),
             expected_revision: 0,
@@ -120,7 +120,7 @@ fn unsupported_stored_schema_stops_replay_and_further_writes() {
     assert!(matches!(
         replay_error,
         Error::CorruptLog { line: 1, reason }
-            if reason == "unsupported schema version 2; expected 1"
+            if reason == "unsupported schema version 99; expected 2"
     ));
 
     let append_error = commit(&path, open_aporia("a1", "k1", 0)).unwrap_err();
@@ -341,7 +341,7 @@ fn agent_plan_authorization_rejects_missing_or_inexact_delegation() {
     );
 
     let request = |authority_ref: Option<&str>| CommitRequest {
-        schema_version: 1,
+        schema_version: 2,
         event_id: "authorize-event-1".into(),
         idempotency_key: "authorize-key-1".into(),
         expected_revision: 0,
@@ -456,7 +456,7 @@ fn material_aporia_blocks_plan_authorization() {
 
 fn human_request(id: &str, key: &str, expected_revision: u64, event: Event) -> CommitRequest {
     CommitRequest {
-        schema_version: 1,
+        schema_version: 2,
         event_id: id.into(),
         idempotency_key: key.into(),
         expected_revision,
@@ -581,7 +581,7 @@ fn concurrent_same_revision_has_one_winner_and_valid_log() {
 fn agent_cannot_commit_decision_without_delegation() {
     let path = temp_log("forged-authority");
     let request = CommitRequest {
-        schema_version: 1,
+        schema_version: 2,
         event_id: "d1".into(),
         idempotency_key: "k1".into(),
         expected_revision: 0,

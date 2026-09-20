@@ -6,8 +6,10 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
 pub mod codex;
+pub mod governance;
+pub mod policy;
 
-pub const SCHEMA_VERSION: u32 = 1;
+pub const SCHEMA_VERSION: u32 = 2;
 
 #[derive(Debug)]
 pub enum Error {
@@ -145,6 +147,22 @@ pub enum Event {
     PlanAuthorizationRevoked {
         authorization_id: String,
     },
+    ExecutionGrantIssued {
+        grant_id: String,
+        plan_id: String,
+        session_id: String,
+        tool_name: String,
+        tool_input: serde_json::Value,
+        max_uses: u32,
+        authority_ref: Option<String>,
+    },
+    ExecutionGrantRevoked {
+        grant_id: String,
+    },
+    ExecutionGrantConsumed {
+        grant_id: String,
+        tool_use_id: String,
+    },
 }
 
 impl Event {
@@ -157,7 +175,10 @@ impl Event {
             Self::ToolHoldPlaced { .. }
             | Self::ToolHoldReleased { .. }
             | Self::PlanRegistered { .. }
-            | Self::PlanAuthorizationRevoked { .. } => None,
+            | Self::PlanAuthorizationRevoked { .. }
+            | Self::ExecutionGrantRevoked { .. }
+            | Self::ExecutionGrantConsumed { .. } => None,
+            Self::ExecutionGrantIssued { .. } => Some(TransitionKind::PlanAuthorize),
             _ => None,
         }
     }
@@ -245,6 +266,22 @@ pub struct PlanAuthorization {
     pub active: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExecutionGrant {
+    pub id: String,
+    pub plan_id: String,
+    pub session_id: String,
+    pub tool_name: String,
+    pub tool_input: serde_json::Value,
+    pub max_uses: u32,
+    pub consumed_uses: u32,
+    pub scope: String,
+    pub actor: Actor,
+    pub authority_ref: Option<String>,
+    pub active: bool,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct State {
@@ -256,6 +293,8 @@ pub struct State {
     pub tool_holds: BTreeMap<String, ToolHold>,
     pub plans: BTreeMap<String, Plan>,
     pub plan_authorizations: BTreeMap<String, PlanAuthorization>,
+    pub execution_grants: BTreeMap<String, ExecutionGrant>,
+    pub consumed_tool_uses: BTreeMap<String, String>,
 }
 
 impl State {
@@ -492,6 +531,72 @@ impl State {
                     )));
                 }
                 authorization.active = false;
+            }
+            Event::ExecutionGrantIssued {
+                grant_id,
+                plan_id,
+                session_id,
+                tool_name,
+                tool_input,
+                max_uses,
+                authority_ref,
+            } => {
+                if self.execution_grants.contains_key(grant_id) {
+                    return Err(Error::Invariant(format!(
+                        "execution grant {grant_id} already exists"
+                    )));
+                }
+                self.execution_grants.insert(
+                    grant_id.clone(),
+                    ExecutionGrant {
+                        id: grant_id.clone(),
+                        plan_id: plan_id.clone(),
+                        session_id: session_id.clone(),
+                        tool_name: tool_name.clone(),
+                        tool_input: tool_input.clone(),
+                        max_uses: *max_uses,
+                        consumed_uses: 0,
+                        scope,
+                        actor: stored.request.actor.clone(),
+                        authority_ref: authority_ref.clone(),
+                        active: true,
+                    },
+                );
+            }
+            Event::ExecutionGrantRevoked { grant_id } => {
+                let grant = self.execution_grants.get_mut(grant_id).ok_or_else(|| {
+                    Error::Invariant(format!("unknown execution grant {grant_id}"))
+                })?;
+                if !grant.active {
+                    return Err(Error::Invariant(format!(
+                        "execution grant {grant_id} is already inactive"
+                    )));
+                }
+                grant.active = false;
+            }
+            Event::ExecutionGrantConsumed {
+                grant_id,
+                tool_use_id,
+            } => {
+                if self.consumed_tool_uses.contains_key(tool_use_id) {
+                    return Err(Error::Invariant(format!(
+                        "tool use {tool_use_id} is already consumed"
+                    )));
+                }
+                let grant = self.execution_grants.get_mut(grant_id).ok_or_else(|| {
+                    Error::Invariant(format!("unknown execution grant {grant_id}"))
+                })?;
+                if !grant.active || grant.consumed_uses >= grant.max_uses {
+                    return Err(Error::Invariant(format!(
+                        "execution grant {grant_id} has no remaining uses"
+                    )));
+                }
+                grant.consumed_uses += 1;
+                if grant.consumed_uses == grant.max_uses {
+                    grant.active = false;
+                }
+                self.consumed_tool_uses
+                    .insert(tool_use_id.clone(), grant_id.clone());
             }
         }
 
@@ -845,6 +950,90 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                 ))
             }
         }
+        Event::ExecutionGrantIssued {
+            grant_id,
+            plan_id,
+            session_id,
+            tool_name,
+            max_uses,
+            ..
+        } => {
+            if !required(&[grant_id, plan_id, session_id, tool_name]) || *max_uses == 0 {
+                Some((
+                    "INVALID_EXECUTION_GRANT",
+                    "grant id, plan id, session id, tool name, and a positive max_uses are required",
+                ))
+            } else if state.execution_grants.contains_key(grant_id) {
+                Some((
+                    "EXECUTION_GRANT_ALREADY_EXISTS",
+                    "execution grant id already exists",
+                ))
+            } else if let Some(plan) = state.plans.get(plan_id) {
+                if plan.scope != request.scope {
+                    Some((
+                        "SCOPE_MISMATCH",
+                        "execution grant scope differs from plan scope",
+                    ))
+                } else {
+                    None
+                }
+            } else {
+                Some(("UNKNOWN_PLAN", "plan does not exist"))
+            }
+        }
+        Event::ExecutionGrantRevoked { grant_id } => {
+            if !required(&[grant_id]) {
+                Some(("MISSING_REQUIRED_FIELD", "execution grant id is required"))
+            } else if let Some(grant) = state.execution_grants.get(grant_id) {
+                if !grant.active {
+                    Some((
+                        "EXECUTION_GRANT_ALREADY_INACTIVE",
+                        "execution grant is already revoked or consumed",
+                    ))
+                } else if grant.scope != request.scope {
+                    Some((
+                        "SCOPE_MISMATCH",
+                        "revocation scope differs from execution grant scope",
+                    ))
+                } else {
+                    None
+                }
+            } else {
+                Some(("UNKNOWN_EXECUTION_GRANT", "execution grant does not exist"))
+            }
+        }
+        Event::ExecutionGrantConsumed {
+            grant_id,
+            tool_use_id,
+        } => {
+            if !required(&[grant_id, tool_use_id]) {
+                Some((
+                    "MISSING_REQUIRED_FIELD",
+                    "execution grant id and tool use id are required",
+                ))
+            } else if state.consumed_tool_uses.contains_key(tool_use_id) {
+                Some((
+                    "TOOL_USE_ALREADY_CONSUMED",
+                    "tool use id was already consumed",
+                ))
+            } else if let Some(grant) = state.execution_grants.get(grant_id) {
+                if !grant.active || grant.consumed_uses >= grant.max_uses {
+                    Some((
+                        "EXECUTION_GRANT_EXHAUSTED",
+                        "execution grant has no remaining uses",
+                    ))
+                } else if grant.scope != request.scope {
+                    Some((
+                        "SCOPE_MISMATCH",
+                        "consumption scope differs from execution grant scope",
+                    ))
+                } else {
+                    None
+                }
+            } else {
+                Some(("UNKNOWN_EXECUTION_GRANT", "execution grant does not exist"))
+            }
+        }
     };
     if let Some((code, message)) = structural_error {
         return Evaluation::deny(code, message);
@@ -931,7 +1120,8 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                 "tool hold release requires an event declared as human or evidence-authored",
             );
         }
-        Event::PlanAuthorized { authority_ref, .. } => match request.actor.kind {
+        Event::PlanAuthorized { authority_ref, .. }
+        | Event::ExecutionGrantIssued { authority_ref, .. } => match request.actor.kind {
             ActorKind::Human => {}
             ActorKind::Agent => {
                 let Some(reference) = authority_ref else {
@@ -966,12 +1156,18 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                 );
             }
         },
-        Event::PlanAuthorizationRevoked { .. }
+        Event::PlanAuthorizationRevoked { .. } | Event::ExecutionGrantRevoked { .. }
             if !matches!(request.actor.kind, ActorKind::Human | ActorKind::Evidence) =>
         {
             return Evaluation::deny(
                 "REVOCATION_AUTHORITY_REQUIRED",
                 "plan authorization revocation requires an event declared as human or evidence-authored",
+            );
+        }
+        Event::ExecutionGrantConsumed { .. } if request.actor.kind != ActorKind::Host => {
+            return Evaluation::deny(
+                "HOST_CONSUMPTION_REQUIRED",
+                "execution grant consumption requires a host-authored event",
             );
         }
         _ => {}
@@ -994,6 +1190,15 @@ pub struct CommitOutcome {
     pub status: CommitStatus,
     pub revision: u64,
     pub evaluation: Evaluation,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MigrationOutcome {
+    pub from_schema: u32,
+    pub to_schema: u32,
+    pub revision: u64,
+    pub records: usize,
 }
 
 #[derive(Debug, Default)]
@@ -1075,6 +1280,32 @@ pub fn load_nonblocking(path: impl AsRef<Path>) -> Result<EventLog> {
     read_locked(&mut file)
 }
 
+pub(crate) fn transact_nonblocking<T>(
+    path: impl AsRef<Path>,
+    operation: impl FnOnce(&EventLog) -> Result<(T, Option<CommitRequest>)>,
+) -> Result<T> {
+    let mut file = OpenOptions::new().read(true).append(true).open(path)?;
+    file.try_lock().map_err(std::io::Error::from)?;
+    file.seek(SeekFrom::Start(0))?;
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes)?;
+    let log = replay_bytes(&bytes)?;
+    let (value, request) = operation(&log)?;
+    if let Some(request) = request {
+        let outcome = commit_locked(&mut file, request)?;
+        if outcome.status != CommitStatus::Committed {
+            let unlock_result = file.unlock();
+            unlock_result?;
+            return Err(Error::Invariant(format!(
+                "transactional commit rejected: {}",
+                outcome.evaluation.reason_code
+            )));
+        }
+    }
+    file.unlock()?;
+    Ok(value)
+}
+
 fn read_locked(file: &mut File) -> Result<EventLog> {
     let mut bytes = Vec::new();
     let read_result = file.read_to_end(&mut bytes);
@@ -1098,6 +1329,120 @@ pub fn initialize(path: impl AsRef<Path>) -> Result<()> {
     let file = OpenOptions::new().write(true).create_new(true).open(path)?;
     file.sync_data()?;
     Ok(())
+}
+
+pub fn migrate_v1_to_v2(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<MigrationOutcome> {
+    let source = source.as_ref();
+    let destination = destination.as_ref();
+    if source == destination {
+        return Err(Error::Invariant(
+            "migration source and destination must differ".into(),
+        ));
+    }
+
+    let mut source_file = OpenOptions::new().read(true).open(source)?;
+    source_file.lock_shared()?;
+    let mut source_bytes = Vec::new();
+    source_file.read_to_end(&mut source_bytes)?;
+    if !source_bytes.is_empty() && !source_bytes.ends_with(b"\n") {
+        return Err(Error::CorruptLog {
+            line: source_bytes.iter().filter(|byte| **byte == b'\n').count() + 1,
+            reason: "record is not newline-terminated".into(),
+        });
+    }
+
+    let mut migrated = Vec::new();
+    let mut records = 0_usize;
+    for (index, line) in source_bytes.split(|byte| *byte == b'\n').enumerate() {
+        if line.is_empty() {
+            if index + 1 == source_bytes.split(|byte| *byte == b'\n').count() {
+                continue;
+            }
+            return Err(Error::CorruptLog {
+                line: index + 1,
+                reason: "blank records are not allowed".into(),
+            });
+        }
+        let mut value: serde_json::Value =
+            serde_json::from_slice(line).map_err(|error| Error::CorruptLog {
+                line: index + 1,
+                reason: error.to_string(),
+            })?;
+        let version = value
+            .get("schema_version")
+            .and_then(serde_json::Value::as_u64);
+        if version != Some(1) {
+            return Err(Error::CorruptLog {
+                line: index + 1,
+                reason: format!("expected schema version 1, got {version:?}"),
+            });
+        }
+        let event_type = value
+            .get("event")
+            .and_then(|event| event.get("type"))
+            .and_then(serde_json::Value::as_str);
+        if !matches!(
+            event_type,
+            Some(
+                "aporia_opened"
+                    | "aporia_resolved"
+                    | "delegation_granted"
+                    | "delegation_revoked"
+                    | "decision_committed"
+                    | "decision_superseded"
+                    | "risk_accepted"
+                    | "tool_hold_placed"
+                    | "tool_hold_released"
+                    | "plan_registered"
+                    | "plan_authorized"
+                    | "plan_authorization_revoked"
+            )
+        ) {
+            return Err(Error::CorruptLog {
+                line: index + 1,
+                reason: format!("event type {event_type:?} is not part of schema version 1"),
+            });
+        }
+        value["schema_version"] = serde_json::Value::from(SCHEMA_VERSION);
+        let stored: StoredEvent =
+            serde_json::from_value(value).map_err(|error| Error::CorruptLog {
+                line: index + 1,
+                reason: error.to_string(),
+            })?;
+        migrated.extend(serde_json::to_vec(&stored)?);
+        migrated.push(b'\n');
+        records += 1;
+    }
+    let validated = replay_bytes(&migrated)?;
+
+    if let Some(parent) = destination.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        std::fs::create_dir_all(parent)?;
+    }
+    let mut destination_file = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(destination)?;
+    if let Err(error) = destination_file
+        .write_all(&migrated)
+        .and_then(|()| destination_file.sync_data())
+    {
+        drop(destination_file);
+        let _ = std::fs::remove_file(destination);
+        return Err(Error::Io(error));
+    }
+    source_file.unlock()?;
+
+    Ok(MigrationOutcome {
+        from_schema: 1,
+        to_schema: SCHEMA_VERSION,
+        revision: validated.state.revision,
+        records,
+    })
 }
 
 pub fn commit(path: impl AsRef<Path>, request: CommitRequest) -> Result<CommitOutcome> {

@@ -1,17 +1,23 @@
-use crate::{AcceptedRisk, Aporia, Decision, Delegation, Error, State, TransitionKind};
+use crate::governance::{Action, ActionEvaluation, GateStatus, evaluate_action, input_identity};
+use crate::policy::PolicyDocument;
+use crate::{
+    AcceptedRisk, Actor, ActorKind, Aporia, CommitRequest, Decision, Delegation, Error, Event,
+    State, TransitionKind,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::path::Path;
 
 pub const DEFAULT_PROJECTION_LIMIT_BYTES: usize = 6_000;
 pub const MAX_SCOPE_BYTES: usize = 256;
 pub const MAX_SESSION_ID_BYTES: usize = 256;
 pub const MAX_TOOL_NAME_BYTES: usize = 256;
-pub const PROJECTION_SCHEMA_VERSION: u32 = 2;
+pub const MAX_TOOL_USE_ID_BYTES: usize = 256;
+pub const PROJECTION_SCHEMA_VERSION: u32 = 3;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GatePolicy {
-    protected_tool: String,
-    require_plan: bool,
+    document: PolicyDocument,
 }
 
 impl GatePolicy {
@@ -19,39 +25,37 @@ impl GatePolicy {
         protected_tool: impl Into<String>,
         require_plan: bool,
     ) -> std::result::Result<Self, &'static str> {
-        let protected_tool = protected_tool.into();
-        if protected_tool.trim().is_empty() || protected_tool.len() > MAX_TOOL_NAME_BYTES {
-            return Err("protected tool must fit the byte limit");
-        }
-        Ok(Self {
-            protected_tool,
-            require_plan,
-        })
+        PolicyDocument::single(protected_tool, require_plan)
+            .map(|document| Self { document })
+            .map_err(|_| "protected tool must fit the byte limit")
+    }
+
+    pub fn from_document(document: PolicyDocument) -> Result<Self, String> {
+        document.validate()?;
+        Ok(Self { document })
     }
 
     pub fn protected_tool(&self) -> &str {
-        &self.protected_tool
+        self.document
+            .tools
+            .keys()
+            .next()
+            .expect("validated policy is non-empty")
     }
 
     pub fn require_plan(&self) -> bool {
-        self.require_plan
+        self.document
+            .tool(self.protected_tool())
+            .expect("policy tool exists")
+            .require_plan
+    }
+
+    pub fn document(&self) -> &PolicyDocument {
+        &self.document
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum GateStatus {
-    Allowed,
-    Held,
-    PlanAuthorizationRequired,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GateEvaluation {
-    pub status: GateStatus,
-    pub active_hold_count: usize,
-    pub matching_plan_authorization_count: usize,
-}
+pub type GateEvaluation = ActionEvaluation;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -137,6 +141,7 @@ impl PreToolUseInput {
             || self.turn_id.trim().is_empty()
             || self.tool_name.trim().is_empty()
             || self.tool_use_id.trim().is_empty()
+            || self.tool_use_id.len() > MAX_TOOL_USE_ID_BYTES
         {
             return Err("required PreToolUse field is empty");
         }
@@ -181,38 +186,17 @@ pub fn evaluate_gate(
     if session_id.trim().is_empty() || session_id.len() > MAX_SESSION_ID_BYTES {
         return Err("session id must fit the byte limit");
     }
-    if tool_name != policy.protected_tool() {
-        return Ok(None);
-    }
-
-    let active_hold_count = state
-        .tool_holds
-        .values()
-        .filter(|hold| hold.active && hold.scope == scope && hold.tool_name == tool_name)
-        .count();
-    let matching_plan_authorization_count = state
-        .plan_authorizations
-        .values()
-        .filter(|authorization| {
-            authorization.active
-                && authorization.scope == scope
-                && authorization.session_id == session_id
-                && authorization.tool_name == tool_name
-        })
-        .count();
-    let status = if active_hold_count > 0 {
-        GateStatus::Held
-    } else if policy.require_plan() && matching_plan_authorization_count == 0 {
-        GateStatus::PlanAuthorizationRequired
-    } else {
-        GateStatus::Allowed
-    };
-
-    Ok(Some(GateEvaluation {
-        status,
-        active_hold_count,
-        matching_plan_authorization_count,
-    }))
+    evaluate_action(
+        state,
+        policy.document(),
+        Action {
+            scope,
+            session_id,
+            tool_name,
+            tool_use_id: None,
+            tool_input: None,
+        },
+    )
 }
 
 pub fn pre_tool_use_output(
@@ -222,8 +206,17 @@ pub fn pre_tool_use_output(
     policy: &GatePolicy,
 ) -> std::result::Result<Option<PreToolUseOutput>, &'static str> {
     input.validate()?;
-    let Some(evaluation) =
-        evaluate_gate(state, scope, &input.session_id, &input.tool_name, policy)?
+    let Some(evaluation) = evaluate_action(
+        state,
+        policy.document(),
+        Action {
+            scope,
+            session_id: &input.session_id,
+            tool_name: &input.tool_name,
+            tool_use_id: Some(&input.tool_use_id),
+            tool_input: Some(&input.tool_input),
+        },
+    )?
     else {
         return Ok(None);
     };
@@ -237,8 +230,126 @@ pub fn pre_tool_use_output(
             "APORIC_PLAN_AUTHORIZATION_REQUIRED: {} requires an active plan authorization for this scope and session.",
             input.tool_name
         )))),
+        GateStatus::ExecutionGrantRequired => Ok(Some(deny_pre_tool(format!(
+            "APORIC_EXECUTION_GRANT_REQUIRED: {} requires a matching bounded execution grant.",
+            input.tool_name
+        )))),
+        GateStatus::ToolUseAlreadyConsumed => Ok(Some(deny_pre_tool(format!(
+            "APORIC_TOOL_USE_ALREADY_CONSUMED: {} cannot reuse a consumed tool_use_id.",
+            input.tool_name
+        )))),
         GateStatus::Allowed => Ok(None),
     }
+}
+
+pub fn pre_tool_use_transaction(
+    path: impl AsRef<Path>,
+    input: &PreToolUseInput,
+    scope: &str,
+    policy: &GatePolicy,
+) -> crate::Result<Option<PreToolUseOutput>> {
+    input
+        .validate()
+        .map_err(|reason| Error::Invariant(reason.into()))?;
+    crate::transact_nonblocking(path, |log| {
+        let Some(evaluation) = evaluate_action(
+            log.state(),
+            policy.document(),
+            Action {
+                scope,
+                session_id: &input.session_id,
+                tool_name: &input.tool_name,
+                tool_use_id: Some(&input.tool_use_id),
+                tool_input: Some(&input.tool_input),
+            },
+        )
+        .map_err(|reason| Error::Invariant(reason.into()))?
+        else {
+            return Ok((None, None));
+        };
+
+        if evaluation.status != GateStatus::Allowed {
+            let output = pre_tool_use_output(log.state(), input, scope, policy)
+                .map_err(|reason| Error::Invariant(reason.into()))?;
+            return Ok((output, None));
+        }
+
+        let require_grant = policy
+            .document()
+            .tool(&input.tool_name)
+            .expect("evaluated policy tool exists")
+            .require_grant;
+        let request = if require_grant {
+            let grant_id = evaluation
+                .selected_execution_grant_id
+                .expect("allowed grant policy selected a grant");
+            let identity = consumption_identity(&grant_id, &input.tool_use_id);
+            Some(CommitRequest {
+                schema_version: crate::SCHEMA_VERSION,
+                event_id: identity.clone(),
+                idempotency_key: identity,
+                expected_revision: log.state().revision,
+                actor: Actor {
+                    kind: ActorKind::Host,
+                    id: "codex-pre-tool-use".into(),
+                    provenance: "codex-hook".into(),
+                },
+                scope: scope.into(),
+                event: Event::ExecutionGrantConsumed {
+                    grant_id,
+                    tool_use_id: input.tool_use_id.clone(),
+                },
+            })
+        } else {
+            None
+        };
+        Ok((None, request))
+    })
+}
+
+fn consumption_identity(grant_id: &str, tool_use_id: &str) -> String {
+    let pair = serde_json::to_string(&(grant_id, tool_use_id))
+        .expect("string-pair serialization is infallible");
+    format!("grant-consumption:{pair}")
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ExplainOutput {
+    pub schema: u32,
+    pub scope: String,
+    pub session_id: String,
+    pub tool_name: String,
+    pub tool_use_id: String,
+    pub tool_input_identity: String,
+    pub evaluation: Option<ActionEvaluation>,
+}
+
+pub fn explain_action(
+    state: &State,
+    input: &PreToolUseInput,
+    scope: &str,
+    policy: &GatePolicy,
+) -> std::result::Result<ExplainOutput, &'static str> {
+    input.validate()?;
+    Ok(ExplainOutput {
+        schema: 1,
+        scope: scope.into(),
+        session_id: input.session_id.clone(),
+        tool_name: input.tool_name.clone(),
+        tool_use_id: input.tool_use_id.clone(),
+        tool_input_identity: input_identity(&input.tool_input),
+        evaluation: evaluate_action(
+            state,
+            policy.document(),
+            Action {
+                scope,
+                session_id: &input.session_id,
+                tool_name: &input.tool_name,
+                tool_use_id: Some(&input.tool_use_id),
+                tool_input: Some(&input.tool_input),
+            },
+        )?,
+    })
 }
 
 pub fn unavailable_pre_tool_output(error: &Error, tool_name: &str) -> PreToolUseOutput {
@@ -250,6 +361,12 @@ pub fn unavailable_pre_tool_output(error: &Error, tool_name: &str) -> PreToolUse
     };
     deny_pre_tool(format!(
         "APORIC_{reason}: {tool_name} is fail-closed because commitment state cannot be verified."
+    ))
+}
+
+pub fn invalid_policy_pre_tool_output(tool_name: &str) -> PreToolUseOutput {
+    deny_pre_tool(format!(
+        "APORIC_POLICY_INVALID: {tool_name} is fail-closed because the exact-tool policy cannot be loaded."
     ))
 }
 
@@ -269,9 +386,15 @@ struct Capsule {
     coverage: &'static str,
     authenticated_human_authority: bool,
     budget: ProjectionBudget,
-    execution: ExecutionProjection,
+    protected_tool_count: usize,
+    omitted_tool_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    omitted_execution_summary: Option<OmittedExecutionSummary>,
+    executions: Vec<ExecutionProjection>,
     blocked_transition_kinds: Vec<TransitionKind>,
     complete: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    omission_receipt: Option<OmissionReceipt>,
     active_decisions: Vec<DecisionProjection>,
     open_aporia: Vec<AporiaProjection>,
     active_delegations: Vec<DelegationProjection>,
@@ -287,12 +410,50 @@ struct ProjectionBudget {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct OmissionReceipt {
+    selection_rule: &'static str,
+    identity: String,
+    identity_kind: &'static str,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 struct ExecutionProjection {
     tool_name: String,
     require_plan: bool,
+    require_grant: bool,
     status: GateStatus,
     active_hold_count: usize,
     matching_plan_authorization_count: usize,
+    matching_execution_grant_count: usize,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
+struct OmittedExecutionSummary {
+    tool_count: usize,
+    allowed: usize,
+    held: usize,
+    plan_authorization_required: usize,
+    execution_grant_required: usize,
+    tool_use_already_consumed: usize,
+    active_hold_count: usize,
+    matching_plan_authorization_count: usize,
+    matching_execution_grant_count: usize,
+}
+
+impl OmittedExecutionSummary {
+    fn record(&mut self, execution: &ExecutionProjection) {
+        self.tool_count += 1;
+        match execution.status {
+            GateStatus::Allowed => self.allowed += 1,
+            GateStatus::Held => self.held += 1,
+            GateStatus::PlanAuthorizationRequired => self.plan_authorization_required += 1,
+            GateStatus::ExecutionGrantRequired => self.execution_grant_required += 1,
+            GateStatus::ToolUseAlreadyConsumed => self.tool_use_already_consumed += 1,
+        }
+        self.active_hold_count += execution.active_hold_count;
+        self.matching_plan_authorization_count += execution.matching_plan_authorization_count;
+        self.matching_execution_grant_count += execution.matching_execution_grant_count;
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize)]
@@ -424,6 +585,17 @@ fn retained_counts(capsule: &Capsule) -> ProjectionCounts {
     }
 }
 
+fn omitted_identity(ids: &[String]) -> String {
+    let mut hash = 0xcbf29ce484222325_u64;
+    for id in ids {
+        for byte in id.as_bytes().iter().chain(std::iter::once(&0_u8)) {
+            hash ^= u64::from(*byte);
+            hash = hash.wrapping_mul(0x100000001b3);
+        }
+    }
+    format!("fnv1a64:{hash:016x}")
+}
+
 pub fn session_start_output(
     state: &State,
     input: &SessionStartInput,
@@ -439,14 +611,35 @@ pub fn session_start_output(
         return Err("scope exceeds the byte limit");
     }
 
-    let gate = evaluate_gate(
-        state,
-        scope,
-        &input.session_id,
-        policy.protected_tool(),
-        policy,
-    )?
-    .expect("the policy tool always evaluates");
+    let executions = policy
+        .document()
+        .tools
+        .iter()
+        .map(|(tool_name, rule)| {
+            let gate = evaluate_action(
+                state,
+                policy.document(),
+                Action {
+                    scope,
+                    session_id: &input.session_id,
+                    tool_name,
+                    tool_use_id: None,
+                    tool_input: None,
+                },
+            )?
+            .expect("a policy tool always evaluates");
+            Ok(ExecutionProjection {
+                tool_name: tool_name.clone(),
+                require_plan: rule.require_plan,
+                require_grant: rule.require_grant,
+                status: gate.status,
+                active_hold_count: gate.active_hold_count,
+                matching_plan_authorization_count: gate.matching_plan_authorization_count,
+                matching_execution_grant_count: gate.matching_execution_grant_count,
+            })
+        })
+        .collect::<Result<Vec<_>, &'static str>>()?;
+    let protected_tool_count = executions.len();
     let mut capsule = Capsule {
         schema: PROJECTION_SCHEMA_VERSION,
         revision: state.revision,
@@ -458,15 +651,13 @@ pub fn session_start_output(
             unit: "utf8_bytes",
             limit: limit_bytes,
         },
-        execution: ExecutionProjection {
-            tool_name: policy.protected_tool().to_owned(),
-            require_plan: policy.require_plan(),
-            status: gate.status,
-            active_hold_count: gate.active_hold_count,
-            matching_plan_authorization_count: gate.matching_plan_authorization_count,
-        },
+        protected_tool_count,
+        omitted_tool_count: 0,
+        omitted_execution_summary: None,
+        executions,
         blocked_transition_kinds: blocked_transition_kinds(state, scope),
         complete: true,
+        omission_receipt: None,
         active_decisions: state
             .decisions
             .values()
@@ -495,6 +686,7 @@ pub fn session_start_output(
         omitted: ProjectionCounts::default(),
     };
 
+    let mut omitted_ids = Vec::new();
     loop {
         capsule.retained = retained_counts(&capsule);
         let context = wrap_capsule(&capsule);
@@ -518,17 +710,33 @@ pub fn session_start_output(
         }
 
         capsule.complete = false;
-        if capsule.active_decisions.pop().is_some() {
+        if let Some(item) = capsule.active_decisions.pop() {
             capsule.omitted.decisions += 1;
-        } else if capsule.accepted_risks.pop().is_some() {
+            omitted_ids.push(format!("decision:{}", item.id));
+        } else if let Some(item) = capsule.accepted_risks.pop() {
             capsule.omitted.risks += 1;
-        } else if capsule.active_delegations.pop().is_some() {
+            omitted_ids.push(format!("risk:{}", item.id));
+        } else if let Some(item) = capsule.active_delegations.pop() {
             capsule.omitted.delegations += 1;
-        } else if capsule.open_aporia.pop().is_some() {
+            omitted_ids.push(format!("delegation:{}", item.id));
+        } else if let Some(item) = capsule.open_aporia.pop() {
             capsule.omitted.aporia += 1;
+            omitted_ids.push(format!("aporia:{}", item.id));
+        } else if let Some(item) = capsule.executions.pop() {
+            capsule.omitted_tool_count += 1;
+            capsule
+                .omitted_execution_summary
+                .get_or_insert_with(OmittedExecutionSummary::default)
+                .record(&item);
+            omitted_ids.push(format!("tool:{}", item.tool_name));
         } else {
             return Err("context limit is too small for the minimum capsule");
         }
+        capsule.omission_receipt = Some(OmissionReceipt {
+            selection_rule: "decisions_then_risks_then_delegations_then_aporia_then_tools_from_highest_id_v1",
+            identity: omitted_identity(&omitted_ids),
+            identity_kind: "informational_non_cryptographic",
+        });
     }
 }
 
@@ -549,28 +757,64 @@ pub fn unavailable_output(
     } else {
         (scope, false)
     };
-    let data = tag_safe_json(&serde_json::json!({
-        "schema": PROJECTION_SCHEMA_VERSION,
-        "session_id": input.session_id,
-        "scope": reported_scope,
-        "scope_omitted": scope_omitted,
-        "coverage": "unavailable",
-        "reason_code": reason,
-        "execution": {
-            "tool_name": policy.protected_tool(),
-            "require_plan": policy.require_plan(),
-            "status": "unknown"
+    let mut executions = policy
+        .document()
+        .tools
+        .iter()
+        .map(|(tool_name, rule)| {
+            serde_json::json!({
+                "tool_name": tool_name,
+                "require_plan": rule.require_plan,
+                "require_grant": rule.require_grant,
+                "status": "unknown"
+            })
+        })
+        .collect::<Vec<_>>();
+    let protected_tool_count = executions.len();
+    let context = loop {
+        let omitted_tool_count = protected_tool_count - executions.len();
+        let data = tag_safe_json(&serde_json::json!({
+            "schema": PROJECTION_SCHEMA_VERSION,
+            "session_id": input.session_id,
+            "scope": reported_scope,
+            "scope_omitted": scope_omitted,
+            "coverage": "unavailable",
+            "reason_code": reason,
+            "complete": omitted_tool_count == 0,
+            "protected_tool_count": protected_tool_count,
+            "omitted_tool_count": omitted_tool_count,
+            "executions": executions
+        }));
+        let context = format!(
+            "Aporic state is unavailable. Do not infer prior decisions or approvals.\n<aporic-recorded-data>{data}</aporic-recorded-data>"
+        );
+        if context.len() <= DEFAULT_PROJECTION_LIMIT_BYTES {
+            break context;
         }
-    }));
+        if executions.pop().is_none() {
+            break "Aporic state is unavailable. Do not infer prior decisions or approvals. Projection metadata exceeded the configured byte limit.".into();
+        }
+    };
     SessionStartOutput {
         continue_: true,
         system_message: Some(format!("Aporic commitment state unavailable ({reason}).")),
         hook_specific_output: HookSpecificOutput {
             hook_event_name: "SessionStart",
-            additional_context: format!(
-                "Aporic state is unavailable. Do not infer prior decisions or approvals.\n<aporic-recorded-data>{data}</aporic-recorded-data>"
-            ),
+            additional_context: context,
         },
         projection_report: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::consumption_identity;
+
+    #[test]
+    fn consumption_identity_is_unambiguous_for_colon_containing_ids() {
+        assert_ne!(
+            consumption_identity("a:b", "c"),
+            consumption_identity("a", "b:c")
+        );
     }
 }

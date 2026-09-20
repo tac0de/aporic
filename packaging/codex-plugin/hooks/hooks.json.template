@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${PLUGIN_ROOT}/bin/aporic\" codex-session-start --store \"${PLUGIN_DATA}/aporic/events.jsonl\" --scope __APORIC_SCOPE__ --workspace \"__APORIC_WORKSPACE__\" --protected-tool apply_patch --require-plan",
+            "command": "\"${PLUGIN_ROOT}/bin/aporic\" codex-session-start --store \"${PLUGIN_DATA}/aporic/events.jsonl\" --scope __APORIC_SCOPE__ --workspace \"__APORIC_WORKSPACE__\" --policy \"${PLUGIN_ROOT}/config/policy.json\"",
             "timeout": 5,
             "statusMessage": "Loading Aporic commitment state",
             "additionalContextLimit": 6000
@@ -16,11 +16,11 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "^apply_patch$",
+        "matcher": ".*",
         "hooks": [
           {
             "type": "command",
-            "command": "\"${PLUGIN_ROOT}/bin/aporic\" codex-pre-tool-use --store \"${PLUGIN_DATA}/aporic/events.jsonl\" --scope __APORIC_SCOPE__ --workspace \"__APORIC_WORKSPACE__\" --protected-tool apply_patch --require-plan",
+            "command": "\"${PLUGIN_ROOT}/bin/aporic\" codex-pre-tool-use --store \"${PLUGIN_DATA}/aporic/events.jsonl\" --scope __APORIC_SCOPE__ --workspace \"__APORIC_WORKSPACE__\" --policy \"${PLUGIN_ROOT}/config/policy.json\"",
             "timeout": 5,
             "statusMessage": "Checking Aporic execution gate"
           }

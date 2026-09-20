@@ -102,12 +102,15 @@ fn projects_only_exact_scope_and_labels_data_untrusted() {
     );
     let data = capsule(&output.hook_specific_output.additional_context);
     assert_eq!(data["revision"], 7);
-    assert_eq!(data["schema"], 2);
+    assert_eq!(data["schema"], 3);
     assert_eq!(data["scope"], "repo");
     assert_eq!(data["authenticated_human_authority"], false);
     assert_eq!(data["active_decisions"].as_array().unwrap().len(), 1);
     assert_eq!(data["active_decisions"][0]["id"], "repo-decision");
-    assert_eq!(data["execution"]["status"], "plan_authorization_required");
+    assert_eq!(
+        data["executions"][0]["status"],
+        "plan_authorization_required"
+    );
     assert_eq!(data["budget"]["unit"], "utf8_bytes");
     let report = output.projection_report.unwrap();
     assert_eq!(
@@ -225,7 +228,7 @@ fn unavailable_state_is_not_reported_as_empty_success() {
     let data = capsule(&output.hook_specific_output.additional_context);
     assert_eq!(data["coverage"], "unavailable");
     assert_eq!(data["reason_code"], "STORE_NOT_FOUND");
-    assert_eq!(data["execution"]["status"], "unknown");
+    assert_eq!(data["executions"][0]["status"], "unknown");
 }
 
 #[test]
@@ -274,7 +277,7 @@ fn active_delegations_remain_data_not_authority_claims() {
     assert_eq!(data["coverage"], "observed_only");
     assert_eq!(data["authenticated_human_authority"], false);
     assert_eq!(data["active_delegations"][0]["id"], "delegation-1");
-    assert_eq!(data["execution"]["status"], "allowed");
+    assert_eq!(data["executions"][0]["status"], "allowed");
 }
 
 #[test]
@@ -523,9 +526,12 @@ fn projection_and_pre_tool_gate_agree_and_holds_take_precedence() {
     )
     .unwrap();
     let data = capsule(&projection.hook_specific_output.additional_context);
-    assert_eq!(data["execution"]["status"], "held");
-    assert_eq!(data["execution"]["active_hold_count"], 1);
-    assert_eq!(data["execution"]["matching_plan_authorization_count"], 1);
+    assert_eq!(data["executions"][0]["status"], "held");
+    assert_eq!(data["executions"][0]["active_hold_count"], 1);
+    assert_eq!(
+        data["executions"][0]["matching_plan_authorization_count"],
+        1
+    );
 
     let pre_tool = pre_tool_use_output(&state, &pre_tool_input("apply_patch"), "repo", &policy)
         .unwrap()
@@ -584,7 +590,7 @@ fn later_aporia_does_not_revoke_existing_plan_authorization() {
     )
     .unwrap();
     let data = capsule(&output.hook_specific_output.additional_context);
-    assert_eq!(data["execution"]["status"], "allowed");
+    assert_eq!(data["executions"][0]["status"], "allowed");
     assert_eq!(data["blocked_transition_kinds"][0], "plan_authorize");
 }
 
@@ -614,5 +620,94 @@ fn unavailable_busy_state_is_reported_without_blocking_startup() {
     );
     let data = capsule(&output.hook_specific_output.additional_context);
     assert_eq!(data["reason_code"], "STORE_BUSY");
-    assert_eq!(data["execution"]["status"], "unknown");
+    assert_eq!(data["executions"][0]["status"], "unknown");
+}
+
+#[test]
+fn unavailable_projection_bounds_large_multi_tool_policy() {
+    let tools = (0..200)
+        .map(|index| {
+            (
+                format!("tool-{index:03}-{}", "x".repeat(180)),
+                aporic::policy::ToolPolicy {
+                    require_plan: true,
+                    require_grant: index % 2 == 0,
+                },
+            )
+        })
+        .collect();
+    let policy = GatePolicy::from_document(aporic::policy::PolicyDocument {
+        schema_version: 1,
+        tools,
+    })
+    .unwrap();
+    let output = unavailable_output(
+        &Error::Io(std::io::Error::new(std::io::ErrorKind::NotFound, "missing")),
+        &input(SessionSource::Startup),
+        "repo",
+        &policy,
+    );
+    assert!(
+        output.hook_specific_output.additional_context.len()
+            <= aporic::codex::DEFAULT_PROJECTION_LIMIT_BYTES
+    );
+    let data = capsule(&output.hook_specific_output.additional_context);
+    assert_eq!(data["protected_tool_count"], 200);
+    assert!(data["omitted_tool_count"].as_u64().unwrap() > 0);
+    assert_eq!(data["complete"], false);
+}
+
+#[test]
+fn observed_projection_bounds_large_multi_tool_policy() {
+    let held_tool = format!("tool-199-{}", "x".repeat(180));
+    let tools = (0..200)
+        .map(|index| {
+            (
+                format!("tool-{index:03}-{}", "x".repeat(180)),
+                aporic::policy::ToolPolicy {
+                    require_plan: true,
+                    require_grant: index % 2 == 0,
+                },
+            )
+        })
+        .collect();
+    let policy = GatePolicy::from_document(aporic::policy::PolicyDocument {
+        schema_version: 1,
+        tools,
+    })
+    .unwrap();
+    let mut state = State::default();
+    state.tool_holds.insert(
+        "held-high-tool".into(),
+        ToolHold {
+            id: "held-high-tool".into(),
+            tool_name: held_tool,
+            reason: "preserve omitted hold evidence".into(),
+            scope: "repo".into(),
+            active: true,
+        },
+    );
+    let output = session_start_output(
+        &state,
+        &input(SessionSource::Startup),
+        "repo",
+        &policy,
+        aporic::codex::DEFAULT_PROJECTION_LIMIT_BYTES,
+    )
+    .unwrap();
+    assert!(
+        output.hook_specific_output.additional_context.len()
+            <= aporic::codex::DEFAULT_PROJECTION_LIMIT_BYTES
+    );
+    let data = capsule(&output.hook_specific_output.additional_context);
+    assert_eq!(data["protected_tool_count"], 200);
+    assert!(data["omitted_tool_count"].as_u64().unwrap() > 0);
+    assert_eq!(data["complete"], false);
+    assert!(data["omission_receipt"]["identity"].as_str().is_some());
+    assert_eq!(data["omitted_execution_summary"]["held"], 1);
+    assert_eq!(data["omitted_execution_summary"]["active_hold_count"], 1);
+    assert_eq!(
+        data["omitted_execution_summary"]["tool_count"],
+        data["omitted_tool_count"]
+    );
 }

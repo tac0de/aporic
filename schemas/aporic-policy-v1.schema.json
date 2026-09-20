@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aporic.dev/schema/aporic-policy-v1.json",
+  "title": "Aporic exact-tool policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "tools"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "tools": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 256,
+        "pattern": "^[!-~]{1,256}$"
+      },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["require_plan", "require_grant"],
+        "properties": {
+          "require_plan": { "type": "boolean" },
+          "require_grant": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

@@ -24,7 +24,12 @@
     "cwd": { "type": "string", "minLength": 1 },
     "turn_id": { "type": "string", "minLength": 1 },
     "tool_name": { "type": "string", "minLength": 1 },
-    "tool_use_id": { "type": "string", "minLength": 1 },
+    "tool_use_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256,
+      "description": "Runtime validation enforces a 256 UTF-8 byte limit."
+    },
     "tool_input": true,
     "model": { "type": ["string", "null"] },
     "permission_mode": { "type": ["string", "null"] }

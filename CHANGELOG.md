@@ -2,6 +2,29 @@
 
 All notable changes are documented here. Aporic is experimental; its contracts may change between minor releases.
 
+## 0.2.0 - 2026-09-20
+
+### Added
+
+- Strict JSON multi-tool policy schema with exact-name dispatch.
+- Shared action evaluator for startup projection, preventive checks, and read-only `explain` output.
+- Bounded execution grants with exact JSON input binding and atomic preflight consumption.
+- Structured read-only `doctor` diagnostics.
+- Explicit non-destructive v1-to-v2 event-log migration.
+- Projection schema v3 with multi-tool status and deterministic omission receipt.
+
+### Changed
+
+- Event schema is now v2; old stores require explicit migration.
+- The packaged hook observes all tool names and lets the exact policy decide whether a tool is protected.
+
+### Known limitations
+
+- Grant consumption records admission, not successful tool execution.
+- Exact bound input is persisted and may contain sensitive values.
+- FNV identities are informational and are never authorization evidence.
+- TOML policy support is deferred; v0.2 uses strict JSON without adding a parser dependency.
+
 ## 0.1.0 - 2026-09-20
 
 ### Added
