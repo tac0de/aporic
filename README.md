@@ -1,6 +1,6 @@
 # Aporic
 
-Aporic is an experimental local commitment-state kernel for coding agents. Version `0.3.0` adds one-time global Codex installation with explicit per-project binding while retaining the v0.2 exact-action governance contracts.
+Aporic is an experimental local commitment-state kernel for coding agents. Version `0.3.1` improves source-build setup diagnostics while retaining the v0.3 global Codex installation and exact-action governance contracts.
 
 Repository: [github.com/tac0de/aporic](https://github.com/tac0de/aporic)
 
@@ -8,11 +8,25 @@ Website: [tac0de.github.io/aporic](https://tac0de.github.io/aporic/)
 
 ## Status
 
-`0.3.0` is the current development release. Event schema v2, policy schema v1, project-binding schema v1, and Codex projection schema v3 are independent contracts. Existing v1 stores are rejected until explicitly copied through `migrate`; installed plugins and live stores are not upgraded automatically. Authenticated actors, semantic command interpretation, broad host coverage, and cross-platform plugin binaries are not promised. See [SECURITY.md](SECURITY.md) before relying on Aporic for consequential work.
+`0.3.1` is the current development release. Event schema v2, policy schema v1, project-binding schema v1, and Codex projection schema v3 are independent contracts. Existing v1 stores are rejected until explicitly copied through `migrate`; installed plugins and live stores are not upgraded automatically. Authenticated actors, semantic command interpretation, broad host coverage, prebuilt release artifacts, and cross-platform plugin binaries are not promised. See [SECURITY.md](SECURITY.md) before relying on Aporic for consequential work.
 
 ## Build and verify
 
-Rust 1.89 or newer is required because Aporic uses the standard library's file-locking API.
+Rust 1.89 or newer is required for source builds because Aporic uses the standard library's file-locking API. The packaged plugin runs its bundled binary and does not need `cargo` or `rustc` after it has been built.
+
+Confirm that both toolchain proxies are available before building:
+
+```console
+command -v cargo
+command -v rustc
+rustc --version
+```
+
+Homebrew's keg-only `rustup` package does not place its proxy directory on `PATH`. Add the following line to `~/.zprofile`, then start a new shell:
+
+```sh
+export PATH="/opt/homebrew/opt/rustup/bin:$PATH"
+```
 
 ```console
 cargo build --locked
@@ -101,7 +115,7 @@ Codex plugin installation and hook trust are host state, not repository state. H
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Release history and known limitations are tracked in [CHANGELOG.md](CHANGELOG.md), with the current verification record in [docs/v0.3.0-evaluation.md](docs/v0.3.0-evaluation.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md). Release history and known limitations are tracked in [CHANGELOG.md](CHANGELOG.md), with the current verification record in [docs/v0.3.1-evaluation.md](docs/v0.3.1-evaluation.md).
 
 ## License
 

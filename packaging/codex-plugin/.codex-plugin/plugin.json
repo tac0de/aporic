@@ -1,6 +1,6 @@
 {
   "name": "aporic",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Globally discovers opted-in projects, projects bounded Aporic state, and gates exact configured Codex tools.",
   "author": {
     "name": "Aporic contributors"

@@ -2,6 +2,19 @@
 
 All notable changes are documented here. Aporic is experimental; its contracts may change between minor releases.
 
+## 0.3.1 - 2026-09-20
+
+### Changed
+
+- Source-build documentation now distinguishes build-time Rust requirements from the packaged plugin runtime.
+- The macOS arm64 packager now fails before creating output when `cargo` or `rustc` is unavailable and provides an actionable Homebrew `rustup` PATH diagnostic when detected.
+- Crate and Codex plugin package versions now report `0.3.1`; event, policy, project-binding, and projection schema versions are unchanged.
+
+### Known limitations
+
+- Public prebuilt artifacts are not provided; creating a plugin package still requires a local Rust 1.89-or-newer toolchain.
+- The packaged host remains macOS arm64 only.
+
 ## 0.3.0 - 2026-09-20
 
 ### Added

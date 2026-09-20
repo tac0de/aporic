@@ -11,10 +11,20 @@ output_dir=$1
 case "$(uname -s)-$(uname -m)" in
   Darwin-arm64) ;;
   *)
-    echo "the v0.3.0 plugin package supports macOS arm64 only" >&2
+    echo "the v0.3.1 plugin package supports macOS arm64 only" >&2
     exit 2
     ;;
 esac
+
+if ! command -v cargo >/dev/null 2>&1 || ! command -v rustc >/dev/null 2>&1; then
+  echo "cargo and rustc must be available in PATH to build the Aporic plugin package" >&2
+  if [ -x /opt/homebrew/opt/rustup/bin/cargo ] && [ -x /opt/homebrew/opt/rustup/bin/rustc ]; then
+    echo 'Homebrew rustup detected; add export PATH="/opt/homebrew/opt/rustup/bin:$PATH" to ~/.zprofile, start a new shell, and retry' >&2
+  else
+    echo "install Rust 1.89 or newer with rustup, start a new shell, and retry" >&2
+  fi
+  exit 2
+fi
 
 if [ -e "$output_dir" ]; then
   echo "output directory already exists: $output_dir" >&2
