@@ -1,6 +1,6 @@
 # Contributing
 
-Aporic is an experimental pre-v0.1 project. Small, evidence-backed changes are preferred over broad framework expansion.
+Aporic is an experimental pre-1.0 project. Small, evidence-backed changes are preferred over broad framework expansion.
 
 ## Before changing behavior
 

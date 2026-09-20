@@ -1,6 +1,26 @@
 # Changelog
 
-All notable changes are documented here. Aporic is pre-v0.1; its contracts may change between releases.
+All notable changes are documented here. Aporic is experimental; its contracts may change between minor releases.
+
+## 0.1.0 - 2026-09-20
+
+### Added
+
+- Shared deterministic Codex gate evaluation for startup projection and preventive tool checks.
+- Projection schema v2 with execution status, blocker kinds, exact UTF-8 byte budgeting, and retained/omitted counts.
+- Nonblocking SessionStart reads with explicit busy-state reporting.
+- Reproducible macOS arm64 Codex plugin template and packager.
+
+### Changed
+
+- `codex-session-start` now requires the same `--protected-tool` and optional `--require-plan` policy inputs as `codex-pre-tool-use`.
+- Aporic now reports version `0.1.0`; the append-only event schema remains v1.
+
+### Known limitations
+
+- Projection budgeting is deterministic byte bounding, not tokenizer-aware optimization.
+- The plugin artifact is currently limited to macOS arm64 and one configured tool/workspace/scope.
+- Existing plan authorization remains valid when a later Aporia blocks new authorizations; revocation or a tool hold is required to reclaim execution authority.
 
 ## 0.0.1 - 2026-09-20
 

@@ -1,6 +1,6 @@
 # Aporic
 
-Aporic is an experimental pre-v0.1 local commitment-state kernel for coding agents. The current crate version is `0.0.1`; the slice is deliberately limited to a deterministic Rust core and an append-only JSONL event log.
+Aporic is an experimental local commitment-state kernel for coding agents. Version `0.1.0` combines a deterministic Rust core and append-only JSONL event log with a bounded Codex projection and preventive gate.
 
 Repository: [github.com/tac0de/aporic](https://github.com/tac0de/aporic)
 
@@ -8,7 +8,7 @@ Website: [tac0de.github.io/aporic](https://tac0de.github.io/aporic/)
 
 ## Status
 
-`0.0.1` is a pre-alpha release for evaluation and dogfooding. The event model and CLI work locally and the Codex adapter has been exercised end to end, but compatibility, authenticated actors, broad tool coverage, and portable plugin packaging are not yet promised. See [SECURITY.md](SECURITY.md) before relying on Aporic for consequential work.
+`0.1.0` is an experimental release for evaluation and dogfooding. The event schema remains v1; the independently versioned Codex projection schema is v2. Compatibility, authenticated actors, broad tool coverage, and cross-platform plugin binaries are not yet promised. See [SECURITY.md](SECURITY.md) before relying on Aporic for consequential work.
 
 ## Build and verify
 
@@ -40,7 +40,7 @@ The storage path is explicit because its final user-local location is not yet de
 aporic init --store /path/to/events.jsonl
 aporic status --store /path/to/events.jsonl
 aporic commit --store /path/to/events.jsonl < request.json
-aporic codex-session-start --store /path/to/events.jsonl --scope repo --workspace /absolute/repo < hook-input.json
+aporic codex-session-start --store /path/to/events.jsonl --scope repo --workspace /absolute/repo --protected-tool apply_patch --require-plan < hook-input.json
 aporic codex-pre-tool-use --store /path/to/events.jsonl --scope repo --workspace /absolute/repo --protected-tool apply_patch --require-plan < hook-input.json
 ```
 
@@ -53,7 +53,9 @@ The Codex hook schemas intentionally allow additional host fields and nullable o
 
 `init` creates and syncs a new empty store and refuses to overwrite an existing path.
 
-`codex-session-start` implements only the documented Codex `SessionStart` command-hook response. It projects exact-scope state as bounded, untrusted developer context on startup, resume, clear, and post-compaction `source: "compact"`. A configured workspace must canonically match the hook `cwd`; other workspaces receive only `{ "continue": true }`. It does not authenticate human authority, read transcripts, infer scope from `cwd`, enforce tool calls, or provide prompt-injection immunity. Missing or invalid state is reported as `coverage: "unavailable"` rather than an empty successful capsule.
+`codex-session-start` implements only the documented Codex `SessionStart` command-hook response. It projects exact-scope state as bounded, untrusted developer context on startup, resume, clear, and post-compaction `source: "compact"`. Startup uses a nonblocking store read: missing, invalid, or busy state is reported as `coverage: "unavailable"` rather than an empty successful capsule or a wait. A configured workspace must canonically match the hook `cwd`; other workspaces receive only `{ "continue": true }`. It does not authenticate human authority, read transcripts, infer scope from `cwd`, enforce tool calls, or provide prompt-injection immunity.
+
+Projection schema v2 pins the configured tool, whether a plan is required, the sampled gate status, hold and matching-authorization counts, and transition kinds blocked by open Aporia. The same deterministic gate evaluator drives `SessionStart` and `PreToolUse`; a hold takes precedence over authorization. Detailed decisions, Aporia, delegations, and risks are removed deterministically when needed, with retained/omitted counts and `complete: false`. The complete wrapped context is limited to 6,000 UTF-8 bytes. This is a byte budget, not a tokenizer-level or general Codex token optimization feature. The event-log schema remains v1; see `schemas/aporic-projection-v2.schema.json` for the projection contract.
 
 `codex-pre-tool-use` is the first preventive gate. It interprets no command text or natural language. An active exact-scope `tool_hold_placed` event always denies the configured tool; `tool_hold_released` requires a caller-declared human or evidence actor. With `--require-plan`, the tool also requires an active `plan_authorized` record bound to the exact plan scope, Codex session ID, and tool name. Plans are immutable records with an objective, acceptance checks, and explicit unresolved questions. Authorization can come from a caller-declared human or an agent with an exact active `plan_authorize` delegation; human or evidence actors can revoke it. Open Aporia that explicitly blocks `plan_authorize` prevents authorization.
 
@@ -61,11 +63,19 @@ Unresolved questions are disclosure, not an automatic veto; an authorizer may ac
 
 For the configured protected tool, missing, invalid, or busy state fails closed; unrelated workspaces and tool names exit successfully without hook output. The initial plugin protects only `apply_patch`. Bash, hosted tools, special tool paths, already-running processes, plan quality, and same-user bypasses remain outside this gate. Session-bound authorization is not reused after a new session starts.
 
-## Codex plugin status
+## Codex plugin package
 
-The first local package uses Codex's default `hooks/hooks.json` discovery and invokes the release binary from `PLUGIN_ROOT`. Its append-only store lives under `PLUGIN_DATA`, outside the repository. The installed hooks are deliberately pinned to this repository's canonical path and the `aporic` scope, so enabling the plugin globally does not inject state into other workspaces.
+The local package uses Codex's default `hooks/hooks.json` discovery and invokes the release binary from `PLUGIN_ROOT`. Its append-only store lives under `PLUGIN_DATA`, outside the repository. Generated hooks are pinned to an explicit canonical workspace and scope, so enabling the plugin globally does not inject state into other workspaces.
 
-Codex plugin installation and hook trust are host state, not repository state. Hook definitions are hash-trusted by Codex; changing the packaged command requires a new review. The current local package contains an Apple arm64 binary and is not a portable distribution artifact.
+On macOS arm64, build a fresh installable package into a new directory:
+
+```console
+./scripts/package-codex-plugin.sh /tmp/aporic-plugin /absolute/repo aporic
+```
+
+The template under `packaging/codex-plugin` contains no personal filesystem path. The packager builds the locked release binary, renders the workspace and scope into both hooks, and refuses to overwrite an existing output directory. Validate the generated directory with Codex's plugin validator before installation.
+
+Codex plugin installation and hook trust are host state, not repository state. Hook definitions are hash-trusted by Codex; changing the packaged command requires a new review and a new Codex task to pick up the package. The v0.1 package supports macOS arm64 only and is not a cross-platform distribution artifact.
 
 ## Source standards
 

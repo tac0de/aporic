@@ -2,7 +2,7 @@
 
 ## Project status
 
-Aporic `0.0.x` is an experimental governance kernel, not a hardened security boundary. Do not rely on it as the sole control for untrusted code execution, secrets, production deployment, or access control.
+Aporic `0.1.x` is an experimental governance kernel, not a hardened security boundary. Do not rely on it as the sole control for untrusted code execution, secrets, production deployment, or access control.
 
 ## Current trust boundary
 
@@ -13,7 +13,8 @@ Aporic `0.0.x` is an experimental governance kernel, not a hardened security bou
 - Plan authorization proves that a matching record exists. It does not prove that the plan is good or that a proposed patch semantically follows it.
 - Authorization is checked before a tool runs; it is not atomically bound to the later filesystem effect. State can change between the check and the effect.
 - Successful appends request data synchronization with `sync_data`, but Aporic does not claim power-loss durability: parent-directory metadata is not synchronized and there is no repair, migration, or snapshot mechanism.
-- `SessionStart` projects recorded text as untrusted context. It does not provide prompt-injection immunity or make event contents authoritative instructions.
+- `SessionStart` projects recorded text as untrusted context. Its execution status is a sampled observation at one recorded revision, not permission, and it can become stale before a later tool call. It does not provide prompt-injection immunity or make event contents authoritative instructions.
+- The 6,000-byte projection limit bounds injected UTF-8 bytes; it does not promise a token count, model-cost reduction, or retention of every detailed record. Critical gate status, counts, and blocker kinds are retained while detail omission is explicit.
 - Replay rejects malformed sequences and unsupported schema versions, but it does not rerun the current authorization policy over historical events.
 
 ## Reporting a vulnerability

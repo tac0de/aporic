@@ -1,0 +1,22 @@
+{
+  "name": "aporic",
+  "version": "0.1.0",
+  "description": "Projects bounded Aporic state and gates one configured Codex tool.",
+  "author": {
+    "name": "Aporic contributors"
+  },
+  "repository": "https://github.com/tac0de/aporic",
+  "license": "MIT OR Apache-2.0",
+  "interface": {
+    "displayName": "Aporic",
+    "shortDescription": "Project commitments and gate a tool.",
+    "longDescription": "Loads a bounded, observational Aporic state projection and applies the same exact scope, session, tool, hold, and plan-authorization policy before the configured tool runs.",
+    "developerName": "Aporic contributors",
+    "category": "Developer Tools",
+    "capabilities": [
+      "SessionStart bounded state projection",
+      "PreToolUse plan and hold gate"
+    ],
+    "defaultPrompt": "Show the active Aporic commitment state for this workspace."
+  }
+}

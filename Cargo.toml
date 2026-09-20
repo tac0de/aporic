@@ -1,6 +1,6 @@
 [package]
 name = "aporic"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2024"
 rust-version = "1.89"
 description = "A local commitment-state kernel for coding agents"

@@ -186,3 +186,131 @@ fn protected_tool_fails_closed_for_an_unsupported_stored_schema() {
             .starts_with("APORIC_STORE_INVALID")
     );
 }
+
+#[test]
+fn session_start_reports_the_same_plan_gate_policy() {
+    let workspace = temp_path("session-start-workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+    let store = workspace.join("events.jsonl");
+    assert!(
+        run(&["init", "--store", store.to_str().unwrap()], None)
+            .status
+            .success()
+    );
+    let input = serde_json::json!({
+        "session_id": "session-1",
+        "hook_event_name": "SessionStart",
+        "cwd": workspace,
+        "source": "startup"
+    });
+    let output = run(
+        &[
+            "codex-session-start",
+            "--store",
+            store.to_str().unwrap(),
+            "--scope",
+            "repo",
+            "--workspace",
+            workspace.to_str().unwrap(),
+            "--protected-tool",
+            "apply_patch",
+            "--require-plan",
+        ],
+        Some(&serde_json::to_string(&input).unwrap()),
+    );
+
+    assert!(output.status.success());
+    let response: Value = serde_json::from_slice(&output.stdout).unwrap();
+    let context = response["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .unwrap();
+    let start = context.find("<aporic-recorded-data>").unwrap() + "<aporic-recorded-data>".len();
+    let end = context.find("</aporic-recorded-data>").unwrap();
+    let projection: Value = serde_json::from_str(&context[start..end]).unwrap();
+    assert_eq!(projection["schema"], 2);
+    assert_eq!(projection["budget"]["limit"], 6_000);
+    assert_eq!(
+        projection["execution"]["status"],
+        "plan_authorization_required"
+    );
+}
+
+#[test]
+fn duplicate_protected_tool_option_fails_instead_of_skipping_the_gate() {
+    let workspace = temp_path("duplicate-option-workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+    let store = workspace.join("events.jsonl");
+    assert!(
+        run(&["init", "--store", store.to_str().unwrap()], None)
+            .status
+            .success()
+    );
+    let input = serde_json::json!({
+        "session_id": "session-1",
+        "hook_event_name": "PreToolUse",
+        "cwd": workspace,
+        "turn_id": "turn-1",
+        "tool_name": "apply_patch",
+        "tool_use_id": "tool-use-1",
+        "tool_input": { "patch": "ignored" }
+    });
+    let output = run(
+        &[
+            "codex-pre-tool-use",
+            "--store",
+            store.to_str().unwrap(),
+            "--scope",
+            "repo",
+            "--workspace",
+            workspace.to_str().unwrap(),
+            "--protected-tool",
+            "apply_patch",
+            "--protected-tool",
+            "apply_patch",
+        ],
+        Some(&serde_json::to_string(&input).unwrap()),
+    );
+
+    assert_eq!(output.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("duplicate --protected-tool option"));
+}
+
+#[test]
+fn missing_protected_tool_value_fails_instead_of_skipping_the_gate() {
+    let workspace = temp_path("missing-option-value-workspace");
+    std::fs::create_dir_all(&workspace).unwrap();
+    let store = workspace.join("events.jsonl");
+    assert!(
+        run(&["init", "--store", store.to_str().unwrap()], None)
+            .status
+            .success()
+    );
+    let input = serde_json::json!({
+        "session_id": "session-1",
+        "hook_event_name": "PreToolUse",
+        "cwd": workspace,
+        "turn_id": "turn-1",
+        "tool_name": "apply_patch",
+        "tool_use_id": "tool-use-1",
+        "tool_input": { "patch": "ignored" }
+    });
+    let output = run(
+        &[
+            "codex-pre-tool-use",
+            "--store",
+            store.to_str().unwrap(),
+            "--scope",
+            "repo",
+            "--workspace",
+            workspace.to_str().unwrap(),
+            "--protected-tool",
+            "--require-plan",
+        ],
+        Some(&serde_json::to_string(&input).unwrap()),
+    );
+
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("missing value after --protected-tool")
+    );
+}
