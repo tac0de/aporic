@@ -4,6 +4,8 @@ Aporic is an experimental pre-v0.1 local commitment-state kernel for coding agen
 
 Repository: [github.com/tac0de/aporic](https://github.com/tac0de/aporic)
 
+Website: [tac0de.github.io/aporic](https://tac0de.github.io/aporic/)
+
 ## Status
 
 `0.0.1` is a pre-alpha release for evaluation and dogfooding. The event model and CLI work locally and the Codex adapter has been exercised end to end, but compatibility, authenticated actors, broad tool coverage, and portable plugin packaging are not yet promised. See [SECURITY.md](SECURITY.md) before relying on Aporic for consequential work.

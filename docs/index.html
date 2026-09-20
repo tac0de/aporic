@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'">
+<title>Aporic — Governance Flow</title>
+<style>
+:root { color-scheme: light dark; background: light-dark(#f5f4ef, #090b0f); }
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body { padding: 16px; background: light-dark(#f5f4ef, #090b0f); }
+@media (max-width: 560px) { body { padding: 0; } }
+</style>
+</head>
+<body>
+<div id="aporic-flow" aria-label="Interactive Aporic governance flow">
+  <div class="af-stage">
+    <svg class="af-canvas" viewBox="0 0 1000 540" role="img" aria-labelledby="af-title af-desc">
+      <title id="af-title">Aporic governance flow</title>
+      <desc id="af-desc">A coding request is held until its intent, proof, uncertainty, and authority are explicit, then a bounded code diff is allowed.</desc>
+      <defs>
+        <filter id="af-glow" x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur stdDeviation="6" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <filter id="af-soft" x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur stdDeviation="16"/>
+        </filter>
+        <linearGradient id="af-route-gradient" x1="0" x2="1">
+          <stop offset="0" stop-color="var(--af-violet)"/>
+          <stop offset=".62" stop-color="var(--af-cyan)"/>
+          <stop offset="1" stop-color="var(--af-green)"/>
+        </linearGradient>
+      </defs>
+
+      <text class="af-wordmark" x="42" y="52">APORIC</text>
+
+      <path class="af-route" d="M151 270 H252 M518 270 H606 M694 270 H756"/>
+      <path class="af-route-flow" d="M151 270 H252 M518 270 H606 M694 270 H756"/>
+
+      <g class="af-packet">
+        <circle class="af-packet-halo" cx="164" cy="270" r="22"/>
+        <circle class="af-packet-ring" cx="164" cy="270" r="11"/>
+        <circle class="af-packet-core" cx="164" cy="270" r="5"/>
+      </g>
+
+      <g class="af-request" transform="translate(108 270)">
+        <circle class="af-request-aura" r="63"/>
+        <circle class="af-request-ring" r="40"/>
+        <path class="af-code-mark" d="M-15-8 L-23 0 L-15 8 M15-8 L23 0 L15 8 M5-18 L-5 18"/>
+        <circle class="af-request-pulse pulse-a" r="48"/>
+        <circle class="af-request-pulse pulse-b" r="48"/>
+      </g>
+      <text class="af-section-label" x="108" y="350" text-anchor="middle">REQUEST</text>
+
+      <g class="af-plan">
+        <rect class="af-plan-card" x="252" y="125" width="266" height="290" rx="24"/>
+        <path class="af-plan-fold" d="M466 125 V163 H518"/>
+        <text class="af-card-title" x="282" y="165">PLAN</text>
+        <rect class="af-progress-track" x="282" y="183" width="206" height="3" rx="1.5"/>
+        <rect class="af-progress-fill" x="282" y="183" width="206" height="3" rx="1.5"/>
+
+        <g class="af-plan-row row-intent">
+          <rect x="274" y="205" width="222" height="54" rx="14"/>
+          <circle class="af-row-icon-bg" cx="305" cy="232" r="16"/>
+          <circle class="af-target-outer" cx="305" cy="232" r="8"/>
+          <circle class="af-target-inner" cx="305" cy="232" r="2.5"/>
+          <text class="af-row-label" x="334" y="228">INTENT</text>
+          <text class="af-row-detail" x="334" y="245">what changes</text>
+          <circle class="af-row-state" cx="472" cy="232" r="10"/>
+          <path class="af-row-check" d="M467 232 L471 236 L478 227"/>
+        </g>
+
+        <g class="af-plan-row row-proof">
+          <rect x="274" y="270" width="222" height="54" rx="14"/>
+          <circle class="af-row-icon-bg" cx="305" cy="297" r="16"/>
+          <path class="af-proof-mark" d="M297 297 L303 303 L314 290"/>
+          <text class="af-row-label" x="334" y="293">PROOF</text>
+          <text class="af-row-detail" x="334" y="310">how we know</text>
+          <circle class="af-row-state" cx="472" cy="297" r="10"/>
+          <path class="af-row-check" d="M467 297 L471 301 L478 292"/>
+        </g>
+
+        <g class="af-plan-row row-unknown">
+          <rect x="274" y="335" width="222" height="54" rx="14"/>
+          <circle class="af-row-icon-bg" cx="305" cy="362" r="16"/>
+          <text class="af-question-mark" x="305" y="368" text-anchor="middle">?</text>
+          <text class="af-row-label" x="334" y="358">UNKNOWN</text>
+          <text class="af-row-detail" x="334" y="375">kept explicit</text>
+          <circle class="af-row-state" cx="472" cy="362" r="10"/>
+          <path class="af-row-check" d="M467 362 L471 366 L478 357"/>
+        </g>
+      </g>
+
+      <g class="af-authority">
+        <text class="af-small-label" x="650" y="112" text-anchor="middle">AUTHORITY</text>
+        <g class="af-authority-option human" transform="translate(616 148)">
+          <rect x="-28" y="-22" width="56" height="44" rx="14"/>
+          <circle class="af-human-head" cy="-6" r="5"/>
+          <path class="af-human-body" d="M-10 12 C-9 2 9 2 10 12"/>
+        </g>
+        <g class="af-authority-option agent" transform="translate(684 148)">
+          <rect x="-28" y="-22" width="56" height="44" rx="14"/>
+          <path class="af-agent-mark" d="M0-12 L3-4 L11 0 L3 4 L0 12 L-3 4 L-11 0 L-3-4 Z"/>
+          <circle class="af-agent-core" r="2.4"/>
+        </g>
+        <text class="af-authority-label" x="616" y="184" text-anchor="middle">HUMAN</text>
+        <text class="af-authority-label" x="684" y="184" text-anchor="middle">AGENT</text>
+
+        <g class="af-lock" transform="translate(650 270)">
+          <circle class="af-lock-aura" r="58"/>
+          <circle class="af-lock-ring" r="43"/>
+          <path class="af-shackle closed" d="M-14-3 V-14 A14 14 0 0 1 14-14 V-3"/>
+          <path class="af-shackle open" d="M-14-3 V-14 A14 14 0 0 1 12-21"/>
+          <rect class="af-lock-body" x="-21" y="-5" width="42" height="31" rx="9"/>
+          <circle class="af-keyhole" cy="8" r="4"/>
+          <path class="af-key-stem" d="M0 11 V18"/>
+        </g>
+        <text class="af-section-label" x="650" y="350" text-anchor="middle">GATE</text>
+      </g>
+
+      <g class="af-change">
+        <rect class="af-change-card" x="756" y="184" width="202" height="172" rx="20"/>
+        <circle class="af-window-dot" cx="780" cy="207" r="4"/>
+        <circle class="af-window-dot" cx="794" cy="207" r="4"/>
+        <circle class="af-window-dot" cx="808" cy="207" r="4"/>
+        <path class="af-code-neutral" d="M782 242 H848 M782 266 H888 M782 290 H838"/>
+        <g class="af-diff">
+          <path class="af-diff-plus" d="M786 322 V338 M778 330 H794"/>
+          <path class="af-diff-line" d="M810 330 H918"/>
+        </g>
+      </g>
+      <text class="af-section-label" x="857" y="388" text-anchor="middle">CODE DIFF</text>
+
+      <g class="af-reset" transform="translate(932 46)">
+        <rect x="-38" y="-18" width="76" height="36" rx="12"/>
+        <text y="4" text-anchor="middle">RESET</text>
+      </g>
+    </svg>
+
+    <svg class="af-mobile-canvas" viewBox="0 0 390 820" role="img" aria-label="Aporic governance flow in a vertical mobile layout">
+      <text class="af-wordmark" x="24" y="37">APORIC</text>
+      <g class="af-reset mobile-reset" transform="translate(338 32)">
+        <rect x="-34" y="-16" width="68" height="32" rx="11"/>
+        <text y="4" text-anchor="middle">RESET</text>
+      </g>
+
+      <path class="af-route" d="M195 128 V158 M195 462 V486 M195 574 V652"/>
+      <path class="af-route-flow" d="M195 128 V158 M195 462 V486 M195 574 V652"/>
+      <g class="af-mobile-packet">
+        <circle class="af-packet-halo" cx="195" cy="132" r="20"/>
+        <circle class="af-packet-ring" cx="195" cy="132" r="10"/>
+        <circle class="af-packet-core" cx="195" cy="132" r="4.5"/>
+      </g>
+
+      <g class="af-request" transform="translate(195 92)">
+        <circle class="af-request-aura" r="48"/>
+        <circle class="af-request-ring" r="31"/>
+        <path class="af-code-mark" d="M-11-6 L-17 0 L-11 6 M11-6 L17 0 L11 6 M4-14 L-4 14"/>
+      </g>
+      <text class="af-section-label" x="195" y="142" text-anchor="middle">REQUEST</text>
+
+      <g class="af-plan mobile-plan">
+        <rect class="af-plan-card" x="20" y="158" width="350" height="304" rx="22"/>
+        <text class="af-card-title" x="44" y="193">PLAN</text>
+        <rect class="af-progress-track" x="44" y="210" width="302" height="3" rx="1.5"/>
+        <rect class="af-progress-fill" x="44" y="210" width="302" height="3" rx="1.5"/>
+
+        <g class="af-plan-row row-intent">
+          <rect x="36" y="228" width="318" height="60" rx="14"/>
+          <circle class="af-row-icon-bg" cx="70" cy="258" r="16"/>
+          <circle class="af-target-outer" cx="70" cy="258" r="8"/>
+          <circle class="af-target-inner" cx="70" cy="258" r="2.5"/>
+          <text class="af-row-label" x="99" y="254">INTENT</text>
+          <text class="af-row-detail" x="99" y="272">what changes</text>
+          <circle class="af-row-state" cx="326" cy="258" r="10"/>
+          <path class="af-row-check" d="M321 258 L325 262 L332 253"/>
+        </g>
+
+        <g class="af-plan-row row-proof">
+          <rect x="36" y="298" width="318" height="60" rx="14"/>
+          <circle class="af-row-icon-bg" cx="70" cy="328" r="16"/>
+          <path class="af-proof-mark" d="M62 328 L68 334 L79 321"/>
+          <text class="af-row-label" x="99" y="324">PROOF</text>
+          <text class="af-row-detail" x="99" y="342">how we know</text>
+          <circle class="af-row-state" cx="326" cy="328" r="10"/>
+          <path class="af-row-check" d="M321 328 L325 332 L332 323"/>
+        </g>
+
+        <g class="af-plan-row row-unknown">
+          <rect x="36" y="368" width="318" height="60" rx="14"/>
+          <circle class="af-row-icon-bg" cx="70" cy="398" r="16"/>
+          <text class="af-question-mark" x="70" y="404" text-anchor="middle">?</text>
+          <text class="af-row-label" x="99" y="394">UNKNOWN</text>
+          <text class="af-row-detail" x="99" y="412">kept explicit</text>
+          <circle class="af-row-state" cx="326" cy="398" r="10"/>
+          <path class="af-row-check" d="M321 398 L325 402 L332 393"/>
+        </g>
+      </g>
+
+      <g class="af-authority mobile-authority">
+        <text class="af-small-label" x="195" y="492" text-anchor="middle">AUTHORITY</text>
+        <g class="af-authority-option human" transform="translate(160 528)">
+          <rect x="-28" y="-22" width="56" height="44" rx="14"/>
+          <circle class="af-human-head" cy="-6" r="5"/>
+          <path class="af-human-body" d="M-10 12 C-9 2 9 2 10 12"/>
+        </g>
+        <g class="af-authority-option agent" transform="translate(230 528)">
+          <rect x="-28" y="-22" width="56" height="44" rx="14"/>
+          <path class="af-agent-mark" d="M0-12 L3-4 L11 0 L3 4 L0 12 L-3 4 L-11 0 L-3-4 Z"/>
+          <circle class="af-agent-core" r="2.4"/>
+        </g>
+        <text class="af-authority-label" x="160" y="562" text-anchor="middle">HUMAN</text>
+        <text class="af-authority-label" x="230" y="562" text-anchor="middle">AGENT</text>
+        <g class="af-lock" transform="translate(195 614)">
+          <circle class="af-lock-aura" r="50"/>
+          <circle class="af-lock-ring" r="37"/>
+          <path class="af-shackle closed" d="M-12-3 V-13 A12 12 0 0 1 12-13 V-3"/>
+          <path class="af-shackle open" d="M-12-3 V-13 A12 12 0 0 1 10-19"/>
+          <rect class="af-lock-body" x="-18" y="-5" width="36" height="28" rx="8"/>
+          <circle class="af-keyhole" cy="7" r="3.5"/>
+          <path class="af-key-stem" d="M0 10 V16"/>
+        </g>
+      </g>
+
+      <g class="af-change mobile-change">
+        <rect class="af-change-card" x="34" y="670" width="322" height="116" rx="18"/>
+        <text class="af-card-title" x="56" y="700">CODE DIFF</text>
+        <path class="af-code-neutral" d="M58 724 H146 M58 745 H190"/>
+        <g class="af-diff">
+          <path class="af-diff-plus" d="M63 762 V778 M55 770 H71"/>
+          <path class="af-diff-line" d="M84 770 H314"/>
+        </g>
+      </g>
+    </svg>
+
+    <button class="af-hit af-hit-request cursor-interaction" type="button" aria-label="Attempt code change"></button>
+    <button class="af-hit af-hit-intent cursor-interaction" type="button" aria-label="Set plan intent"></button>
+    <button class="af-hit af-hit-proof cursor-interaction" type="button" aria-label="Set plan proof"></button>
+    <button class="af-hit af-hit-unknown cursor-interaction" type="button" aria-label="Record plan uncertainty"></button>
+    <button class="af-hit af-hit-human cursor-interaction" type="button" aria-label="Authorize as human"></button>
+    <button class="af-hit af-hit-agent cursor-interaction" type="button" aria-label="Authorize as delegated agent"></button>
+    <button class="af-hit af-hit-reset cursor-interaction" type="button" aria-label="Reset demonstration"></button>
+    <button class="af-mobile-hit af-mobile-hit-request cursor-interaction" type="button" aria-label="Attempt code change"></button>
+    <button class="af-mobile-hit af-mobile-hit-intent cursor-interaction" type="button" aria-label="Set plan intent"></button>
+    <button class="af-mobile-hit af-mobile-hit-proof cursor-interaction" type="button" aria-label="Set plan proof"></button>
+    <button class="af-mobile-hit af-mobile-hit-unknown cursor-interaction" type="button" aria-label="Record plan uncertainty"></button>
+    <button class="af-mobile-hit af-mobile-hit-human cursor-interaction" type="button" aria-label="Authorize as human"></button>
+    <button class="af-mobile-hit af-mobile-hit-agent cursor-interaction" type="button" aria-label="Authorize as delegated agent"></button>
+    <button class="af-mobile-hit af-mobile-hit-reset cursor-interaction" type="button" aria-label="Reset demonstration"></button>
+    <a class="af-github" href="https://github.com/tac0de/aporic" target="_blank" rel="noopener noreferrer" aria-label="Open the Aporic GitHub repository">GITHUB ↗</a>
+    <div class="af-status" aria-live="polite">PLAN REQUIRED</div>
+  </div>
+</div>
+
+<style>
+#aporic-flow {
+  --af-bg: light-dark(#f5f4ef, #090b0f);
+  --af-panel: light-dark(#ffffff, #11141a);
+  --af-panel-soft: light-dark(#efede6, #171a21);
+  --af-ink: light-dark(#16181d, #f1f2f5);
+  --af-muted: light-dark(#777a81, #787d88);
+  --af-faint: light-dark(#d9d7cf, #2b2f38);
+  --af-violet: light-dark(#6557d9, #a99cff);
+  --af-cyan: light-dark(#087f88, #63dbe1);
+  --af-amber: light-dark(#a96a11, #f0b75a);
+  --af-red: light-dark(#b93b45, #ff6a75);
+  --af-green: light-dark(#168157, #54dda2);
+  width: 100%;
+  color-scheme: light dark;
+}
+#aporic-flow .af-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1000 / 540;
+  min-height: 340px;
+  overflow: hidden;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 48% 48%, color-mix(in srgb, var(--af-violet) 7%, transparent), transparent 33%),
+    linear-gradient(color-mix(in srgb, var(--af-ink) 2.3%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--af-ink) 2.3%, transparent) 1px, transparent 1px),
+    var(--af-bg);
+  background-size: auto, 44px 44px, 44px 44px, auto;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--af-ink) 8%, transparent);
+}
+#aporic-flow .af-canvas { width: 100%; height: 100%; display: block; }
+#aporic-flow .af-mobile-canvas { display: none; width: 100%; height: 100%; }
+#aporic-flow .af-wordmark { fill: var(--af-ink); font: 500 14px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .24em; }
+#aporic-flow .af-section-label,
+#aporic-flow .af-small-label { fill: var(--af-muted); font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .14em; }
+#aporic-flow .af-card-title { fill: var(--af-ink); font: 500 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .16em; }
+#aporic-flow .af-row-label { fill: var(--af-ink); font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; }
+#aporic-flow .af-row-detail { fill: var(--af-muted); font: 400 11px/1 ui-sans-serif, system-ui, sans-serif; }
+#aporic-flow .af-authority-label { fill: var(--af-muted); font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .08em; }
+
+#aporic-flow .af-route { fill: none; stroke: var(--af-faint); stroke-width: 1.5; }
+#aporic-flow .af-route-flow { fill: none; stroke: url(#af-route-gradient); stroke-width: 2; stroke-dasharray: 2 13; stroke-linecap: round; opacity: .34; animation: af-route 6s linear infinite; }
+
+#aporic-flow .af-request-aura { fill: color-mix(in srgb, var(--af-violet) 8%, transparent); filter: url(#af-soft); }
+#aporic-flow .af-request-ring { fill: var(--af-panel); stroke: color-mix(in srgb, var(--af-violet) 72%, var(--af-muted)); stroke-width: 2; }
+#aporic-flow .af-code-mark { fill: none; stroke: var(--af-violet); stroke-width: 2.7; stroke-linecap: round; stroke-linejoin: round; }
+#aporic-flow .af-request-pulse { fill: none; stroke: var(--af-violet); stroke-width: 1.5; opacity: 0; animation: af-pulse 3.8s ease-out infinite; }
+#aporic-flow .pulse-b { animation-delay: 1.9s; }
+
+#aporic-flow .af-plan-card { fill: color-mix(in srgb, var(--af-panel) 92%, transparent); stroke: var(--af-faint); stroke-width: 1.5; }
+#aporic-flow .af-plan-fold { fill: none; stroke: var(--af-faint); stroke-width: 1.5; }
+#aporic-flow .af-progress-track { fill: var(--af-faint); }
+#aporic-flow .af-progress-fill { fill: var(--af-violet); transform: scaleX(0); transform-origin: 282px 184.5px; transition: transform .45s cubic-bezier(.2,.8,.2,1), fill .3s; }
+#aporic-flow.plan-1 .af-progress-fill { transform: scaleX(.333); }
+#aporic-flow.plan-2 .af-progress-fill { transform: scaleX(.666); }
+#aporic-flow.plan-3 .af-progress-fill { transform: scaleX(1); fill: var(--af-cyan); }
+
+#aporic-flow .af-plan-row > rect { fill: var(--af-panel-soft); stroke: transparent; stroke-width: 1.5; transition: fill .25s, stroke .25s, opacity .25s; }
+#aporic-flow .af-plan-row { opacity: .58; transition: opacity .3s, filter .3s; }
+#aporic-flow .af-plan-row:hover { opacity: .86; }
+#aporic-flow.plan-0 .row-intent > rect { animation: af-plan-hint 3.6s ease-in-out infinite; }
+#aporic-flow.plan-0 .row-proof > rect { animation: af-plan-hint 3.6s 1.2s ease-in-out infinite; }
+#aporic-flow.plan-0 .row-unknown > rect { animation: af-plan-hint 3.6s 2.4s ease-in-out infinite; }
+#aporic-flow .af-row-icon-bg { fill: var(--af-panel); stroke: var(--af-faint); stroke-width: 1.5; }
+#aporic-flow .af-target-outer { fill: none; stroke: var(--af-violet); stroke-width: 1.8; }
+#aporic-flow .af-target-inner { fill: var(--af-violet); }
+#aporic-flow .af-proof-mark { fill: none; stroke: var(--af-cyan); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+#aporic-flow .af-question-mark { fill: var(--af-amber); font: 500 20px/1 ui-sans-serif, system-ui, sans-serif; }
+#aporic-flow .af-row-state { fill: transparent; stroke: var(--af-faint); stroke-width: 1.5; }
+#aporic-flow .af-row-check { fill: none; stroke: var(--af-panel); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
+#aporic-flow.has-intent .row-intent,
+#aporic-flow.has-proof .row-proof,
+#aporic-flow.has-unknown .row-unknown { opacity: 1; filter: drop-shadow(0 0 8px color-mix(in srgb, var(--af-violet) 12%, transparent)); }
+#aporic-flow.has-intent .row-intent > rect,
+#aporic-flow.has-proof .row-proof > rect { stroke: color-mix(in srgb, var(--af-cyan) 45%, var(--af-faint)); }
+#aporic-flow.has-unknown .row-unknown > rect { stroke: color-mix(in srgb, var(--af-amber) 58%, var(--af-faint)); }
+#aporic-flow.has-intent .row-intent .af-row-state,
+#aporic-flow.has-proof .row-proof .af-row-state { fill: var(--af-cyan); stroke: var(--af-cyan); }
+#aporic-flow.has-unknown .row-unknown .af-row-state { fill: var(--af-amber); stroke: var(--af-amber); }
+#aporic-flow.has-intent .row-intent .af-row-check,
+#aporic-flow.has-proof .row-proof .af-row-check,
+#aporic-flow.has-unknown .row-unknown .af-row-check { opacity: 1; }
+
+#aporic-flow .af-authority-option rect { fill: var(--af-panel); stroke: var(--af-faint); stroke-width: 1.5; transition: stroke .25s, fill .25s; }
+#aporic-flow .af-authority-option { color: var(--af-muted); opacity: .46; transition: opacity .25s, filter .25s; }
+#aporic-flow.is-ready .af-authority-option { opacity: 1; }
+#aporic-flow .af-human-head { fill: currentColor; }
+#aporic-flow .af-human-body { fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; }
+#aporic-flow .af-agent-mark { fill: var(--af-violet); }
+#aporic-flow .af-agent-core { fill: var(--af-panel); }
+#aporic-flow.is-authorized .af-authority-option.is-selected { filter: url(#af-glow); color: var(--af-green); }
+#aporic-flow.is-authorized .af-authority-option.is-selected rect { stroke: var(--af-green); fill: color-mix(in srgb, var(--af-green) 9%, var(--af-panel)); }
+
+#aporic-flow .af-lock-aura { fill: color-mix(in srgb, var(--af-violet) 6%, transparent); filter: url(#af-soft); }
+#aporic-flow .af-lock-ring { fill: var(--af-panel); stroke: var(--af-faint); stroke-width: 1.5; }
+#aporic-flow .af-shackle { fill: none; stroke: var(--af-muted); stroke-width: 4; stroke-linecap: round; transition: opacity .25s; }
+#aporic-flow .af-shackle.open { opacity: 0; stroke: var(--af-green); }
+#aporic-flow .af-lock-body { fill: var(--af-panel-soft); stroke: var(--af-muted); stroke-width: 1.5; transition: stroke .25s, fill .25s; }
+#aporic-flow .af-keyhole { fill: var(--af-muted); }
+#aporic-flow .af-key-stem { fill: none; stroke: var(--af-muted); stroke-width: 3; stroke-linecap: round; }
+#aporic-flow.is-ready .af-lock-ring { stroke: color-mix(in srgb, var(--af-cyan) 55%, var(--af-faint)); }
+#aporic-flow.is-authorized .af-shackle.closed { opacity: 0; }
+#aporic-flow.is-authorized .af-shackle.open { opacity: 1; }
+#aporic-flow.is-authorized .af-lock-body { fill: color-mix(in srgb, var(--af-green) 12%, var(--af-panel)); stroke: var(--af-green); }
+#aporic-flow.is-authorized .af-keyhole { fill: var(--af-green); }
+#aporic-flow.is-authorized .af-key-stem { stroke: var(--af-green); }
+#aporic-flow.is-rejected .af-lock-ring { animation: af-reject .55s ease; stroke: var(--af-red); }
+
+#aporic-flow .af-change-card { fill: color-mix(in srgb, var(--af-panel) 94%, transparent); stroke: var(--af-faint); stroke-width: 1.5; transition: stroke .35s, filter .45s; }
+#aporic-flow .af-window-dot { fill: var(--af-faint); }
+#aporic-flow .af-code-neutral { fill: none; stroke: var(--af-muted); stroke-width: 8; stroke-linecap: round; opacity: .42; }
+#aporic-flow .af-diff { opacity: .16; transition: opacity .35s, filter .35s; }
+#aporic-flow .af-diff-plus { fill: none; stroke: var(--af-green); stroke-width: 3; stroke-linecap: round; }
+#aporic-flow .af-diff-line { fill: none; stroke: var(--af-green); stroke-width: 8; stroke-linecap: round; stroke-dasharray: 108; stroke-dashoffset: 108; }
+#aporic-flow.is-complete .af-diff { opacity: 1; filter: url(#af-glow); }
+#aporic-flow.is-complete .af-diff-line { animation: af-write .7s cubic-bezier(.2,.8,.2,1) forwards; }
+#aporic-flow.is-complete .af-change-card { stroke: color-mix(in srgb, var(--af-green) 64%, var(--af-faint)); filter: drop-shadow(0 0 12px color-mix(in srgb, var(--af-green) 12%, transparent)); }
+
+#aporic-flow .af-packet { opacity: 0; pointer-events: none; }
+#aporic-flow.is-travelling .af-packet { opacity: 1; }
+#aporic-flow .af-packet-halo { fill: color-mix(in srgb, var(--af-violet) 18%, transparent); filter: url(#af-soft); }
+#aporic-flow .af-packet-ring { fill: none; stroke: var(--af-violet); stroke-width: 1.5; filter: url(#af-glow); }
+#aporic-flow .af-packet-core { fill: var(--af-violet); }
+#aporic-flow.is-passing .af-packet-ring { stroke: var(--af-green); }
+#aporic-flow.is-passing .af-packet-core { fill: var(--af-green); }
+
+#aporic-flow .af-reset rect { fill: var(--af-panel); stroke: var(--af-faint); stroke-width: 1.5; }
+#aporic-flow .af-reset text { fill: var(--af-muted); font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; }
+#aporic-flow .af-reset:hover rect { stroke: var(--af-ink); }
+#aporic-flow .af-reset:hover text { fill: var(--af-ink); }
+#aporic-flow .af-status { position: absolute; left: 28px; bottom: 22px; color: var(--af-muted); font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; }
+#aporic-flow .af-github { position: absolute; right: 12%; top: 6.4%; color: var(--af-muted); font: 500 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; text-decoration: none; transition: color .2s; }
+#aporic-flow .af-github:hover, #aporic-flow .af-github:focus { color: var(--af-ink); text-decoration: underline; text-underline-offset: 4px; }
+
+#aporic-flow .af-hit { position: absolute; border: 0; background: transparent; padding: 0; }
+#aporic-flow .af-hit-request { left: 4.5%; top: 38%; width: 12.5%; height: 24%; }
+#aporic-flow .af-hit-intent { left: 27.4%; top: 38%; width: 22.2%; height: 10%; }
+#aporic-flow .af-hit-proof { left: 27.4%; top: 50%; width: 22.2%; height: 10%; }
+#aporic-flow .af-hit-unknown { left: 27.4%; top: 62%; width: 22.2%; height: 10%; }
+#aporic-flow .af-hit-human { left: 58.8%; top: 23%; width: 5.6%; height: 9%; }
+#aporic-flow .af-hit-agent { left: 65.6%; top: 23%; width: 5.6%; height: 9%; }
+#aporic-flow .af-hit-reset { right: 3%; top: 5%; width: 8%; height: 8%; }
+#aporic-flow .af-mobile-hit { display: none; position: absolute; border: 0; background: transparent; padding: 0; }
+
+@keyframes af-route { to { stroke-dashoffset: -120; } }
+@keyframes af-pulse { 0% { transform: scale(.72); opacity: .5; } 72%,100% { transform: scale(1.55); opacity: 0; } }
+@keyframes af-reject { 0%,100% { transform: translateX(0); } 28% { transform: translateX(-5px); } 56% { transform: translateX(5px); } 78% { transform: translateX(-2px); } }
+@keyframes af-write { to { stroke-dashoffset: 0; } }
+@keyframes af-plan-hint { 0%,72%,100% { stroke: transparent; } 12%,32% { stroke: color-mix(in srgb, var(--af-violet) 48%, var(--af-faint)); } }
+@media (max-width: 560px) {
+  #aporic-flow .af-stage { aspect-ratio: 390 / 820; min-height: 0; border-radius: 20px; }
+  #aporic-flow .af-canvas, #aporic-flow .af-hit { display: none; }
+  #aporic-flow .af-mobile-canvas, #aporic-flow .af-mobile-hit { display: block; }
+  #aporic-flow .mobile-plan .af-progress-fill { transform-origin: 44px 211.5px; }
+  #aporic-flow .mobile-change .af-diff-line { stroke-dasharray: 230; stroke-dashoffset: 230; }
+  #aporic-flow .af-mobile-packet { opacity: 0; pointer-events: none; }
+  #aporic-flow.is-travelling .af-mobile-packet { opacity: 1; }
+  #aporic-flow .af-mobile-hit-request { left: 39%; top: 6.5%; width: 22%; height: 10%; }
+  #aporic-flow .af-mobile-hit-intent { left: 9%; top: 27.8%; width: 82%; height: 7.4%; }
+  #aporic-flow .af-mobile-hit-proof { left: 9%; top: 36.3%; width: 82%; height: 7.4%; }
+  #aporic-flow .af-mobile-hit-unknown { left: 9%; top: 44.8%; width: 82%; height: 7.4%; }
+  #aporic-flow .af-mobile-hit-human { left: 33.8%; top: 61.7%; width: 14.5%; height: 5.8%; }
+  #aporic-flow .af-mobile-hit-agent { left: 51.8%; top: 61.7%; width: 14.5%; height: 5.8%; }
+  #aporic-flow .af-mobile-hit-reset { right: 4%; top: 1.9%; width: 18%; height: 4.5%; }
+  #aporic-flow .af-github { right: 26%; top: 2.8%; }
+  #aporic-flow .af-status { left: 20px; bottom: 10px; }
+}
+@media (prefers-reduced-motion: reduce) { #aporic-flow * { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+</style>
+
+<script>
+(() => {
+  const root = document.getElementById('aporic-flow');
+  const status = root.querySelector('.af-status');
+  const packet = [...root.querySelectorAll('.af-packet circle')];
+  const mobilePacket = [...root.querySelectorAll('.af-mobile-packet circle')];
+  const state = { intent: false, proof: false, unknown: false, authority: null };
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let epoch = 0;
+
+  const save = () => {
+    const pending = window.openai?.setWidgetState?.({
+      modelContent: { concept: 'governance-flow', ...state },
+      privateContent: null
+    });
+    pending?.catch(() => {});
+  };
+
+  const count = () => Number(state.intent) + Number(state.proof) + Number(state.unknown);
+  const placePacket = (x, mobileY) => {
+    packet.forEach(node => node.setAttribute('cx', String(x)));
+    mobilePacket.forEach(node => node.setAttribute('cy', String(mobileY)));
+  };
+  const pause = ms => new Promise(resolve => setTimeout(resolve, reduced ? 1 : ms));
+  const movePacket = (from, to, mobileFrom, mobileTo, duration, currentEpoch) => new Promise(resolve => {
+    if (reduced) { placePacket(to, mobileTo); resolve(currentEpoch === epoch); return; }
+    const start = performance.now();
+    const tick = now => {
+      if (currentEpoch !== epoch) { resolve(false); return; }
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 4);
+      placePacket(
+        from + (to - from) * eased,
+        mobileFrom + (mobileTo - mobileFrom) * eased
+      );
+      if (t < 1) requestAnimationFrame(tick); else resolve(true);
+    };
+    requestAnimationFrame(tick);
+  });
+
+  const render = () => {
+    root.classList.toggle('has-intent', state.intent);
+    root.classList.toggle('has-proof', state.proof);
+    root.classList.toggle('has-unknown', state.unknown);
+    root.classList.remove('plan-0', 'plan-1', 'plan-2', 'plan-3');
+    root.classList.add(`plan-${count()}`);
+    const ready = count() === 3;
+    root.classList.toggle('is-ready', ready);
+    root.classList.toggle('is-authorized', ready && !!state.authority);
+    root.querySelectorAll('.human').forEach(node => node.classList.toggle('is-selected', state.authority === 'human'));
+    root.querySelectorAll('.agent').forEach(node => node.classList.toggle('is-selected', state.authority === 'agent'));
+  };
+
+  const attempt = async () => {
+    const currentEpoch = ++epoch;
+    root.classList.remove('is-rejected', 'is-complete', 'is-passing');
+    placePacket(164, 132);
+    root.classList.add('is-travelling');
+    if (!await movePacket(164, 235, 132, 151, 430, currentEpoch)) return;
+    if (!(count() === 3 && state.authority)) {
+      root.classList.add('is-rejected');
+      status.textContent = count() < 3 ? `PLAN ${count()}/3` : 'AUTHORITY REQUIRED';
+      await pause(420);
+      root.classList.remove('is-rejected');
+      await movePacket(235, 164, 151, 132, 360, currentEpoch);
+      if (currentEpoch === epoch) root.classList.remove('is-travelling');
+      return;
+    }
+    root.classList.add('is-passing');
+    if (!await movePacket(235, 740, 151, 654, 920, currentEpoch)) return;
+    root.classList.add('is-complete');
+    status.textContent = 'CHANGE ALLOWED';
+    await pause(360);
+    if (currentEpoch === epoch) root.classList.remove('is-travelling', 'is-passing');
+  };
+
+  const setPlan = key => {
+    if (state[key]) return;
+    ++epoch;
+    root.classList.remove('is-travelling', 'is-passing', 'is-complete', 'is-rejected');
+    state[key] = true;
+    state.authority = null;
+    render(); save();
+    status.textContent = count() === 3 ? 'PLAN COMPLETE · AUTHORIZE' : `PLAN ${count()}/3`;
+  };
+
+  const authorize = async kind => {
+    if (count() !== 3) { attempt(); return; }
+    state.authority = kind;
+    render(); save();
+    status.textContent = 'AUTHORIZED';
+    await pause(420);
+    attempt();
+  };
+
+  const reset = () => {
+    ++epoch;
+    state.intent = state.proof = state.unknown = false;
+    state.authority = null;
+    root.className = '';
+    placePacket(164, 132);
+    render(); save();
+    status.textContent = 'PLAN REQUIRED';
+  };
+
+  root.querySelector('.af-hit-request').addEventListener('click', attempt);
+  root.querySelector('.af-hit-intent').addEventListener('click', () => setPlan('intent'));
+  root.querySelector('.af-hit-proof').addEventListener('click', () => setPlan('proof'));
+  root.querySelector('.af-hit-unknown').addEventListener('click', () => setPlan('unknown'));
+  root.querySelector('.af-hit-human').addEventListener('click', () => authorize('human'));
+  root.querySelector('.af-hit-agent').addEventListener('click', () => authorize('agent'));
+  root.querySelector('.af-hit-reset').addEventListener('click', reset);
+  root.querySelector('.af-mobile-hit-request').addEventListener('click', attempt);
+  root.querySelector('.af-mobile-hit-intent').addEventListener('click', () => setPlan('intent'));
+  root.querySelector('.af-mobile-hit-proof').addEventListener('click', () => setPlan('proof'));
+  root.querySelector('.af-mobile-hit-unknown').addEventListener('click', () => setPlan('unknown'));
+  root.querySelector('.af-mobile-hit-human').addEventListener('click', () => authorize('human'));
+  root.querySelector('.af-mobile-hit-agent').addEventListener('click', () => authorize('agent'));
+  root.querySelector('.af-mobile-hit-reset').addEventListener('click', reset);
+
+  render();
+  setTimeout(attempt, 700);
+})();
+</script>
+
+</body>
+</html>
