@@ -1,8 +1,8 @@
 use crate::governance::{Action, ActionEvaluation, GateStatus, evaluate_action, input_identity};
 use crate::policy::PolicyDocument;
 use crate::{
-    AcceptedRisk, Actor, ActorKind, Aporia, CommitRequest, Decision, Delegation, Error, Event,
-    State, TransitionKind,
+    AcceptedRisk, ActionOutcome, Actor, ActorKind, Aporia, Checkpoint, Claim, CommitRequest,
+    Decision, Delegation, EpistemicStatus, Error, Event, State, TransitionKind,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -15,7 +15,7 @@ pub const MAX_TURN_ID_BYTES: usize = 256;
 pub const MAX_TOOL_NAME_BYTES: usize = 256;
 pub const MAX_TOOL_USE_ID_BYTES: usize = 256;
 pub const MAX_USER_PROMPT_HOOK_INPUT_BYTES: usize = 1_048_576;
-pub const PROJECTION_SCHEMA_VERSION: u32 = 3;
+pub const PROJECTION_SCHEMA_VERSION: u32 = 4;
 pub const INTENT_FIDELITY_LIMIT_BYTES: usize = 1_200;
 
 const INTENT_FIDELITY_CONTEXT: &str = "Aporic Intent Fidelity contract v1. Interpret the current request before acting. Preserve explicit actor, target, exclusions, negation, conditions, sequence, uncertainty, authorization boundaries, and exact technical strings. Classify material fields as explicit, inferred, or unknown; never promote inferred or unknown content to human approval. Reuse clear nearby context and treat a correction as replacing only the corrected field. A short confirmation covers only the immediately preceding concrete proposition. If multiple plausible interpretations would materially change scope, permissions, deletion, publication, cost, security, or the core result, ask one concise question and, when Aporic governance applies, record a blocking Aporia before plan authorization. This advisory does not authenticate authority and never grants tool permission; PreToolUse remains authoritative for configured tools.";
@@ -185,6 +185,67 @@ impl PreToolUseInput {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+pub struct PostToolUseInput {
+    pub session_id: String,
+    pub hook_event_name: String,
+    pub cwd: String,
+    pub turn_id: String,
+    pub tool_name: String,
+    pub tool_use_id: String,
+    pub tool_input: Value,
+    pub tool_response: Value,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub permission_mode: Option<String>,
+}
+
+impl PostToolUseInput {
+    pub fn validate(&self) -> std::result::Result<(), &'static str> {
+        if self.hook_event_name != "PostToolUse" {
+            return Err("expected a PostToolUse hook event");
+        }
+        if self.session_id.trim().is_empty()
+            || self.session_id.len() > MAX_SESSION_ID_BYTES
+            || self.cwd.trim().is_empty()
+            || self.turn_id.trim().is_empty()
+            || self.turn_id.len() > MAX_TURN_ID_BYTES
+            || self.tool_name.trim().is_empty()
+            || self.tool_name.len() > MAX_TOOL_NAME_BYTES
+            || self.tool_use_id.trim().is_empty()
+            || self.tool_use_id.len() > MAX_TOOL_USE_ID_BYTES
+        {
+            return Err("required PostToolUse field is empty or too large");
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct SessionEndInput {
+    pub session_id: String,
+    pub hook_event_name: String,
+    pub cwd: String,
+    pub reason: String,
+}
+
+impl SessionEndInput {
+    pub fn validate(&self) -> std::result::Result<(), &'static str> {
+        if self.hook_event_name != "SessionEnd" {
+            return Err("expected a SessionEnd hook event");
+        }
+        if self.session_id.trim().is_empty()
+            || self.session_id.len() > MAX_SESSION_ID_BYTES
+            || self.cwd.trim().is_empty()
+            || self.reason.trim().is_empty()
+        {
+            return Err("required SessionEnd field is empty or too large");
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PreToolUseOutput {
@@ -349,6 +410,228 @@ fn consumption_identity(grant_id: &str, tool_use_id: &str) -> String {
     format!("grant-consumption:{pair}")
 }
 
+pub fn post_tool_use_transaction(
+    path: impl AsRef<Path>,
+    input: &PostToolUseInput,
+    scope: &str,
+) -> crate::Result<()> {
+    input
+        .validate()
+        .map_err(|reason| Error::Invariant(reason.into()))?;
+    crate::transact_nonblocking(path, |log| {
+        if let Some(existing) = log.state().action_outcomes.values().find(|existing| {
+            existing.scope == scope
+                && existing.session_id == input.session_id
+                && existing.tool_use_id == input.tool_use_id
+        }) {
+            if existing.tool_name == input.tool_name {
+                return Ok(((), None));
+            }
+            return Err(Error::Invariant(
+                "tool_use_id already belongs to another tool in this session".into(),
+            ));
+        }
+        let pair = serde_json::to_string(&(&input.session_id, &input.tool_use_id))
+            .expect("string-pair serialization is infallible");
+        let identity = format!("tool-outcome:{pair}");
+        Ok((
+            (),
+            Some(CommitRequest {
+                schema_version: crate::SCHEMA_VERSION,
+                event_id: identity.clone(),
+                idempotency_key: identity,
+                expected_revision: log.state().revision,
+                actor: Actor {
+                    kind: ActorKind::Host,
+                    id: "codex-post-tool-use".into(),
+                    provenance: "codex-hook".into(),
+                },
+                scope: scope.into(),
+                event: Event::ActionOutcomeRecorded {
+                    session_id: input.session_id.clone(),
+                    tool_name: input.tool_name.clone(),
+                    tool_use_id: input.tool_use_id.clone(),
+                    // Codex responses are tool-specific. This hook records occurrence, not success.
+                    outcome: ActionOutcome::Unknown,
+                    evidence_refs: Vec::new(),
+                },
+            }),
+        ))
+    })
+}
+
+pub fn publish_checkpoint_transaction(
+    path: impl AsRef<Path>,
+    input: &SessionEndInput,
+    scope: &str,
+) -> crate::Result<()> {
+    input
+        .validate()
+        .map_err(|reason| Error::Invariant(reason.into()))?;
+    crate::transact_nonblocking(path, |log| {
+        if log.state().checkpoints.values().any(|checkpoint| {
+            checkpoint.scope == scope && checkpoint.session_id == input.session_id
+        }) {
+            return Ok(((), None));
+        }
+
+        let verified_claim_ids = log
+            .state()
+            .claims
+            .values()
+            .filter(|claim| {
+                claim.scope == scope
+                    && claim.superseded_by.is_none()
+                    && claim.status == EpistemicStatus::Verified
+            })
+            .map(|claim| claim.id.clone())
+            .collect::<Vec<_>>();
+        let unresolved_claim_ids = log
+            .state()
+            .claims
+            .values()
+            .filter(|claim| {
+                claim.scope == scope
+                    && claim.superseded_by.is_none()
+                    && matches!(
+                        claim.status,
+                        EpistemicStatus::Inferred | EpistemicStatus::Hypothesized
+                    )
+            })
+            .map(|claim| claim.id.clone())
+            .collect::<Vec<_>>();
+        let aporia_ids = log
+            .state()
+            .aporias
+            .values()
+            .filter(|aporia| aporia.scope == scope && aporia.resolution_ref.is_none())
+            .map(|aporia| aporia.id.clone())
+            .collect::<Vec<_>>();
+        let incomplete_plans = log
+            .state()
+            .plans
+            .values()
+            .filter(|plan| plan.scope == scope && !plan.completed)
+            .collect::<Vec<_>>();
+        let objective = match incomplete_plans.as_slice() {
+            [plan] => plan.objective.clone(),
+            [] => format!("Continue recorded work after session {}", input.session_id),
+            plans => format!("Continue {} recorded incomplete plans", plans.len()),
+        };
+        let mut next_checks = incomplete_plans
+            .iter()
+            .flat_map(|plan| {
+                plan.acceptance_checks
+                    .iter()
+                    .enumerate()
+                    .filter(|(check_index, _)| {
+                        !log.state()
+                            .verifications
+                            .values()
+                            .filter(|verification| {
+                                verification.plan_id == plan.id
+                                    && verification.check_index as usize == *check_index
+                            })
+                            .max_by_key(|verification| verification.sequence)
+                            .is_some_and(|verification| {
+                                verification.result == crate::VerificationResult::Passed
+                            })
+                    })
+                    .map(|(_, check)| check.clone())
+            })
+            .collect::<Vec<_>>();
+        next_checks.sort();
+        next_checks.dedup();
+        let mut artifact_refs = verified_claim_ids
+            .iter()
+            .chain(unresolved_claim_ids.iter())
+            .filter_map(|claim_id| log.state().claims.get(claim_id))
+            .flat_map(|claim| claim.evidence_refs.iter().cloned())
+            .collect::<Vec<_>>();
+        artifact_refs.sort();
+        artifact_refs.dedup();
+
+        let checkpoint_id = format!("checkpoint:{}", input.session_id);
+        let identity = format!("checkpoint-publish:{}", input.session_id);
+        Ok((
+            (),
+            Some(CommitRequest {
+                schema_version: crate::SCHEMA_VERSION,
+                event_id: identity.clone(),
+                idempotency_key: identity,
+                expected_revision: log.state().revision,
+                actor: Actor {
+                    kind: ActorKind::Host,
+                    id: "codex-session-end".into(),
+                    provenance: "codex-hook".into(),
+                },
+                scope: scope.into(),
+                event: Event::CheckpointPublished {
+                    checkpoint_id,
+                    session_id: input.session_id.clone(),
+                    objective,
+                    verified_claim_ids,
+                    unresolved_claim_ids,
+                    aporia_ids,
+                    next_checks,
+                    artifact_refs,
+                },
+            }),
+        ))
+    })
+}
+
+pub fn claim_checkpoint_transaction(
+    path: impl AsRef<Path>,
+    input: &SessionStartInput,
+    scope: &str,
+) -> crate::Result<()> {
+    input
+        .validate()
+        .map_err(|reason| Error::Invariant(reason.into()))?;
+    crate::transact_nonblocking(path, |log| {
+        if log.state().checkpoints.values().any(|checkpoint| {
+            checkpoint.scope == scope
+                && checkpoint.claimed_by_session.as_deref() == Some(&input.session_id)
+        }) {
+            return Ok(((), None));
+        }
+        let Some(checkpoint) = log
+            .state()
+            .checkpoints
+            .values()
+            .filter(|checkpoint| {
+                checkpoint.scope == scope
+                    && checkpoint.state == crate::CheckpointState::Open
+                    && checkpoint.session_id != input.session_id
+            })
+            .max_by_key(|checkpoint| checkpoint.sequence)
+        else {
+            return Ok(((), None));
+        };
+        let identity = format!("checkpoint-claim:{}:{}", checkpoint.id, input.session_id);
+        Ok((
+            (),
+            Some(CommitRequest {
+                schema_version: crate::SCHEMA_VERSION,
+                event_id: identity.clone(),
+                idempotency_key: identity,
+                expected_revision: log.state().revision,
+                actor: Actor {
+                    kind: ActorKind::Host,
+                    id: "codex-session-start".into(),
+                    provenance: "codex-hook".into(),
+                },
+                scope: scope.into(),
+                event: Event::CheckpointClaimed {
+                    checkpoint_id: checkpoint.id.clone(),
+                    session_id: input.session_id.clone(),
+                },
+            }),
+        ))
+    })
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ExplainOutput {
     pub schema: u32,
@@ -507,6 +790,10 @@ struct Capsule {
     open_aporia: Vec<AporiaProjection>,
     active_delegations: Vec<DelegationProjection>,
     accepted_risks: Vec<RiskProjection>,
+    active_claims: Vec<ClaimProjection>,
+    recent_action_outcomes: Vec<ActionOutcomeProjection>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    claimed_checkpoint: Option<CheckpointProjection>,
     retained: ProjectionCounts,
     omitted: ProjectionCounts,
 }
@@ -570,6 +857,9 @@ pub struct ProjectionCounts {
     pub aporia: usize,
     pub delegations: usize,
     pub risks: usize,
+    pub claims: usize,
+    pub action_outcomes: usize,
+    pub checkpoints: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -641,6 +931,58 @@ struct RiskProjection {
     review_condition: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct ClaimProjection {
+    id: String,
+    statement: String,
+    status: EpistemicStatus,
+    evidence_refs: Vec<String>,
+}
+
+impl From<&Claim> for ClaimProjection {
+    fn from(value: &Claim) -> Self {
+        Self {
+            id: value.id.clone(),
+            statement: value.statement.clone(),
+            status: value.status,
+            evidence_refs: value.evidence_refs.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct ActionOutcomeProjection {
+    session_id: String,
+    tool_name: String,
+    tool_use_id: String,
+    outcome: ActionOutcome,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct CheckpointProjection {
+    id: String,
+    objective: String,
+    verified_claim_ids: Vec<String>,
+    unresolved_claim_ids: Vec<String>,
+    aporia_ids: Vec<String>,
+    next_checks: Vec<String>,
+    artifact_refs: Vec<String>,
+}
+
+impl From<&Checkpoint> for CheckpointProjection {
+    fn from(value: &Checkpoint) -> Self {
+        Self {
+            id: value.id.clone(),
+            objective: value.objective.clone(),
+            verified_claim_ids: value.verified_claim_ids.clone(),
+            unresolved_claim_ids: value.unresolved_claim_ids.clone(),
+            aporia_ids: value.aporia_ids.clone(),
+            next_checks: value.next_checks.clone(),
+            artifact_refs: value.artifact_refs.clone(),
+        }
+    }
+}
+
 impl From<&AcceptedRisk> for RiskProjection {
     fn from(value: &AcceptedRisk) -> Self {
         Self {
@@ -690,6 +1032,9 @@ fn retained_counts(capsule: &Capsule) -> ProjectionCounts {
         aporia: capsule.open_aporia.len(),
         delegations: capsule.active_delegations.len(),
         risks: capsule.accepted_risks.len(),
+        claims: capsule.active_claims.len(),
+        action_outcomes: capsule.recent_action_outcomes.len(),
+        checkpoints: usize::from(capsule.claimed_checkpoint.is_some()),
     }
 }
 
@@ -790,6 +1135,31 @@ pub fn session_start_output(
             .filter(|risk| risk.scope == scope)
             .map(RiskProjection::from)
             .collect(),
+        active_claims: state
+            .claims
+            .values()
+            .filter(|claim| claim.scope == scope && claim.superseded_by.is_none())
+            .map(ClaimProjection::from)
+            .collect(),
+        recent_action_outcomes: state
+            .action_outcomes
+            .values()
+            .filter(|outcome| outcome.scope == scope && outcome.session_id == input.session_id)
+            .map(|outcome| ActionOutcomeProjection {
+                session_id: outcome.session_id.clone(),
+                tool_name: outcome.tool_name.clone(),
+                tool_use_id: outcome.tool_use_id.clone(),
+                outcome: outcome.outcome,
+            })
+            .collect(),
+        claimed_checkpoint: state
+            .checkpoints
+            .values()
+            .find(|checkpoint| {
+                checkpoint.scope == scope
+                    && checkpoint.claimed_by_session.as_deref() == Some(&input.session_id)
+            })
+            .map(CheckpointProjection::from),
         retained: ProjectionCounts::default(),
         omitted: ProjectionCounts::default(),
     };
@@ -824,6 +1194,12 @@ pub fn session_start_output(
         } else if let Some(item) = capsule.accepted_risks.pop() {
             capsule.omitted.risks += 1;
             omitted_ids.push(format!("risk:{}", item.id));
+        } else if let Some(item) = capsule.recent_action_outcomes.pop() {
+            capsule.omitted.action_outcomes += 1;
+            omitted_ids.push(format!("outcome:{}", item.tool_use_id));
+        } else if let Some(item) = capsule.active_claims.pop() {
+            capsule.omitted.claims += 1;
+            omitted_ids.push(format!("claim:{}", item.id));
         } else if let Some(item) = capsule.active_delegations.pop() {
             capsule.omitted.delegations += 1;
             omitted_ids.push(format!("delegation:{}", item.id));
@@ -837,11 +1213,14 @@ pub fn session_start_output(
                 .get_or_insert_with(OmittedExecutionSummary::default)
                 .record(&item);
             omitted_ids.push(format!("tool:{}", item.tool_name));
+        } else if let Some(item) = capsule.claimed_checkpoint.take() {
+            capsule.omitted.checkpoints += 1;
+            omitted_ids.push(format!("checkpoint:{}", item.id));
         } else {
             return Err("context limit is too small for the minimum capsule");
         }
         capsule.omission_receipt = Some(OmissionReceipt {
-            selection_rule: "decisions_then_risks_then_delegations_then_aporia_then_tools_from_highest_id_v1",
+            selection_rule: "decisions_then_risks_then_outcomes_then_claims_then_delegations_then_aporia_then_tools_then_checkpoint_v2",
             identity: omitted_identity(&omitted_ids),
             identity_kind: "informational_non_cryptographic",
         });
@@ -927,7 +1306,7 @@ mod tests {
     }
 
     #[test]
-    fn invalid_project_projection_keeps_the_required_v3_shape() {
+    fn invalid_project_projection_keeps_the_required_v4_shape() {
         let input = SessionStartInput {
             session_id: "session-1".into(),
             hook_event_name: "SessionStart".into(),
@@ -942,7 +1321,7 @@ mod tests {
             context.find("<aporic-recorded-data>").unwrap() + "<aporic-recorded-data>".len();
         let end = context.find("</aporic-recorded-data>").unwrap();
         let projection: serde_json::Value = serde_json::from_str(&context[start..end]).unwrap();
-        assert_eq!(projection["schema"], 3);
+        assert_eq!(projection["schema"], 4);
         assert_eq!(projection["session_id"], "session-1");
         assert!(projection["scope"].is_string());
         assert_eq!(projection["coverage"], "unavailable");

@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://aporic.dev/schema/commit-request-v2.json",
-  "title": "Aporic commit request v2",
+  "$id": "https://aporic.dev/schema/commit-request-v3.json",
+  "title": "Aporic commit request v3",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -14,7 +14,7 @@
     "event"
   ],
   "properties": {
-    "schema_version": { "const": 2 },
+    "schema_version": { "const": 3 },
     "event_id": { "type": "string", "minLength": 1 },
     "idempotency_key": { "type": "string", "minLength": 1 },
     "expected_revision": { "type": "integer", "minimum": 0 },
@@ -45,7 +45,18 @@
         { "$ref": "#/$defs/planAuthorizationRevoked" },
         { "$ref": "#/$defs/executionGrantIssued" },
         { "$ref": "#/$defs/executionGrantRevoked" },
-        { "$ref": "#/$defs/executionGrantConsumed" }
+        { "$ref": "#/$defs/executionGrantConsumed" },
+        { "$ref": "#/$defs/evidenceRecorded" },
+        { "$ref": "#/$defs/claimRecorded" },
+        { "$ref": "#/$defs/claimStatusChanged" },
+        { "$ref": "#/$defs/claimSuperseded" },
+        { "$ref": "#/$defs/planBasisLinked" },
+        { "$ref": "#/$defs/actionOutcomeRecorded" },
+        { "$ref": "#/$defs/verificationRecorded" },
+        { "$ref": "#/$defs/planCompleted" },
+        { "$ref": "#/$defs/checkpointPublished" },
+        { "$ref": "#/$defs/checkpointClaimed" },
+        { "$ref": "#/$defs/checkpointExpired" }
       ]
     }
   },
@@ -269,6 +280,34 @@
         "grant_id": { "type": "string", "minLength": 1 },
         "tool_use_id": { "type": "string", "minLength": 1 }
       }
-    }
+    },
+    "stringRefs": { "type": "array", "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+    "evidenceRecorded": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "evidence_id", "kind", "locator", "digest"],
+      "properties": {
+        "type": { "const": "evidence_recorded" }, "evidence_id": { "type": "string", "minLength": 1 },
+        "kind": { "enum": ["user_statement", "repository_state", "test_result", "runtime_observation", "external_source", "agent_inference"] },
+        "locator": { "type": "string", "minLength": 1 }, "digest": { "type": ["string", "null"] }
+      }
+    },
+    "claimRecorded": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "claim_id", "statement", "status", "evidence_refs"],
+      "properties": { "type": { "const": "claim_recorded" }, "claim_id": { "type": "string", "minLength": 1 }, "statement": { "type": "string", "minLength": 1 }, "status": { "enum": ["observed", "inferred", "hypothesized"] }, "evidence_refs": { "$ref": "#/$defs/stringRefs" } }
+    },
+    "claimStatusChanged": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "claim_id", "status", "evidence_refs"],
+      "properties": { "type": { "const": "claim_status_changed" }, "claim_id": { "type": "string", "minLength": 1 }, "status": { "enum": ["observed", "inferred", "hypothesized", "verified", "refuted", "stale"] }, "evidence_refs": { "$ref": "#/$defs/stringRefs" } }
+    },
+    "claimSuperseded": { "type": "object", "additionalProperties": false, "required": ["type", "claim_id", "replacement_id"], "properties": { "type": { "const": "claim_superseded" }, "claim_id": { "type": "string", "minLength": 1 }, "replacement_id": { "type": "string", "minLength": 1 } } },
+    "planBasisLinked": { "type": "object", "additionalProperties": false, "required": ["type", "plan_id", "evidence_refs", "assumption_claim_ids"], "properties": { "type": { "const": "plan_basis_linked" }, "plan_id": { "type": "string", "minLength": 1 }, "evidence_refs": { "$ref": "#/$defs/stringRefs" }, "assumption_claim_ids": { "$ref": "#/$defs/stringRefs" } } },
+    "actionOutcomeRecorded": { "type": "object", "additionalProperties": false, "required": ["type", "session_id", "tool_name", "tool_use_id", "outcome", "evidence_refs"], "properties": { "type": { "const": "action_outcome_recorded" }, "session_id": { "type": "string", "minLength": 1 }, "tool_name": { "type": "string", "minLength": 1 }, "tool_use_id": { "type": "string", "minLength": 1 }, "outcome": { "enum": ["succeeded", "failed", "interrupted", "unknown"] }, "evidence_refs": { "$ref": "#/$defs/stringRefs" } } },
+    "verificationRecorded": { "type": "object", "additionalProperties": false, "required": ["type", "verification_id", "plan_id", "check_index", "result", "evidence_refs"], "properties": { "type": { "const": "verification_recorded" }, "verification_id": { "type": "string", "minLength": 1 }, "plan_id": { "type": "string", "minLength": 1 }, "check_index": { "type": "integer", "minimum": 0 }, "result": { "enum": ["passed", "failed", "inconclusive"] }, "evidence_refs": { "$ref": "#/$defs/stringRefs" } } },
+    "planCompleted": { "type": "object", "additionalProperties": false, "required": ["type", "plan_id", "residual_risk_refs"], "properties": { "type": { "const": "plan_completed" }, "plan_id": { "type": "string", "minLength": 1 }, "residual_risk_refs": { "$ref": "#/$defs/stringRefs" } } },
+    "checkpointPublished": { "type": "object", "additionalProperties": false, "required": ["type", "checkpoint_id", "session_id", "objective", "verified_claim_ids", "unresolved_claim_ids", "aporia_ids", "next_checks", "artifact_refs"], "properties": { "type": { "const": "checkpoint_published" }, "checkpoint_id": { "type": "string", "minLength": 1 }, "session_id": { "type": "string", "minLength": 1 }, "objective": { "type": "string", "minLength": 1 }, "verified_claim_ids": { "$ref": "#/$defs/stringRefs" }, "unresolved_claim_ids": { "$ref": "#/$defs/stringRefs" }, "aporia_ids": { "$ref": "#/$defs/stringRefs" }, "next_checks": { "$ref": "#/$defs/stringRefs" }, "artifact_refs": { "$ref": "#/$defs/stringRefs" } } },
+    "checkpointClaimed": { "type": "object", "additionalProperties": false, "required": ["type", "checkpoint_id", "session_id"], "properties": { "type": { "const": "checkpoint_claimed" }, "checkpoint_id": { "type": "string", "minLength": 1 }, "session_id": { "type": "string", "minLength": 1 } } },
+    "checkpointExpired": { "type": "object", "additionalProperties": false, "required": ["type", "checkpoint_id"], "properties": { "type": { "const": "checkpoint_expired" }, "checkpoint_id": { "type": "string", "minLength": 1 } } }
   }
 }

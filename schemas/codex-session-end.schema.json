@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aporic.dev/schema/codex-session-end-v1.json",
+  "title": "Codex SessionEnd hook input used by Aporic",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["session_id", "hook_event_name", "cwd", "reason"],
+  "properties": {
+    "session_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "hook_event_name": { "const": "SessionEnd" },
+    "cwd": { "type": "string", "minLength": 1 },
+    "reason": { "type": "string", "minLength": 1 }
+  }
+}

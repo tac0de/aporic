@@ -13,6 +13,14 @@ fn packaged_hooks_include_turn_scoped_intent_fidelity() {
         handlers[0]["hooks"][0]["command"],
         "\"${PLUGIN_ROOT}/bin/aporic\" codex-global-user-prompt-submit"
     );
+    assert_eq!(
+        hooks["hooks"]["PostToolUse"][0]["hooks"][0]["command"],
+        "\"${PLUGIN_ROOT}/bin/aporic\" codex-global-post-tool-use"
+    );
+    assert_eq!(
+        hooks["hooks"]["SessionEnd"][0]["hooks"][0]["command"],
+        "\"${PLUGIN_ROOT}/bin/aporic\" codex-global-session-end"
+    );
 }
 
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]

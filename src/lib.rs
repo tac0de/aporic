@@ -10,7 +10,7 @@ pub mod governance;
 pub mod policy;
 pub mod project;
 
-pub const SCHEMA_VERSION: u32 = 2;
+pub const SCHEMA_VERSION: u32 = 3;
 
 #[derive(Debug)]
 pub enum Error {
@@ -75,6 +75,53 @@ pub enum TransitionKind {
     DirectionSupersede,
     RiskAccept,
     CompletionClaim,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceKind {
+    UserStatement,
+    RepositoryState,
+    TestResult,
+    RuntimeObservation,
+    ExternalSource,
+    AgentInference,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EpistemicStatus {
+    Observed,
+    Inferred,
+    Hypothesized,
+    Verified,
+    Refuted,
+    Stale,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ActionOutcome {
+    Succeeded,
+    Failed,
+    Interrupted,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum VerificationResult {
+    Passed,
+    Failed,
+    Inconclusive,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CheckpointState {
+    Open,
+    Claimed,
+    Expired,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -164,6 +211,67 @@ pub enum Event {
         grant_id: String,
         tool_use_id: String,
     },
+    EvidenceRecorded {
+        evidence_id: String,
+        kind: EvidenceKind,
+        locator: String,
+        digest: Option<String>,
+    },
+    ClaimRecorded {
+        claim_id: String,
+        statement: String,
+        status: EpistemicStatus,
+        evidence_refs: Vec<String>,
+    },
+    ClaimStatusChanged {
+        claim_id: String,
+        status: EpistemicStatus,
+        evidence_refs: Vec<String>,
+    },
+    ClaimSuperseded {
+        claim_id: String,
+        replacement_id: String,
+    },
+    PlanBasisLinked {
+        plan_id: String,
+        evidence_refs: Vec<String>,
+        assumption_claim_ids: Vec<String>,
+    },
+    ActionOutcomeRecorded {
+        session_id: String,
+        tool_name: String,
+        tool_use_id: String,
+        outcome: ActionOutcome,
+        evidence_refs: Vec<String>,
+    },
+    VerificationRecorded {
+        verification_id: String,
+        plan_id: String,
+        check_index: u32,
+        result: VerificationResult,
+        evidence_refs: Vec<String>,
+    },
+    PlanCompleted {
+        plan_id: String,
+        residual_risk_refs: Vec<String>,
+    },
+    CheckpointPublished {
+        checkpoint_id: String,
+        session_id: String,
+        objective: String,
+        verified_claim_ids: Vec<String>,
+        unresolved_claim_ids: Vec<String>,
+        aporia_ids: Vec<String>,
+        next_checks: Vec<String>,
+        artifact_refs: Vec<String>,
+    },
+    CheckpointClaimed {
+        checkpoint_id: String,
+        session_id: String,
+    },
+    CheckpointExpired {
+        checkpoint_id: String,
+    },
 }
 
 impl Event {
@@ -173,12 +281,23 @@ impl Event {
             Self::DecisionSuperseded { .. } => Some(TransitionKind::DirectionSupersede),
             Self::RiskAccepted { .. } => Some(TransitionKind::RiskAccept),
             Self::PlanAuthorized { .. } => Some(TransitionKind::PlanAuthorize),
+            Self::PlanCompleted { .. } => Some(TransitionKind::CompletionClaim),
             Self::ToolHoldPlaced { .. }
             | Self::ToolHoldReleased { .. }
             | Self::PlanRegistered { .. }
             | Self::PlanAuthorizationRevoked { .. }
             | Self::ExecutionGrantRevoked { .. }
-            | Self::ExecutionGrantConsumed { .. } => None,
+            | Self::ExecutionGrantConsumed { .. }
+            | Self::EvidenceRecorded { .. }
+            | Self::ClaimRecorded { .. }
+            | Self::ClaimStatusChanged { .. }
+            | Self::ClaimSuperseded { .. }
+            | Self::PlanBasisLinked { .. }
+            | Self::ActionOutcomeRecorded { .. }
+            | Self::VerificationRecorded { .. }
+            | Self::CheckpointPublished { .. }
+            | Self::CheckpointClaimed { .. }
+            | Self::CheckpointExpired { .. } => None,
             Self::ExecutionGrantIssued { .. } => Some(TransitionKind::PlanAuthorize),
             _ => None,
         }
@@ -252,6 +371,71 @@ pub struct Plan {
     pub scope: String,
     pub acceptance_checks: Vec<String>,
     pub unresolved_questions: Vec<String>,
+    pub evidence_refs: Vec<String>,
+    pub assumption_claim_ids: Vec<String>,
+    pub completed: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EvidenceRecord {
+    pub id: String,
+    pub kind: EvidenceKind,
+    pub locator: String,
+    pub digest: Option<String>,
+    pub scope: String,
+    pub actor: Actor,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Claim {
+    pub id: String,
+    pub statement: String,
+    pub status: EpistemicStatus,
+    pub evidence_refs: Vec<String>,
+    pub scope: String,
+    pub superseded_by: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ActionOutcomeRecord {
+    pub session_id: String,
+    pub tool_name: String,
+    pub tool_use_id: String,
+    pub outcome: ActionOutcome,
+    pub evidence_refs: Vec<String>,
+    pub scope: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Verification {
+    pub id: String,
+    pub plan_id: String,
+    pub check_index: u32,
+    pub result: VerificationResult,
+    pub evidence_refs: Vec<String>,
+    pub scope: String,
+    pub sequence: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Checkpoint {
+    pub id: String,
+    pub session_id: String,
+    pub objective: String,
+    pub verified_claim_ids: Vec<String>,
+    pub unresolved_claim_ids: Vec<String>,
+    pub aporia_ids: Vec<String>,
+    pub next_checks: Vec<String>,
+    pub artifact_refs: Vec<String>,
+    pub scope: String,
+    pub state: CheckpointState,
+    pub claimed_by_session: Option<String>,
+    pub sequence: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -296,6 +480,11 @@ pub struct State {
     pub plan_authorizations: BTreeMap<String, PlanAuthorization>,
     pub execution_grants: BTreeMap<String, ExecutionGrant>,
     pub consumed_tool_uses: BTreeMap<String, String>,
+    pub evidence: BTreeMap<String, EvidenceRecord>,
+    pub claims: BTreeMap<String, Claim>,
+    pub action_outcomes: BTreeMap<String, ActionOutcomeRecord>,
+    pub verifications: BTreeMap<String, Verification>,
+    pub checkpoints: BTreeMap<String, Checkpoint>,
 }
 
 impl State {
@@ -490,6 +679,9 @@ impl State {
                         scope,
                         acceptance_checks: acceptance_checks.clone(),
                         unresolved_questions: unresolved_questions.clone(),
+                        evidence_refs: Vec::new(),
+                        assumption_claim_ids: Vec::new(),
+                        completed: false,
                     },
                 );
             }
@@ -599,11 +791,181 @@ impl State {
                 self.consumed_tool_uses
                     .insert(tool_use_id.clone(), grant_id.clone());
             }
+            Event::EvidenceRecorded {
+                evidence_id,
+                kind,
+                locator,
+                digest,
+            } => {
+                self.evidence.insert(
+                    evidence_id.clone(),
+                    EvidenceRecord {
+                        id: evidence_id.clone(),
+                        kind: *kind,
+                        locator: locator.clone(),
+                        digest: digest.clone(),
+                        scope,
+                        actor: stored.request.actor.clone(),
+                    },
+                );
+            }
+            Event::ClaimRecorded {
+                claim_id,
+                statement,
+                status,
+                evidence_refs,
+            } => {
+                self.claims.insert(
+                    claim_id.clone(),
+                    Claim {
+                        id: claim_id.clone(),
+                        statement: statement.clone(),
+                        status: *status,
+                        evidence_refs: evidence_refs.clone(),
+                        scope,
+                        superseded_by: None,
+                    },
+                );
+            }
+            Event::ClaimStatusChanged {
+                claim_id,
+                status,
+                evidence_refs,
+            } => {
+                let claim = self
+                    .claims
+                    .get_mut(claim_id)
+                    .ok_or_else(|| Error::Invariant(format!("unknown claim {claim_id}")))?;
+                claim.status = *status;
+                for evidence_ref in evidence_refs {
+                    if !claim.evidence_refs.contains(evidence_ref) {
+                        claim.evidence_refs.push(evidence_ref.clone());
+                    }
+                }
+            }
+            Event::ClaimSuperseded {
+                claim_id,
+                replacement_id,
+            } => {
+                let claim = self
+                    .claims
+                    .get_mut(claim_id)
+                    .ok_or_else(|| Error::Invariant(format!("unknown claim {claim_id}")))?;
+                claim.superseded_by = Some(replacement_id.clone());
+            }
+            Event::PlanBasisLinked {
+                plan_id,
+                evidence_refs,
+                assumption_claim_ids,
+            } => {
+                let plan = self
+                    .plans
+                    .get_mut(plan_id)
+                    .ok_or_else(|| Error::Invariant(format!("unknown plan {plan_id}")))?;
+                plan.evidence_refs = evidence_refs.clone();
+                plan.assumption_claim_ids = assumption_claim_ids.clone();
+            }
+            Event::ActionOutcomeRecorded {
+                session_id,
+                tool_name,
+                tool_use_id,
+                outcome,
+                evidence_refs,
+            } => {
+                let outcome_key = action_outcome_key(&scope, session_id, tool_use_id);
+                self.action_outcomes.insert(
+                    outcome_key,
+                    ActionOutcomeRecord {
+                        session_id: session_id.clone(),
+                        tool_name: tool_name.clone(),
+                        tool_use_id: tool_use_id.clone(),
+                        outcome: *outcome,
+                        evidence_refs: evidence_refs.clone(),
+                        scope,
+                    },
+                );
+            }
+            Event::VerificationRecorded {
+                verification_id,
+                plan_id,
+                check_index,
+                result,
+                evidence_refs,
+            } => {
+                self.verifications.insert(
+                    verification_id.clone(),
+                    Verification {
+                        id: verification_id.clone(),
+                        plan_id: plan_id.clone(),
+                        check_index: *check_index,
+                        result: *result,
+                        evidence_refs: evidence_refs.clone(),
+                        scope,
+                        sequence: stored.sequence,
+                    },
+                );
+            }
+            Event::PlanCompleted { plan_id, .. } => {
+                let plan = self
+                    .plans
+                    .get_mut(plan_id)
+                    .ok_or_else(|| Error::Invariant(format!("unknown plan {plan_id}")))?;
+                plan.completed = true;
+            }
+            Event::CheckpointPublished {
+                checkpoint_id,
+                session_id,
+                objective,
+                verified_claim_ids,
+                unresolved_claim_ids,
+                aporia_ids,
+                next_checks,
+                artifact_refs,
+            } => {
+                self.checkpoints.insert(
+                    checkpoint_id.clone(),
+                    Checkpoint {
+                        id: checkpoint_id.clone(),
+                        session_id: session_id.clone(),
+                        objective: objective.clone(),
+                        verified_claim_ids: verified_claim_ids.clone(),
+                        unresolved_claim_ids: unresolved_claim_ids.clone(),
+                        aporia_ids: aporia_ids.clone(),
+                        next_checks: next_checks.clone(),
+                        artifact_refs: artifact_refs.clone(),
+                        scope,
+                        state: CheckpointState::Open,
+                        claimed_by_session: None,
+                        sequence: stored.sequence,
+                    },
+                );
+            }
+            Event::CheckpointClaimed {
+                checkpoint_id,
+                session_id,
+            } => {
+                let checkpoint = self.checkpoints.get_mut(checkpoint_id).ok_or_else(|| {
+                    Error::Invariant(format!("unknown checkpoint {checkpoint_id}"))
+                })?;
+                checkpoint.state = CheckpointState::Claimed;
+                checkpoint.claimed_by_session = Some(session_id.clone());
+            }
+            Event::CheckpointExpired { checkpoint_id } => {
+                let checkpoint = self.checkpoints.get_mut(checkpoint_id).ok_or_else(|| {
+                    Error::Invariant(format!("unknown checkpoint {checkpoint_id}"))
+                })?;
+                checkpoint.state = CheckpointState::Expired;
+            }
         }
 
         self.revision = stored.sequence;
         Ok(())
     }
+}
+
+fn action_outcome_key(scope: &str, session_id: &str, tool_use_id: &str) -> String {
+    serde_json::to_string(&(scope, session_id, tool_use_id))
+        .expect("string-triple serialization is infallible")
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1035,6 +1397,454 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                 Some(("UNKNOWN_EXECUTION_GRANT", "execution grant does not exist"))
             }
         }
+        Event::EvidenceRecorded {
+            evidence_id,
+            locator,
+            digest,
+            ..
+        } => {
+            if !required(&[evidence_id, locator])
+                || digest.as_ref().is_some_and(|value| value.trim().is_empty())
+            {
+                Some((
+                    "MISSING_REQUIRED_FIELD",
+                    "evidence id, locator, and any supplied digest must be non-empty",
+                ))
+            } else if state.evidence.contains_key(evidence_id) {
+                Some(("EVIDENCE_ALREADY_EXISTS", "evidence id already exists"))
+            } else {
+                None
+            }
+        }
+        Event::ClaimRecorded {
+            claim_id,
+            statement,
+            status,
+            evidence_refs,
+        } => {
+            if !required(&[claim_id, statement]) || !unique_nonempty_strings(evidence_refs) {
+                Some((
+                    "INVALID_CLAIM",
+                    "claim id, statement, and unique non-empty evidence refs are required",
+                ))
+            } else if matches!(
+                status,
+                EpistemicStatus::Verified | EpistemicStatus::Refuted | EpistemicStatus::Stale
+            ) {
+                Some((
+                    "INVALID_INITIAL_CLAIM_STATUS",
+                    "a new claim must begin as observed, inferred, or hypothesized",
+                ))
+            } else if state.claims.contains_key(claim_id) {
+                Some(("CLAIM_ALREADY_EXISTS", "claim id already exists"))
+            } else if let Some(reference) = evidence_refs.iter().find(|reference| {
+                !state
+                    .evidence
+                    .get(*reference)
+                    .is_some_and(|evidence| evidence.scope == request.scope)
+            }) {
+                let _ = reference;
+                Some((
+                    "INVALID_EVIDENCE_REFERENCE",
+                    "claim evidence must exist in the same scope",
+                ))
+            } else if *status == EpistemicStatus::Observed
+                && (evidence_refs.is_empty()
+                    || evidence_refs.iter().any(|reference| {
+                        state
+                            .evidence
+                            .get(reference)
+                            .is_some_and(|evidence| evidence.kind == EvidenceKind::AgentInference)
+                    }))
+            {
+                Some((
+                    "OBSERVATION_EVIDENCE_REQUIRED",
+                    "an observed claim requires non-inference evidence",
+                ))
+            } else {
+                None
+            }
+        }
+        Event::ClaimStatusChanged {
+            claim_id,
+            status,
+            evidence_refs,
+        } => {
+            if !required(&[claim_id]) || !unique_nonempty_strings(evidence_refs) {
+                Some((
+                    "INVALID_CLAIM_STATUS_CHANGE",
+                    "claim id and unique non-empty evidence refs are required",
+                ))
+            } else if let Some(claim) = state.claims.get(claim_id) {
+                if claim.scope != request.scope {
+                    Some(("SCOPE_MISMATCH", "claim scope differs from request scope"))
+                } else if claim.superseded_by.is_some() {
+                    Some((
+                        "CLAIM_SUPERSEDED",
+                        "a superseded claim cannot change status",
+                    ))
+                } else if claim.status == *status {
+                    Some(("CLAIM_STATUS_UNCHANGED", "claim already has this status"))
+                } else if claim.status == EpistemicStatus::Refuted
+                    && *status != EpistemicStatus::Stale
+                {
+                    Some((
+                        "REFUTED_CLAIM_IMMUTABLE",
+                        "a refuted claim must be replaced by a new claim",
+                    ))
+                } else if matches!(status, EpistemicStatus::Verified | EpistemicStatus::Refuted)
+                    && evidence_refs.is_empty()
+                {
+                    Some((
+                        "STATUS_EVIDENCE_REQUIRED",
+                        "verified and refuted statuses require evidence",
+                    ))
+                } else if evidence_refs.iter().any(|reference| {
+                    !state
+                        .evidence
+                        .get(reference)
+                        .is_some_and(|evidence| evidence.scope == request.scope)
+                }) {
+                    Some((
+                        "INVALID_EVIDENCE_REFERENCE",
+                        "status evidence must exist in the same scope",
+                    ))
+                } else if *status == EpistemicStatus::Verified
+                    && !evidence_refs.iter().any(|reference| {
+                        state
+                            .evidence
+                            .get(reference)
+                            .is_some_and(|evidence| evidence.kind != EvidenceKind::AgentInference)
+                    })
+                {
+                    Some((
+                        "DIRECT_EVIDENCE_REQUIRED",
+                        "verified status requires at least one non-inference evidence record",
+                    ))
+                } else {
+                    None
+                }
+            } else {
+                Some(("UNKNOWN_CLAIM", "claim does not exist"))
+            }
+        }
+        Event::ClaimSuperseded {
+            claim_id,
+            replacement_id,
+        } => {
+            if !required(&[claim_id, replacement_id]) || claim_id == replacement_id {
+                Some((
+                    "INVALID_REPLACEMENT",
+                    "claim and distinct replacement ids are required",
+                ))
+            } else if let (Some(claim), Some(replacement)) =
+                (state.claims.get(claim_id), state.claims.get(replacement_id))
+            {
+                if claim.scope != request.scope || replacement.scope != request.scope {
+                    Some(("SCOPE_MISMATCH", "claim scopes do not match request scope"))
+                } else if claim.superseded_by.is_some() {
+                    Some(("CLAIM_ALREADY_SUPERSEDED", "claim is already superseded"))
+                } else {
+                    None
+                }
+            } else {
+                Some(("UNKNOWN_CLAIM", "claim or replacement does not exist"))
+            }
+        }
+        Event::PlanBasisLinked {
+            plan_id,
+            evidence_refs,
+            assumption_claim_ids,
+        } => {
+            if !required(&[plan_id])
+                || (evidence_refs.is_empty() && assumption_claim_ids.is_empty())
+                || !unique_nonempty_strings(evidence_refs)
+                || !unique_nonempty_strings(assumption_claim_ids)
+            {
+                Some((
+                    "INVALID_PLAN_BASIS",
+                    "plan basis requires unique evidence or assumption references",
+                ))
+            } else if let Some(plan) = state.plans.get(plan_id) {
+                if plan.scope != request.scope {
+                    Some(("SCOPE_MISMATCH", "plan scope differs from request scope"))
+                } else if !plan.evidence_refs.is_empty() || !plan.assumption_claim_ids.is_empty() {
+                    Some(("PLAN_BASIS_ALREADY_LINKED", "plan basis is already linked"))
+                } else if evidence_refs.iter().any(|reference| {
+                    !state
+                        .evidence
+                        .get(reference)
+                        .is_some_and(|evidence| evidence.scope == request.scope)
+                }) || assumption_claim_ids.iter().any(|claim_id| {
+                    !state.claims.get(claim_id).is_some_and(|claim| {
+                        claim.scope == request.scope && claim.superseded_by.is_none()
+                    })
+                }) {
+                    Some((
+                        "INVALID_PLAN_BASIS_REFERENCE",
+                        "plan basis references must be active and in the same scope",
+                    ))
+                } else {
+                    None
+                }
+            } else {
+                Some(("UNKNOWN_PLAN", "plan does not exist"))
+            }
+        }
+        Event::ActionOutcomeRecorded {
+            session_id,
+            tool_name,
+            tool_use_id,
+            evidence_refs,
+            ..
+        } => {
+            if !required(&[session_id, tool_name, tool_use_id])
+                || !unique_nonempty_strings(evidence_refs)
+            {
+                Some((
+                    "INVALID_ACTION_OUTCOME",
+                    "session, tool, tool use, and unique evidence refs are required",
+                ))
+            } else if state.action_outcomes.contains_key(&action_outcome_key(
+                &request.scope,
+                session_id,
+                tool_use_id,
+            )) {
+                Some((
+                    "ACTION_OUTCOME_ALREADY_EXISTS",
+                    "tool use already has an outcome",
+                ))
+            } else if evidence_refs.iter().any(|reference| {
+                !state
+                    .evidence
+                    .get(reference)
+                    .is_some_and(|evidence| evidence.scope == request.scope)
+            }) {
+                Some((
+                    "INVALID_EVIDENCE_REFERENCE",
+                    "outcome evidence must exist in the same scope",
+                ))
+            } else {
+                None
+            }
+        }
+        Event::VerificationRecorded {
+            verification_id,
+            plan_id,
+            check_index,
+            evidence_refs,
+            ..
+        } => {
+            if !required(&[verification_id, plan_id])
+                || evidence_refs.is_empty()
+                || !unique_nonempty_strings(evidence_refs)
+            {
+                Some((
+                    "INVALID_VERIFICATION",
+                    "verification requires ids and unique supporting evidence",
+                ))
+            } else if state.verifications.contains_key(verification_id) {
+                Some((
+                    "VERIFICATION_ALREADY_EXISTS",
+                    "verification id already exists",
+                ))
+            } else if let Some(plan) = state.plans.get(plan_id) {
+                if plan.scope != request.scope {
+                    Some(("SCOPE_MISMATCH", "plan scope differs from request scope"))
+                } else if (*check_index as usize) >= plan.acceptance_checks.len() {
+                    Some((
+                        "UNKNOWN_ACCEPTANCE_CHECK",
+                        "check index is outside the plan",
+                    ))
+                } else if evidence_refs.iter().any(|reference| {
+                    !state
+                        .evidence
+                        .get(reference)
+                        .is_some_and(|evidence| evidence.scope == request.scope)
+                }) {
+                    Some((
+                        "INVALID_EVIDENCE_REFERENCE",
+                        "verification evidence must exist in the same scope",
+                    ))
+                } else if !evidence_refs.iter().any(|reference| {
+                    state.evidence.get(reference).is_some_and(|evidence| {
+                        evidence.scope == request.scope
+                            && evidence.kind != EvidenceKind::AgentInference
+                    })
+                }) {
+                    Some((
+                        "DIRECT_EVIDENCE_REQUIRED",
+                        "verification requires at least one non-inference evidence record",
+                    ))
+                } else {
+                    None
+                }
+            } else {
+                Some(("UNKNOWN_PLAN", "plan does not exist"))
+            }
+        }
+        Event::PlanCompleted {
+            plan_id,
+            residual_risk_refs,
+        } => {
+            if !required(&[plan_id]) || !unique_nonempty_strings(residual_risk_refs) {
+                Some((
+                    "INVALID_COMPLETION",
+                    "plan id and unique residual risk refs are required",
+                ))
+            } else if let Some(plan) = state.plans.get(plan_id) {
+                if plan.scope != request.scope {
+                    Some(("SCOPE_MISMATCH", "plan scope differs from request scope"))
+                } else if plan.completed {
+                    Some(("PLAN_ALREADY_COMPLETED", "plan is already completed"))
+                } else if residual_risk_refs.iter().any(|risk_id| {
+                    !state
+                        .accepted_risks
+                        .get(risk_id)
+                        .is_some_and(|risk| risk.scope == request.scope)
+                }) {
+                    Some((
+                        "INVALID_RESIDUAL_RISK",
+                        "residual risks must name accepted risks in the same scope",
+                    ))
+                } else {
+                    let all_passed = (0..plan.acceptance_checks.len()).all(|check_index| {
+                        state
+                            .verifications
+                            .values()
+                            .filter(|verification| {
+                                verification.plan_id == *plan_id
+                                    && verification.check_index as usize == check_index
+                            })
+                            .max_by_key(|verification| verification.sequence)
+                            .is_some_and(|verification| {
+                                verification.result == VerificationResult::Passed
+                            })
+                    });
+                    if all_passed || !residual_risk_refs.is_empty() {
+                        None
+                    } else {
+                        Some((
+                            "PLAN_VERIFICATION_INCOMPLETE",
+                            "every acceptance check must pass or residual risk must be accepted",
+                        ))
+                    }
+                }
+            } else {
+                Some(("UNKNOWN_PLAN", "plan does not exist"))
+            }
+        }
+        Event::CheckpointPublished {
+            checkpoint_id,
+            session_id,
+            objective,
+            verified_claim_ids,
+            unresolved_claim_ids,
+            aporia_ids,
+            next_checks,
+            artifact_refs,
+        } => {
+            if !required(&[checkpoint_id, session_id, objective])
+                || !unique_nonempty_strings(verified_claim_ids)
+                || !unique_nonempty_strings(unresolved_claim_ids)
+                || !unique_nonempty_strings(aporia_ids)
+                || !unique_nonempty_strings(next_checks)
+                || !unique_nonempty_strings(artifact_refs)
+            {
+                Some((
+                    "INVALID_CHECKPOINT",
+                    "checkpoint fields and lists must be non-empty and unique where present",
+                ))
+            } else if state.checkpoints.contains_key(checkpoint_id) {
+                Some(("CHECKPOINT_ALREADY_EXISTS", "checkpoint id already exists"))
+            } else if verified_claim_ids.iter().any(|claim_id| {
+                !state.claims.get(claim_id).is_some_and(|claim| {
+                    claim.scope == request.scope
+                        && claim.status == EpistemicStatus::Verified
+                        && claim.superseded_by.is_none()
+                })
+            }) || unresolved_claim_ids.iter().any(|claim_id| {
+                !state.claims.get(claim_id).is_some_and(|claim| {
+                    claim.scope == request.scope
+                        && matches!(
+                            claim.status,
+                            EpistemicStatus::Inferred | EpistemicStatus::Hypothesized
+                        )
+                        && claim.superseded_by.is_none()
+                })
+            }) || aporia_ids.iter().any(|aporia_id| {
+                !state.aporias.get(aporia_id).is_some_and(|aporia| {
+                    aporia.scope == request.scope && aporia.resolution_ref.is_none()
+                })
+            }) || artifact_refs.iter().any(|evidence_id| {
+                !state
+                    .evidence
+                    .get(evidence_id)
+                    .is_some_and(|evidence| evidence.scope == request.scope)
+            }) {
+                Some((
+                    "INVALID_CHECKPOINT_REFERENCE",
+                    "checkpoint references must be current and in the same scope",
+                ))
+            } else {
+                None
+            }
+        }
+        Event::CheckpointClaimed {
+            checkpoint_id,
+            session_id,
+        } => {
+            if !required(&[checkpoint_id, session_id]) {
+                Some((
+                    "MISSING_REQUIRED_FIELD",
+                    "checkpoint and receiving session ids are required",
+                ))
+            } else if let Some(checkpoint) = state.checkpoints.get(checkpoint_id) {
+                if checkpoint.scope != request.scope {
+                    Some((
+                        "SCOPE_MISMATCH",
+                        "checkpoint scope differs from request scope",
+                    ))
+                } else if checkpoint.state != CheckpointState::Open {
+                    Some(("CHECKPOINT_NOT_OPEN", "checkpoint is not open"))
+                } else if checkpoint.session_id == *session_id {
+                    Some((
+                        "CHECKPOINT_SELF_CLAIM",
+                        "the publishing session cannot claim its own checkpoint",
+                    ))
+                } else if state.checkpoints.values().any(|candidate| {
+                    candidate.scope == request.scope
+                        && candidate.claimed_by_session.as_deref() == Some(session_id)
+                }) {
+                    Some((
+                        "SESSION_ALREADY_CLAIMED_CHECKPOINT",
+                        "receiving session already claimed a checkpoint",
+                    ))
+                } else {
+                    None
+                }
+            } else {
+                Some(("UNKNOWN_CHECKPOINT", "checkpoint does not exist"))
+            }
+        }
+        Event::CheckpointExpired { checkpoint_id } => {
+            if !required(&[checkpoint_id]) {
+                Some(("MISSING_REQUIRED_FIELD", "checkpoint id is required"))
+            } else if let Some(checkpoint) = state.checkpoints.get(checkpoint_id) {
+                if checkpoint.scope != request.scope {
+                    Some((
+                        "SCOPE_MISMATCH",
+                        "checkpoint scope differs from request scope",
+                    ))
+                } else if checkpoint.state != CheckpointState::Open {
+                    Some(("CHECKPOINT_NOT_OPEN", "only an open checkpoint can expire"))
+                } else {
+                    None
+                }
+            } else {
+                Some(("UNKNOWN_CHECKPOINT", "checkpoint does not exist"))
+            }
+        }
     };
     if let Some((code, message)) = structural_error {
         return Evaluation::deny(code, message);
@@ -1121,6 +1931,53 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                 "tool hold release requires an event declared as human or evidence-authored",
             );
         }
+        Event::ActionOutcomeRecorded { .. }
+            if !matches!(request.actor.kind, ActorKind::Host | ActorKind::Evidence) =>
+        {
+            return Evaluation::deny(
+                "OUTCOME_OBSERVER_REQUIRED",
+                "action outcome requires a host or evidence-authored event",
+            );
+        }
+        Event::CheckpointClaimed { .. } if request.actor.kind != ActorKind::Host => {
+            return Evaluation::deny(
+                "CHECKPOINT_RECEIVER_REQUIRED",
+                "checkpoint claim requires a host-authored event",
+            );
+        }
+        Event::CheckpointExpired { .. }
+            if !matches!(request.actor.kind, ActorKind::Human | ActorKind::Host) =>
+        {
+            return Evaluation::deny(
+                "CHECKPOINT_EXPIRY_AUTHORITY_REQUIRED",
+                "checkpoint expiry requires a human or host-authored event",
+            );
+        }
+        Event::PlanCompleted { .. } => match request.actor.kind {
+            ActorKind::Human => {}
+            ActorKind::Agent => {
+                let delegated = state.delegations.values().any(|delegation| {
+                    delegation.active
+                        && delegation.grantee == request.actor.id
+                        && delegation.scope == request.scope
+                        && delegation
+                            .transition_kinds
+                            .contains(&TransitionKind::CompletionClaim)
+                });
+                if !delegated {
+                    return Evaluation::deny(
+                        "COMPLETION_AUTHORITY_REQUIRED",
+                        "agent completion requires an active completion-claim delegation",
+                    );
+                }
+            }
+            _ => {
+                return Evaluation::deny(
+                    "COMPLETION_AUTHORITY_REQUIRED",
+                    "plan completion requires human authority or a delegated agent",
+                );
+            }
+        },
         Event::PlanAuthorized { authority_ref, .. }
         | Event::ExecutionGrantIssued { authority_ref, .. } => match request.actor.kind {
             ActorKind::Human => {}
@@ -1332,10 +2189,16 @@ pub fn initialize(path: impl AsRef<Path>) -> Result<()> {
     Ok(())
 }
 
-pub fn migrate_v1_to_v2(
+pub fn migrate_to_current(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
+    from_schema: u32,
 ) -> Result<MigrationOutcome> {
+    if !matches!(from_schema, 1 | 2) || from_schema >= SCHEMA_VERSION {
+        return Err(Error::Invariant(format!(
+            "migration supports schema versions 1 or 2 below current version {SCHEMA_VERSION}"
+        )));
+    }
     let source = source.as_ref();
     let destination = destination.as_ref();
     if source == destination {
@@ -1375,17 +2238,17 @@ pub fn migrate_v1_to_v2(
         let version = value
             .get("schema_version")
             .and_then(serde_json::Value::as_u64);
-        if version != Some(1) {
+        if version != Some(u64::from(from_schema)) {
             return Err(Error::CorruptLog {
                 line: index + 1,
-                reason: format!("expected schema version 1, got {version:?}"),
+                reason: format!("expected schema version {from_schema}, got {version:?}"),
             });
         }
         let event_type = value
             .get("event")
             .and_then(|event| event.get("type"))
             .and_then(serde_json::Value::as_str);
-        if !matches!(
+        let v1_event = matches!(
             event_type,
             Some(
                 "aporia_opened"
@@ -1401,10 +2264,22 @@ pub fn migrate_v1_to_v2(
                     | "plan_authorized"
                     | "plan_authorization_revoked"
             )
-        ) {
+        );
+        let v2_event = v1_event
+            || matches!(
+                event_type,
+                Some(
+                    "execution_grant_issued"
+                        | "execution_grant_revoked"
+                        | "execution_grant_consumed"
+                )
+            );
+        if (from_schema == 1 && !v1_event) || (from_schema == 2 && !v2_event) {
             return Err(Error::CorruptLog {
                 line: index + 1,
-                reason: format!("event type {event_type:?} is not part of schema version 1"),
+                reason: format!(
+                    "event type {event_type:?} is not part of schema version {from_schema}"
+                ),
             });
         }
         value["schema_version"] = serde_json::Value::from(SCHEMA_VERSION);
@@ -1439,11 +2314,33 @@ pub fn migrate_v1_to_v2(
     source_file.unlock()?;
 
     Ok(MigrationOutcome {
-        from_schema: 1,
+        from_schema,
         to_schema: SCHEMA_VERSION,
         revision: validated.state.revision,
         records,
     })
+}
+
+pub fn migrate_v1_to_v3(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<MigrationOutcome> {
+    migrate_to_current(source, destination, 1)
+}
+
+#[deprecated(note = "use migrate_v1_to_v3; the destination schema is now version 3")]
+pub fn migrate_v1_to_v2(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<MigrationOutcome> {
+    migrate_v1_to_v3(source, destination)
+}
+
+pub fn migrate_v2_to_v3(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<MigrationOutcome> {
+    migrate_to_current(source, destination, 2)
 }
 
 pub fn commit(path: impl AsRef<Path>, request: CommitRequest) -> Result<CommitOutcome> {

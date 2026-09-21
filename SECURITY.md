@@ -2,7 +2,7 @@
 
 ## Project status
 
-Aporic `0.4.x` is an experimental governance kernel, not a hardened security boundary. Do not rely on it as the sole control for untrusted code execution, secrets, production deployment, or access control.
+Aporic `0.5.x` is an experimental governance kernel, not a hardened security boundary. Do not rely on it as the sole control for untrusted code execution, secrets, production deployment, or access control.
 
 ## Current trust boundary
 
@@ -15,6 +15,8 @@ Aporic `0.4.x` is an experimental governance kernel, not a hardened security bou
 - Plan authorization proves that a matching record exists. It does not prove that the plan is good or that a proposed patch semantically follows it.
 - Authorization is checked before a tool runs; it is not atomically bound to the later filesystem effect. State can change between the check and the effect.
 - Bounded-grant evaluation and consumption are atomic with respect to cooperating Aporic writers, but consumption means only that preflight admission was issued. It does not attest tool success or effects.
+- `PostToolUse` records occurrence with an `unknown` outcome. Only a separate evidence-backed verification may support a success claim; hook payloads and evidence locators are not authenticated attestations.
+- Session checkpoints are derived from recorded Aporic state, not transcripts. A single-claim lifecycle prevents duplicate continuation injection but does not prove the checkpoint is complete or fresh.
 - Exact tool input for a bounded grant is stored in the append-only log. Do not place credentials, tokens, private keys, or other secrets in granted input.
 - Successful appends request data synchronization with `sync_data`, but Aporic does not claim power-loss durability: parent-directory metadata is not synchronized and there is no repair or online snapshot mechanism. The explicit migration command creates a validated offline snapshot copy; it is not recovery.
 - `SessionStart` projects recorded text as untrusted context. Its execution status is a sampled observation at one recorded revision, not permission, and it can become stale before a later tool call. It does not provide prompt-injection immunity or make event contents authoritative instructions.

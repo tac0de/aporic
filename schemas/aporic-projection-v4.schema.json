@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aporic.dev/schema/aporic-projection-v4.json",
+  "title": "Aporic bounded recorded-state projection v4",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema", "revision", "session_id", "scope", "coverage", "executions", "active_claims", "recent_action_outcomes", "retained", "omitted", "complete"],
+  "properties": {
+    "schema": { "const": 4 },
+    "revision": { "type": "integer", "minimum": 0 },
+    "session_id": { "type": "string" },
+    "scope": { "type": "string" },
+    "coverage": { "enum": ["observed_only", "unavailable"] },
+    "executions": { "type": "array" },
+    "active_claims": { "type": "array" },
+    "recent_action_outcomes": { "type": "array" },
+    "claimed_checkpoint": { "type": "object" },
+    "retained": { "$ref": "#/$defs/counts" },
+    "omitted": { "$ref": "#/$defs/counts" },
+    "complete": { "type": "boolean" }
+  },
+  "$defs": {
+    "counts": {
+      "type": "object",
+      "required": ["decisions", "aporia", "delegations", "risks", "claims", "action_outcomes", "checkpoints"],
+      "properties": {
+        "decisions": { "type": "integer", "minimum": 0 },
+        "aporia": { "type": "integer", "minimum": 0 },
+        "delegations": { "type": "integer", "minimum": 0 },
+        "risks": { "type": "integer", "minimum": 0 },
+        "claims": { "type": "integer", "minimum": 0 },
+        "action_outcomes": { "type": "integer", "minimum": 0 },
+        "checkpoints": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}

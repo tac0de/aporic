@@ -30,9 +30,12 @@ jobs:
           python3 -m json.tool schemas/codex-session-start.schema.json >/dev/null
           python3 -m json.tool schemas/codex-user-prompt-submit.schema.json >/dev/null
           python3 -m json.tool schemas/codex-pre-tool-use.schema.json >/dev/null
+          python3 -m json.tool schemas/codex-post-tool-use.schema.json >/dev/null
+          python3 -m json.tool schemas/codex-session-end.schema.json >/dev/null
           python3 -m json.tool schemas/aporic-policy-v1.schema.json >/dev/null
           python3 -m json.tool schemas/aporic-projection-v2.schema.json >/dev/null
           python3 -m json.tool schemas/aporic-projection-v3.schema.json >/dev/null
+          python3 -m json.tool schemas/aporic-projection-v4.schema.json >/dev/null
 
   test:
     strategy:

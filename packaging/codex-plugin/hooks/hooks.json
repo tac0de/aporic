@@ -39,6 +39,31 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${PLUGIN_ROOT}/bin/aporic\" codex-global-post-tool-use",
+            "timeout": 5,
+            "statusMessage": "Recording Aporic action occurrence"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${PLUGIN_ROOT}/bin/aporic\" codex-global-session-end",
+            "timeout": 5,
+            "statusMessage": "Publishing Aporic continuation checkpoint"
+          }
+        ]
+      }
     ]
   }
 }

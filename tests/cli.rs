@@ -267,6 +267,58 @@ fn oversized_global_user_prompt_input_skips_without_blocking_or_echoing() {
 }
 
 #[test]
+fn oversized_global_post_tool_input_fails_with_a_bounded_diagnostic() {
+    let oversized = "x".repeat(1_048_577);
+    let output = run(&["codex-global-post-tool-use"], Some(&oversized));
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("hook input exceeds 1048576 UTF-8 bytes")
+    );
+}
+
+#[test]
+fn global_post_tool_use_reports_a_missing_bound_store() {
+    let workspace = temp_path("global-post-missing-store");
+    let data_root = temp_path("global-post-missing-store-data");
+    std::fs::create_dir_all(&workspace).unwrap();
+    let setup = run(
+        &[
+            "project-init",
+            "--workspace",
+            workspace.to_str().unwrap(),
+            "--scope",
+            "repo",
+            "--data-root",
+            data_root.to_str().unwrap(),
+        ],
+        None,
+    );
+    assert!(setup.status.success());
+    let setup: Value = serde_json::from_slice(&setup.stdout).unwrap();
+    std::fs::remove_file(setup["store"].as_str().unwrap()).unwrap();
+    let input = serde_json::json!({
+        "session_id": "session-global",
+        "hook_event_name": "PostToolUse",
+        "cwd": workspace,
+        "turn_id": "turn-global",
+        "tool_name": "apply_patch",
+        "tool_use_id": "use-global",
+        "tool_input": {},
+        "tool_response": {}
+    });
+    let output = run(
+        &[
+            "codex-global-post-tool-use",
+            "--data-root",
+            data_root.to_str().unwrap(),
+        ],
+        Some(&serde_json::to_string(&input).unwrap()),
+    );
+    assert_eq!(output.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&output.stderr).starts_with("aporic:"));
+}
+
+#[test]
 fn global_adapter_fails_closed_when_a_bound_project_is_invalid() {
     let workspace = temp_path("global-invalid");
     let data_root = temp_path("global-invalid-data");
@@ -446,7 +498,7 @@ fn project_init_can_migrate_a_v1_store_without_changing_the_source() {
     let setup: Value = serde_json::from_slice(&setup.stdout).unwrap();
     assert_eq!(setup["status"], "migrated");
     assert_eq!(setup["migration"]["from_schema"], 1);
-    assert_eq!(setup["migration"]["to_schema"], 2);
+    assert_eq!(setup["migration"]["to_schema"], 3);
     assert_eq!(std::fs::read_to_string(&source).unwrap(), source_bytes);
 
     let status = run(
@@ -502,7 +554,7 @@ fn policy_rejection_uses_exit_two_and_structured_json() {
     assert!(run(&["init", "--store", store_arg], None).status.success());
 
     let request = serde_json::json!({
-        "schema_version": 2,
+        "schema_version": 3,
         "event_id": "decision-event",
         "idempotency_key": "decision-key",
         "expected_revision": 0,
@@ -662,7 +714,7 @@ fn session_start_reports_the_same_plan_gate_policy() {
     let start = context.find("<aporic-recorded-data>").unwrap() + "<aporic-recorded-data>".len();
     let end = context.find("</aporic-recorded-data>").unwrap();
     let projection: Value = serde_json::from_str(&context[start..end]).unwrap();
-    assert_eq!(projection["schema"], 3);
+    assert_eq!(projection["schema"], 4);
     assert_eq!(projection["budget"]["limit"], 6_000);
     assert_eq!(
         projection["executions"][0]["status"],

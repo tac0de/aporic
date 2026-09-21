@@ -152,7 +152,7 @@ fn projects_only_exact_scope_and_labels_data_untrusted() {
     );
     let data = capsule(&output.hook_specific_output.additional_context);
     assert_eq!(data["revision"], 7);
-    assert_eq!(data["schema"], 3);
+    assert_eq!(data["schema"], 4);
     assert_eq!(data["scope"], "repo");
     assert_eq!(data["authenticated_human_authority"], false);
     assert_eq!(data["active_decisions"].as_array().unwrap().len(), 1);

@@ -2,6 +2,26 @@
 
 All notable changes are documented here. Aporic is experimental; its contracts may change between minor releases.
 
+## 0.5.0 - 2026-09-21
+
+### Added
+
+- Event schema v3 for evidence, epistemic claims, plan bases, action outcomes, acceptance-check verification, plan completion, and continuation checkpoints.
+- `PostToolUse` occurrence recording and transcript-independent `SessionEnd` checkpoint publication.
+- Projection schema v4 with active claims, current-session outcomes, and a single claimed continuation checkpoint.
+- Explicit non-destructive v1-to-v3 and v2-to-v3 migration paths.
+
+### Changed
+
+- Completion now requires passing verification for every acceptance check or named accepted residual risks.
+- The plugin package and crate report `0.5.0`.
+
+### Known limitations
+
+- `PostToolUse` records `unknown`, not success, because tool responses are not a uniform attestation format.
+- Checkpoints derive only from Aporic recorded state and do not read Codex transcripts.
+- Actors and evidence locators remain caller-declared rather than cryptographically authenticated.
+
 ## 0.4.0 - 2026-09-21
 
 ### Added

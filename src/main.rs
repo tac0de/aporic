@@ -1,9 +1,11 @@
 use aporic::codex::{
     DEFAULT_PROJECTION_LIMIT_BYTES, GatePolicy, MAX_SCOPE_BYTES, MAX_USER_PROMPT_HOOK_INPUT_BYTES,
-    PreToolUseInput, SessionStartInput, UserPromptSubmitInput, explain_action,
-    invalid_policy_pre_tool_output, invalid_project_output, invalid_project_pre_tool_output,
-    invalid_project_user_prompt_output, pre_tool_use_transaction, session_start_output,
-    skipped_output, unavailable_output, unavailable_pre_tool_output, user_prompt_submit_output,
+    PostToolUseInput, PreToolUseInput, SessionEndInput, SessionStartInput, UserPromptSubmitInput,
+    claim_checkpoint_transaction, explain_action, invalid_policy_pre_tool_output,
+    invalid_project_output, invalid_project_pre_tool_output, invalid_project_user_prompt_output,
+    post_tool_use_transaction, pre_tool_use_transaction, publish_checkpoint_transaction,
+    session_start_output, skipped_output, unavailable_output, unavailable_pre_tool_output,
+    user_prompt_submit_output,
 };
 use aporic::policy::PolicyDocument;
 use aporic::project::{
@@ -11,7 +13,7 @@ use aporic::project::{
 };
 use aporic::{
     CommitRequest, CommitStatus, SCHEMA_VERSION, commit, initialize, load, load_nonblocking,
-    migrate_v1_to_v2,
+    migrate_to_current,
 };
 use serde::Serialize;
 use std::env;
@@ -21,6 +23,20 @@ use std::path::PathBuf;
 fn print_json(value: &impl Serialize) -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", serde_json::to_string_pretty(value)?);
     Ok(())
+}
+
+fn read_bounded_stdin(limit_bytes: usize) -> Result<String, Box<dyn std::error::Error>> {
+    let mut input = String::new();
+    let mut stdin = io::stdin();
+    {
+        let mut limited = stdin.by_ref().take((limit_bytes + 1) as u64);
+        limited.read_to_string(&mut input)?;
+    }
+    if input.len() > limit_bytes {
+        io::copy(&mut stdin, &mut io::sink())?;
+        return Err(format!("hook input exceeds {limit_bytes} UTF-8 bytes").into());
+    }
+    Ok(input)
 }
 
 fn store_path(args: &[String]) -> Result<PathBuf, String> {
@@ -104,7 +120,7 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().skip(1).collect();
     let Some(command) = args.first().map(String::as_str) else {
         return Err(
-            "usage: aporic <project-init|project-paths|init|status|commit|explain|doctor|migrate|codex-session-start|codex-pre-tool-use|codex-global-session-start|codex-global-user-prompt-submit|codex-global-pre-tool-use>".into(),
+            "usage: aporic <project-init|project-paths|init|status|commit|explain|doctor|migrate|codex-session-start|codex-pre-tool-use|codex-post-tool-use|codex-session-end|codex-global-session-start|codex-global-user-prompt-submit|codex-global-pre-tool-use|codex-global-post-tool-use|codex-global-session-end>".into(),
         );
     };
 
@@ -120,7 +136,7 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
                 return Err("project store already exists; refusing to replace it".into());
             }
             let migration = if let Some(source) = migration_source {
-                Some(migrate_v1_to_v2(source, &store)?)
+                Some(migrate_to_current(source, &store, 1)?)
             } else {
                 initialize(&store)?;
                 None
@@ -182,11 +198,9 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
         "migrate" => {
             let path = store_path(&args)?;
             let from = argument(&args, "--from")?;
-            if from != "1" {
-                return Err("only --from 1 is supported".into());
-            }
+            let from = from.parse::<u32>()?;
             let destination = PathBuf::from(argument(&args, "--to")?);
-            print_json(&migrate_v1_to_v2(path, destination)?)?;
+            print_json(&migrate_to_current(path, destination, from)?)?;
             Ok(0)
         }
         "codex-session-start" => {
@@ -205,18 +219,45 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
                 return Ok(0);
             }
             let policy = gate_policy(&args)?;
-            let output = match load_nonblocking(path) {
-                Ok(log) => session_start_output(
-                    log.state(),
-                    &input,
-                    &scope,
-                    &policy,
-                    DEFAULT_PROJECTION_LIMIT_BYTES,
-                )
-                .map_err(String::from)?,
+            let output = match claim_checkpoint_transaction(&path, &input, &scope) {
+                Ok(()) => match load_nonblocking(path) {
+                    Ok(log) => session_start_output(
+                        log.state(),
+                        &input,
+                        &scope,
+                        &policy,
+                        DEFAULT_PROJECTION_LIMIT_BYTES,
+                    )
+                    .map_err(String::from)?,
+                    Err(error) => unavailable_output(&error, &input, &scope, &policy),
+                },
                 Err(error) => unavailable_output(&error, &input, &scope, &policy),
             };
             print_json(&output)?;
+            Ok(0)
+        }
+        "codex-post-tool-use" => {
+            let path = store_path(&args)?;
+            let scope = argument(&args, "--scope")?;
+            let workspace = PathBuf::from(argument(&args, "--workspace")?);
+            let input = read_bounded_stdin(MAX_USER_PROMPT_HOOK_INPUT_BYTES)?;
+            let input: PostToolUseInput = serde_json::from_str(&input)?;
+            input.validate().map_err(String::from)?;
+            if workspace_matches(&input.cwd, &workspace) {
+                post_tool_use_transaction(path, &input, &scope)?;
+            }
+            Ok(0)
+        }
+        "codex-session-end" => {
+            let path = store_path(&args)?;
+            let scope = argument(&args, "--scope")?;
+            let workspace = PathBuf::from(argument(&args, "--workspace")?);
+            let input = read_bounded_stdin(MAX_USER_PROMPT_HOOK_INPUT_BYTES)?;
+            let input: SessionEndInput = serde_json::from_str(&input)?;
+            input.validate().map_err(String::from)?;
+            if workspace_matches(&input.cwd, &workspace) {
+                publish_checkpoint_transaction(path, &input, &scope)?;
+            }
             Ok(0)
         }
         "codex-pre-tool-use" => {
@@ -282,17 +323,21 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
                     return Ok(0);
                 }
             };
-            let output = match load_nonblocking(&project.store_path) {
-                Ok(log) => session_start_output(
-                    log.state(),
-                    &input,
-                    &project.scope,
-                    &policy,
-                    DEFAULT_PROJECTION_LIMIT_BYTES,
-                )
-                .map_err(String::from)?,
-                Err(error) => unavailable_output(&error, &input, &project.scope, &policy),
-            };
+            let output =
+                match claim_checkpoint_transaction(&project.store_path, &input, &project.scope) {
+                    Ok(()) => match load_nonblocking(&project.store_path) {
+                        Ok(log) => session_start_output(
+                            log.state(),
+                            &input,
+                            &project.scope,
+                            &policy,
+                            DEFAULT_PROJECTION_LIMIT_BYTES,
+                        )
+                        .map_err(String::from)?,
+                        Err(error) => unavailable_output(&error, &input, &project.scope, &policy),
+                    },
+                    Err(error) => unavailable_output(&error, &input, &project.scope, &policy),
+                };
             print_json(&output)?;
             Ok(0)
         }
@@ -333,8 +378,7 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
             Ok(0)
         }
         "codex-global-pre-tool-use" => {
-            let mut input = String::new();
-            io::stdin().read_to_string(&mut input)?;
+            let input = read_bounded_stdin(MAX_USER_PROMPT_HOOK_INPUT_BYTES)?;
             let input: PreToolUseInput = serde_json::from_str(&input)?;
             input.validate().map_err(String::from)?;
             let data_root = match data_root(&args) {
@@ -374,6 +418,28 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
             if let Some(output) = output {
                 print_json(&output)?;
             }
+            Ok(0)
+        }
+        "codex-global-post-tool-use" => {
+            let input = read_bounded_stdin(MAX_USER_PROMPT_HOOK_INPUT_BYTES)?;
+            let input: PostToolUseInput = serde_json::from_str(&input)?;
+            input.validate().map_err(String::from)?;
+            let data_root = data_root(&args)?;
+            let Some(project) = discover_project(&input.cwd, &data_root)? else {
+                return Ok(0);
+            };
+            post_tool_use_transaction(&project.store_path, &input, &project.scope)?;
+            Ok(0)
+        }
+        "codex-global-session-end" => {
+            let input = read_bounded_stdin(MAX_USER_PROMPT_HOOK_INPUT_BYTES)?;
+            let input: SessionEndInput = serde_json::from_str(&input)?;
+            input.validate().map_err(String::from)?;
+            let data_root = data_root(&args)?;
+            let Some(project) = discover_project(&input.cwd, &data_root)? else {
+                return Ok(0);
+            };
+            publish_checkpoint_transaction(&project.store_path, &input, &project.scope)?;
             Ok(0)
         }
         "explain" => {

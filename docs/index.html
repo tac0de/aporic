@@ -203,7 +203,7 @@ a { color: inherit; }
       <a href="#system">System</a>
       <a href="#evaluate">Evaluate</a>
       <a href="https://github.com/tac0de/aporic" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
-      <span class="site-version">EXPERIMENTAL · v0.3.1</span>
+      <span class="site-version">EXPERIMENTAL · v0.5.0</span>
     </div>
   </nav>
 </header>
@@ -553,14 +553,14 @@ a { color: inherit; }
 
   <section class="section site-shell">
     <div class="section-heading reveal">
-      <span class="section-index">03 / v0.3.1</span>
+      <span class="section-index">03 / v0.5.0</span>
       <h2>Useful governance primitives, kept deliberately narrow.</h2>
     </div>
     <div class="capability-grid">
       <article class="capability reveal">
         <span class="capability-tag">REPLAY</span>
         <h3>Deterministic state</h3>
-        <p>Event schema v2 replays in sequence with strict revision and state checks, plus explicit non-destructive migration from v1.</p>
+        <p>Event schema v3 replays evidence, claims, verification, completion, and continuation checkpoints with explicit non-destructive migration from v1 or v2.</p>
       </article>
       <article class="capability reveal">
         <span class="capability-tag">GLOBAL</span>
@@ -573,9 +573,9 @@ a { color: inherit; }
         <p>One deterministic evaluator drives startup context, explanation, and preventive checks for exact tool names in a strict JSON policy.</p>
       </article>
       <article class="capability reveal">
-        <span class="capability-tag">GRANT</span>
-        <h3>Bounded execution</h3>
-        <p>A grant binds plan, scope, session, tool, exact JSON input, and use limit; admission consumes one use before the tool runs.</p>
+        <span class="capability-tag">VERIFY</span>
+        <h3>Evidence before completion</h3>
+        <p>Tool occurrence is not success: completion requires direct evidence for every acceptance check or explicitly accepted residual risk.</p>
       </article>
     </div>
   </section>
@@ -595,7 +595,7 @@ a { color: inherit; }
       </div>
       <div class="requirements">
         <h3>Evaluation release</h3>
-        <p>Aporic v0.3.1 is for dogfooding and evaluation, not a broad security boundary.</p>
+        <p>Aporic v0.5.0 is for dogfooding and evaluation, not a broad security boundary.</p>
         <ul>
           <li>Rust 1.89 or newer to build the plugin package</li>
           <li>macOS arm64 for the packaged Codex plugin</li>
@@ -623,7 +623,7 @@ a { color: inherit; }
 
 <footer class="site-footer">
   <div class="site-shell footer-row">
-    <span>APORIC · EXPERIMENTAL v0.3.1</span>
+    <span>APORIC · EXPERIMENTAL v0.5.0</span>
     <span><a href="https://github.com/tac0de/aporic/blob/main/SECURITY.md" target="_blank" rel="noopener noreferrer">Security</a> · <a href="https://github.com/tac0de/aporic" target="_blank" rel="noopener noreferrer">Source</a></span>
   </div>
 </footer>
