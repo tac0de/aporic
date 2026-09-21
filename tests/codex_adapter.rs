@@ -1,6 +1,8 @@
 use aporic::codex::{
-    GatePolicy, PreToolUseInput, SessionSource, SessionStartInput, pre_tool_use_output,
+    GatePolicy, INTENT_FIDELITY_LIMIT_BYTES, PreToolUseInput, SessionSource, SessionStartInput,
+    UserPromptSubmitInput, invalid_project_user_prompt_output, pre_tool_use_output,
     session_start_output, unavailable_output, unavailable_pre_tool_output,
+    user_prompt_submit_output,
 };
 use aporic::{
     Actor, ActorKind, Aporia, Decision, Delegation, Error, PlanAuthorization, State, ToolHold,
@@ -41,6 +43,54 @@ fn pre_tool_input(tool_name: &str) -> PreToolUseInput {
         model: Some("model".into()),
         permission_mode: Some("default".into()),
     }
+}
+
+fn user_prompt_input() -> UserPromptSubmitInput {
+    UserPromptSubmitInput {
+        session_id: "session-1".into(),
+        hook_event_name: "UserPromptSubmit".into(),
+        cwd: "/workspace/repo".into(),
+        turn_id: "turn-1".into(),
+        prompt: "DO_NOT_ECHO_RAW_PROMPT".into(),
+        model: Some("model".into()),
+        permission_mode: Some("default".into()),
+    }
+}
+
+#[test]
+fn user_prompt_submit_adds_bounded_advisory_context_without_echoing_prompt() {
+    let output = user_prompt_submit_output(&user_prompt_input()).unwrap();
+    let context = &output.hook_specific_output.additional_context;
+
+    assert!(output.continue_);
+    assert!(output.system_message.is_none());
+    assert_eq!(
+        output.hook_specific_output.hook_event_name,
+        "UserPromptSubmit"
+    );
+    assert!(context.contains("Intent Fidelity contract v1"));
+    assert!(context.contains("explicit, inferred, or unknown"));
+    assert!(context.contains("never grants tool permission"));
+    assert!(!context.contains("DO_NOT_ECHO_RAW_PROMPT"));
+    assert!(context.len() <= INTENT_FIDELITY_LIMIT_BYTES);
+}
+
+#[test]
+fn user_prompt_submit_rejects_another_hook_shape() {
+    let mut input = user_prompt_input();
+    input.hook_event_name = "SessionStart".into();
+    assert!(user_prompt_submit_output(&input).is_err());
+}
+
+#[test]
+fn invalid_project_user_prompt_output_is_advisory_and_does_not_leak_prompt() {
+    let output = invalid_project_user_prompt_output(&user_prompt_input());
+    let serialized = serde_json::to_string(&output).unwrap();
+
+    assert!(output.continue_);
+    assert!(output.system_message.is_some());
+    assert!(serialized.contains("PROJECT_INVALID"));
+    assert!(!serialized.contains("DO_NOT_ECHO_RAW_PROMPT"));
 }
 
 #[test]

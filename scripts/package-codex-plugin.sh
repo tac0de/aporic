@@ -11,7 +11,7 @@ output_dir=$1
 case "$(uname -s)-$(uname -m)" in
   Darwin-arm64) ;;
   *)
-    echo "the v0.3.1 plugin package supports macOS arm64 only" >&2
+    echo "the v0.4.0 plugin package supports macOS arm64 only" >&2
     exit 2
     ;;
 esac

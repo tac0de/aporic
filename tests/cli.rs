@@ -131,6 +131,142 @@ fn one_global_adapter_discovers_only_explicitly_bound_projects() {
 }
 
 #[test]
+fn global_user_prompt_submit_is_bounded_advisory_and_opt_in() {
+    let workspace = temp_path("global-intent-workspace");
+    let nested = workspace.join("src");
+    let data_root = temp_path("global-intent-data");
+    std::fs::create_dir_all(&nested).unwrap();
+
+    let setup = run(
+        &[
+            "project-init",
+            "--workspace",
+            workspace.to_str().unwrap(),
+            "--scope",
+            "intent-test",
+            "--data-root",
+            data_root.to_str().unwrap(),
+        ],
+        None,
+    );
+    assert!(setup.status.success());
+
+    let input = serde_json::json!({
+        "session_id": "session-intent",
+        "hook_event_name": "UserPromptSubmit",
+        "cwd": nested,
+        "turn_id": "turn-intent",
+        "prompt": "DO_NOT_ECHO_RAW_PROMPT"
+    });
+    let output = run(
+        &[
+            "codex-global-user-prompt-submit",
+            "--data-root",
+            data_root.to_str().unwrap(),
+        ],
+        Some(&serde_json::to_string(&input).unwrap()),
+    );
+    assert!(output.status.success());
+    let response: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(response["continue"], true);
+    let context = response["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .unwrap();
+    assert!(context.contains("Intent Fidelity contract v1"));
+    assert!(!context.contains("DO_NOT_ECHO_RAW_PROMPT"));
+
+    let unrelated = temp_path("global-intent-unrelated");
+    std::fs::create_dir_all(&unrelated).unwrap();
+    let unrelated_input = serde_json::json!({
+        "session_id": "session-unrelated",
+        "hook_event_name": "UserPromptSubmit",
+        "cwd": unrelated,
+        "turn_id": "turn-unrelated",
+        "prompt": "unbound"
+    });
+    let skipped = run(
+        &[
+            "codex-global-user-prompt-submit",
+            "--data-root",
+            data_root.to_str().unwrap(),
+        ],
+        Some(&serde_json::to_string(&unrelated_input).unwrap()),
+    );
+    assert!(skipped.status.success());
+    assert_eq!(
+        serde_json::from_slice::<Value>(&skipped.stdout).unwrap(),
+        serde_json::json!({"continue": true})
+    );
+}
+
+#[test]
+fn invalid_global_project_warns_but_does_not_block_user_prompt() {
+    let workspace = temp_path("global-invalid-intent");
+    let data_root = temp_path("global-invalid-intent-data");
+    std::fs::create_dir_all(workspace.join(".aporic")).unwrap();
+    std::fs::write(
+        workspace.join(".aporic/config.json"),
+        r#"{"schema_version":1,"scope":"invalid scope"}"#,
+    )
+    .unwrap();
+    let input = serde_json::json!({
+        "session_id": "session-global",
+        "hook_event_name": "UserPromptSubmit",
+        "cwd": workspace,
+        "turn_id": "turn-global",
+        "prompt": "DO_NOT_ECHO_RAW_PROMPT"
+    });
+    let output = run(
+        &[
+            "codex-global-user-prompt-submit",
+            "--data-root",
+            data_root.to_str().unwrap(),
+        ],
+        Some(&serde_json::to_string(&input).unwrap()),
+    );
+    assert!(output.status.success());
+    let response: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(response["continue"], true);
+    assert!(
+        response["systemMessage"]
+            .as_str()
+            .unwrap()
+            .contains("PROJECT_INVALID")
+    );
+    assert!(
+        !String::from_utf8(output.stdout)
+            .unwrap()
+            .contains("DO_NOT_ECHO_RAW_PROMPT")
+    );
+}
+
+#[test]
+fn oversized_global_user_prompt_input_skips_without_blocking_or_echoing() {
+    let oversized = "DO_NOT_ECHO_OVERSIZED".repeat(55_189);
+    let input = serde_json::json!({
+        "session_id": "session-global",
+        "hook_event_name": "UserPromptSubmit",
+        "cwd": "/tmp",
+        "turn_id": "turn-global",
+        "prompt": oversized
+    });
+    let output = run(
+        &["codex-global-user-prompt-submit"],
+        Some(&serde_json::to_string(&input).unwrap()),
+    );
+    assert!(output.status.success());
+    assert_eq!(
+        serde_json::from_slice::<Value>(&output.stdout).unwrap(),
+        serde_json::json!({"continue": true})
+    );
+    assert!(
+        !String::from_utf8(output.stdout)
+            .unwrap()
+            .contains("DO_NOT_ECHO_OVERSIZED")
+    );
+}
+
+#[test]
 fn global_adapter_fails_closed_when_a_bound_project_is_invalid() {
     let workspace = temp_path("global-invalid");
     let data_root = temp_path("global-invalid-data");

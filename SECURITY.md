@@ -2,7 +2,7 @@
 
 ## Project status
 
-Aporic `0.3.x` is an experimental governance kernel, not a hardened security boundary. Do not rely on it as the sole control for untrusted code execution, secrets, production deployment, or access control.
+Aporic `0.4.x` is an experimental governance kernel, not a hardened security boundary. Do not rely on it as the sole control for untrusted code execution, secrets, production deployment, or access control.
 
 ## Current trust boundary
 
@@ -18,6 +18,7 @@ Aporic `0.3.x` is an experimental governance kernel, not a hardened security bou
 - Exact tool input for a bounded grant is stored in the append-only log. Do not place credentials, tokens, private keys, or other secrets in granted input.
 - Successful appends request data synchronization with `sync_data`, but Aporic does not claim power-loss durability: parent-directory metadata is not synchronized and there is no repair or online snapshot mechanism. The explicit migration command creates a validated offline snapshot copy; it is not recovery.
 - `SessionStart` projects recorded text as untrusted context. Its execution status is a sampled observation at one recorded revision, not permission, and it can become stale before a later tool call. It does not provide prompt-injection immunity or make event contents authoritative instructions.
+- `UserPromptSubmit` supplies advisory intent-fidelity context. It does not parse or authenticate meaning, persist the prompt, prove that the model followed the guidance, grant authority, or protect tools outside the independent `PreToolUse` path. Invalid project discovery warns without blocking conversation; configured mutation tools retain their separate fail-closed behavior. Raw hook input is capped at 1 MiB and an oversized payload skips this advisory rather than blocking conversation.
 - The 6,000-byte projection limit bounds injected UTF-8 bytes; it does not promise a token count, model-cost reduction, or retention of every detailed record. For observed state, critical gate status and authority counts remain as per-tool entries or explicit omitted-tool aggregates, blocker kinds are retained, and detail omission is explicit. Unavailable state has no trusted status to aggregate and reports only unknown retained entries plus protected and omitted counts.
 - FNV identities in diagnostics and omission receipts are non-cryptographic lookup aids. The authorization boundary compares canonical JSON values exactly and never trusts these identities.
 - Replay rejects malformed sequences and unsupported schema versions, but it does not rerun the current authorization policy over historical events.

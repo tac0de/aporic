@@ -1,3 +1,20 @@
+#[test]
+fn packaged_hooks_include_turn_scoped_intent_fidelity() {
+    let repo = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let hooks: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(repo.join("packaging/codex-plugin/hooks/hooks.json")).unwrap(),
+    )
+    .unwrap();
+
+    let handlers = hooks["hooks"]["UserPromptSubmit"].as_array().unwrap();
+    assert_eq!(handlers.len(), 1);
+    assert!(handlers[0].get("matcher").is_none());
+    assert_eq!(
+        handlers[0]["hooks"][0]["command"],
+        "\"${PLUGIN_ROOT}/bin/aporic\" codex-global-user-prompt-submit"
+    );
+}
+
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 #[test]
 fn packager_explains_missing_rust_toolchain_before_creating_output() {

@@ -1,8 +1,9 @@
 use aporic::codex::{
-    DEFAULT_PROJECTION_LIMIT_BYTES, GatePolicy, MAX_SCOPE_BYTES, PreToolUseInput,
-    SessionStartInput, explain_action, invalid_policy_pre_tool_output, invalid_project_output,
-    invalid_project_pre_tool_output, pre_tool_use_transaction, session_start_output,
-    skipped_output, unavailable_output, unavailable_pre_tool_output,
+    DEFAULT_PROJECTION_LIMIT_BYTES, GatePolicy, MAX_SCOPE_BYTES, MAX_USER_PROMPT_HOOK_INPUT_BYTES,
+    PreToolUseInput, SessionStartInput, UserPromptSubmitInput, explain_action,
+    invalid_policy_pre_tool_output, invalid_project_output, invalid_project_pre_tool_output,
+    invalid_project_user_prompt_output, pre_tool_use_transaction, session_start_output,
+    skipped_output, unavailable_output, unavailable_pre_tool_output, user_prompt_submit_output,
 };
 use aporic::policy::PolicyDocument;
 use aporic::project::{
@@ -103,7 +104,7 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().skip(1).collect();
     let Some(command) = args.first().map(String::as_str) else {
         return Err(
-            "usage: aporic <project-init|project-paths|init|status|commit|explain|doctor|migrate|codex-session-start|codex-pre-tool-use|codex-global-session-start|codex-global-pre-tool-use>".into(),
+            "usage: aporic <project-init|project-paths|init|status|commit|explain|doctor|migrate|codex-session-start|codex-pre-tool-use|codex-global-session-start|codex-global-user-prompt-submit|codex-global-pre-tool-use>".into(),
         );
     };
 
@@ -293,6 +294,42 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
                 Err(error) => unavailable_output(&error, &input, &project.scope, &policy),
             };
             print_json(&output)?;
+            Ok(0)
+        }
+        "codex-global-user-prompt-submit" => {
+            let mut input = String::new();
+            let mut stdin = io::stdin();
+            {
+                let mut limited = stdin
+                    .by_ref()
+                    .take((MAX_USER_PROMPT_HOOK_INPUT_BYTES + 1) as u64);
+                limited.read_to_string(&mut input)?;
+            }
+            if input.len() > MAX_USER_PROMPT_HOOK_INPUT_BYTES {
+                io::copy(&mut stdin, &mut io::sink())?;
+                print_json(&skipped_output())?;
+                return Ok(0);
+            }
+            let input: UserPromptSubmitInput = serde_json::from_str(&input)?;
+            input.validate().map_err(String::from)?;
+            let data_root = match data_root(&args) {
+                Ok(path) => path,
+                Err(_) => {
+                    print_json(&invalid_project_user_prompt_output(&input))?;
+                    return Ok(0);
+                }
+            };
+            match discover_project(&input.cwd, &data_root) {
+                Ok(Some(_)) => {
+                    print_json(&user_prompt_submit_output(&input).map_err(String::from)?)?;
+                }
+                Ok(None) => {
+                    print_json(&skipped_output())?;
+                }
+                Err(_) => {
+                    print_json(&invalid_project_user_prompt_output(&input))?;
+                }
+            }
             Ok(0)
         }
         "codex-global-pre-tool-use" => {

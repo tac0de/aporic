@@ -11,9 +11,14 @@ use std::path::Path;
 pub const DEFAULT_PROJECTION_LIMIT_BYTES: usize = 6_000;
 pub const MAX_SCOPE_BYTES: usize = 256;
 pub const MAX_SESSION_ID_BYTES: usize = 256;
+pub const MAX_TURN_ID_BYTES: usize = 256;
 pub const MAX_TOOL_NAME_BYTES: usize = 256;
 pub const MAX_TOOL_USE_ID_BYTES: usize = 256;
+pub const MAX_USER_PROMPT_HOOK_INPUT_BYTES: usize = 1_048_576;
 pub const PROJECTION_SCHEMA_VERSION: u32 = 3;
+pub const INTENT_FIDELITY_LIMIT_BYTES: usize = 1_200;
+
+const INTENT_FIDELITY_CONTEXT: &str = "Aporic Intent Fidelity contract v1. Interpret the current request before acting. Preserve explicit actor, target, exclusions, negation, conditions, sequence, uncertainty, authorization boundaries, and exact technical strings. Classify material fields as explicit, inferred, or unknown; never promote inferred or unknown content to human approval. Reuse clear nearby context and treat a correction as replacing only the corrected field. A short confirmation covers only the immediately preceding concrete proposition. If multiple plausible interpretations would materially change scope, permissions, deletion, publication, cost, security, or the core result, ask one concise question and, when Aporic governance applies, record a blocking Aporia before plan authorization. This advisory does not authenticate authority and never grants tool permission; PreToolUse remains authoritative for configured tools.";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GatePolicy {
@@ -103,6 +108,37 @@ pub struct SessionStartOutput {
     pub hook_specific_output: HookSpecificOutput,
     #[serde(skip)]
     pub projection_report: Option<ProjectionReport>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct UserPromptSubmitInput {
+    pub session_id: String,
+    pub hook_event_name: String,
+    pub cwd: String,
+    pub turn_id: String,
+    pub prompt: String,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub permission_mode: Option<String>,
+}
+
+impl UserPromptSubmitInput {
+    pub fn validate(&self) -> std::result::Result<(), &'static str> {
+        if self.hook_event_name != "UserPromptSubmit" {
+            return Err("expected a UserPromptSubmit hook event");
+        }
+        if self.session_id.trim().is_empty()
+            || self.session_id.len() > MAX_SESSION_ID_BYTES
+            || self.cwd.trim().is_empty()
+            || self.turn_id.trim().is_empty()
+            || self.turn_id.len() > MAX_TURN_ID_BYTES
+            || self.prompt.trim().is_empty()
+        {
+            return Err("required UserPromptSubmit field is empty or too large");
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -381,6 +417,50 @@ pub fn invalid_project_pre_tool_output(tool_name: &str) -> PreToolUseOutput {
 pub struct HookSpecificOutput {
     pub hook_event_name: &'static str,
     pub additional_context: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserPromptSubmitOutput {
+    #[serde(rename = "continue")]
+    pub continue_: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_message: Option<String>,
+    pub hook_specific_output: HookSpecificOutput,
+}
+
+pub fn user_prompt_submit_output(
+    input: &UserPromptSubmitInput,
+) -> std::result::Result<UserPromptSubmitOutput, &'static str> {
+    input.validate()?;
+    if INTENT_FIDELITY_CONTEXT.len() > INTENT_FIDELITY_LIMIT_BYTES {
+        return Err("intent fidelity context exceeds the byte limit");
+    }
+    Ok(UserPromptSubmitOutput {
+        continue_: true,
+        system_message: None,
+        hook_specific_output: HookSpecificOutput {
+            hook_event_name: "UserPromptSubmit",
+            additional_context: INTENT_FIDELITY_CONTEXT.into(),
+        },
+    })
+}
+
+pub fn invalid_project_user_prompt_output(
+    _input: &UserPromptSubmitInput,
+) -> UserPromptSubmitOutput {
+    UserPromptSubmitOutput {
+        continue_: true,
+        system_message: Some(
+            "Aporic intent fidelity unavailable (PROJECT_INVALID); configured tool gates remain independent."
+                .into(),
+        ),
+        hook_specific_output: HookSpecificOutput {
+            hook_event_name: "UserPromptSubmit",
+            additional_context: "Aporic project binding is invalid. Do not infer intent, prior decisions, approval, or tool permission from unavailable Aporic state."
+                .into(),
+        },
+    }
 }
 
 pub fn invalid_project_output(input: &SessionStartInput) -> SessionStartOutput {

@@ -1,6 +1,6 @@
 # Aporic
 
-Aporic is an experimental local commitment-state kernel for coding agents. Version `0.3.1` improves source-build setup diagnostics while retaining the v0.3 global Codex installation and exact-action governance contracts.
+Aporic is an experimental local commitment-state kernel for coding agents. Version `0.4.0` adds a bounded, language-neutral intent-fidelity advisory at each Codex user turn while retaining exact-action governance.
 
 Repository: [github.com/tac0de/aporic](https://github.com/tac0de/aporic)
 
@@ -8,7 +8,7 @@ Website: [tac0de.github.io/aporic](https://tac0de.github.io/aporic/)
 
 ## Status
 
-`0.3.1` is the current development release. Event schema v2, policy schema v1, project-binding schema v1, and Codex projection schema v3 are independent contracts. Existing v1 stores are rejected until explicitly copied through `migrate`; installed plugins and live stores are not upgraded automatically. Authenticated actors, semantic command interpretation, broad host coverage, prebuilt release artifacts, and cross-platform plugin binaries are not promised. See [SECURITY.md](SECURITY.md) before relying on Aporic for consequential work.
+`0.4.0` is the current development release. Event schema v2, policy schema v1, project-binding schema v1, Codex projection schema v3, and intent-fidelity contract v1 are independent contracts. Existing v1 stores are rejected until explicitly copied through `migrate`; installed plugins and live stores are not upgraded automatically. Authenticated actors, deterministic natural-language interpretation, broad host coverage, prebuilt release artifacts, and cross-platform plugin binaries are not promised. See [SECURITY.md](SECURITY.md) before relying on Aporic for consequential work.
 
 ## Build and verify
 
@@ -80,6 +80,8 @@ The Codex hook schemas intentionally allow additional host fields and nullable o
 
 `codex-session-start` implements only the documented Codex `SessionStart` command-hook response. It projects exact-scope state as bounded, untrusted developer context on startup, resume, clear, and post-compaction `source: "compact"`. Startup uses a nonblocking store read: missing, invalid, or busy state is reported as `coverage: "unavailable"` rather than an empty successful capsule or a wait. A configured workspace must canonically match the hook `cwd`; other workspaces receive only `{ "continue": true }`. It does not authenticate human authority, read transcripts, infer scope from `cwd`, enforce tool calls, or provide prompt-injection immunity.
 
+The packaged `UserPromptSubmit` hook applies intent-fidelity contract v1 to every user turn in a bound project. The contract asks the model to preserve explicit actors, targets, exclusions, negation, conditions, sequence, uncertainty, authorization boundaries, and exact technical strings; classify material meaning as explicit, inferred, or unknown; and clarify consequential ambiguity rather than guessing. Its context is deterministically limited to 1,200 UTF-8 bytes. The adapter validates project discovery but does not interpret, persist, hash, echo, or block the prompt. Raw hook input is limited to 1 MiB; an oversized payload skips the advisory without blocking the conversation. The advisory does not authenticate authority, grant permission, or replace `PreToolUse`.
+
 Projection schema v3 reports exact tools retained within the byte budget, whether plan or bounded-grant authority is required, sampled gate status, and matching counts. For an observed store, when a large policy forces tool-name omission, aggregate status and authority counts for every omitted tool remain in `omitted_execution_summary`. An unavailable store has no trusted status to aggregate; it reports retained unknown-status tools plus protected and omitted counts. The same deterministic evaluator drives `SessionStart`, `PreToolUse`, and `explain`; holds take precedence. Details are removed deterministically when needed, with retained/omitted counts, `complete: false`, and, for observed state, a versioned selection rule and non-cryptographic informational omission identity. The complete wrapped context is limited to 6,000 UTF-8 bytes. This is byte bounding, not tokenizer-level or general Codex token optimization. See `schemas/aporic-projection-v3.schema.json`.
 
 `codex-pre-tool-use` interprets no command text or natural language. Policy schema v1 maps exact visible-ASCII host tool names of at most 256 bytes to `require_plan` and `require_grant`; unknown tools produce no hook decision. A hold always denies before authority is considered. Legacy `plan_authorized` records remain unbounded session/tool approvals. A bounded `execution_grant_issued` record references a plan and stores the exact JSON tool input plus a positive use limit. Its first admitted use appends `execution_grant_consumed` before returning allow; reuse, exhaustion, input/session/scope/tool mismatch, corruption, and lock contention deny or fail closed.
@@ -94,7 +96,7 @@ For configured tools, missing, invalid, or busy state fails closed; unbound work
 
 ## Codex plugin package
 
-The package uses Codex's default `hooks/hooks.json` discovery and invokes one release binary from `PLUGIN_ROOT`. Install and trust this package once. Its append-only stores live under the Aporic user data root, which must resolve outside the bound repository. A lossless versioned encoding of each canonical project path prevents projects and nested paths from sharing a store accidentally. The hooks activate only when the current directory or an ancestor has a valid `.aporic/config.json`; unbound projects are skipped.
+The package uses Codex's default `hooks/hooks.json` discovery and invokes one release binary from `PLUGIN_ROOT`. Install and trust this package once. Its append-only stores live under the Aporic user data root, which must resolve outside the bound repository. A lossless versioned encoding of each canonical project path prevents projects and nested paths from sharing a store accidentally. The `SessionStart`, `UserPromptSubmit`, and `PreToolUse` hooks activate only when the current directory or an ancestor has a valid `.aporic/config.json`; unbound projects are skipped.
 
 On macOS arm64, build a fresh globally installable package into a new directory:
 
@@ -105,7 +107,7 @@ aporic project-init --workspace /absolute/repo --scope repo
 
 The template under `packaging/codex-plugin` contains no personal filesystem path. The packager builds the locked release binary, copies static global hooks, and refuses to overwrite an existing output directory. Each repository owns its small binding and policy files; it does not receive another kernel binary or plugin installation. Validate the generated directory with Codex's plugin validator before installation.
 
-Codex plugin installation and hook trust are host state, not repository state. Hook definitions are hash-trusted by Codex; changing the packaged command requires a new review and a new Codex task to pick up the package. The v0.3 package supports macOS arm64 only and is not a cross-platform distribution artifact. Moving or renaming a bound project changes its canonical storage path; migrate the old store deliberately rather than silently merging state. Rollback means restoring the v0.2 plugin package and its old workspace-specific store. The global adapter does not discover or migrate old plugin stores automatically.
+Codex plugin installation and hook trust are host state, not repository state. Hook definitions are hash-trusted by Codex; changing the packaged command requires a new review and a new Codex task to pick up the package. The v0.4 package supports macOS arm64 only and is not a cross-platform distribution artifact. Moving or renaming a bound project changes its canonical storage path; migrate the old store deliberately rather than silently merging state. This release does not migrate the event store. Rollback means restoring the v0.3.1 plugin package; the v2 store remains compatible. The global adapter does not discover or migrate old plugin stores automatically.
 
 ## Source standards
 
@@ -115,7 +117,7 @@ Codex plugin installation and hook trust are host state, not repository state. H
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Release history and known limitations are tracked in [CHANGELOG.md](CHANGELOG.md), with the current verification record in [docs/v0.3.1-evaluation.md](docs/v0.3.1-evaluation.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md). Release history and known limitations are tracked in [CHANGELOG.md](CHANGELOG.md), with the current verification record in [docs/v0.4.0-evaluation.md](docs/v0.4.0-evaluation.md).
 
 ## License
 

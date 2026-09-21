@@ -1,7 +1,7 @@
 {
   "name": "aporic",
-  "version": "0.3.1",
-  "description": "Globally discovers opted-in projects, projects bounded Aporic state, and gates exact configured Codex tools.",
+  "version": "0.4.0",
+  "description": "Adds intent-fidelity guidance, projects bounded commitment state, and gates exact configured Codex tools in opted-in projects.",
   "author": {
     "name": "Aporic contributors"
   },
@@ -10,11 +10,12 @@
   "interface": {
     "displayName": "Aporic",
     "shortDescription": "Project commitments and gate exact tools.",
-    "longDescription": "From one global installation, discovers explicit project bindings, loads a bounded observational Aporic state projection, and applies one shared exact-action policy across startup projection and preventive tool checks.",
+    "longDescription": "From one global installation, discovers explicit project bindings, applies bounded intent-fidelity guidance per user turn, loads an observational commitment-state projection, and enforces one exact-action policy at preventive tool checks.",
     "developerName": "Aporic contributors",
     "category": "Developer Tools",
     "capabilities": [
       "Opt-in project discovery from one global installation",
+      "UserPromptSubmit intent-fidelity guidance",
       "SessionStart multi-tool bounded state projection",
       "PreToolUse hold, plan, and bounded-grant gate",
       "Explain and doctor diagnostics"

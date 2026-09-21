@@ -2,6 +2,25 @@
 
 All notable changes are documented here. Aporic is experimental; its contracts may change between minor releases.
 
+## 0.4.0 - 2026-09-21
+
+### Added
+
+- A bounded `UserPromptSubmit` adapter for language-neutral intent-fidelity guidance in explicitly bound projects.
+- Intent-fidelity contract v1 covering explicit, inferred, and unknown meaning; actor, target, exclusion, negation, condition, sequence, uncertainty, authorization, and exact-string preservation.
+- A strict but host-extensible `UserPromptSubmit` input schema and focused opt-in, prompt-non-disclosure, invalid-binding, and packaging tests.
+
+### Changed
+
+- The global plugin now combines turn-scoped advisory guidance with the existing `SessionStart` projection and independent `PreToolUse` gate.
+- Crate and Codex plugin package versions now report `0.4.0`; event, policy, project-binding, and projection schema versions are unchanged.
+
+### Known limitations
+
+- The Rust adapter does not interpret natural language or verify that the model followed the advisory.
+- Intent is not persisted or linked to plans in this release, and inferred meaning never constitutes authority.
+- A changed hook definition requires host trust review and a new Codex task after installation.
+
 ## 0.3.1 - 2026-09-20
 
 ### Changed
