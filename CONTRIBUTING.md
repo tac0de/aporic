@@ -12,18 +12,20 @@ Aporic is an experimental pre-1.0 project. Small, evidence-backed changes are pr
 
 ## Local checks
 
-Source builds require Rust 1.89 or newer with `cargo`, `rustc`, `rustfmt`, and Clippy available on `PATH`. Homebrew `rustup` users may need to add `/opt/homebrew/opt/rustup/bin` to `PATH`; see the README setup note. Check the active toolchain before running the suite:
+Source builds use the exact Rust version, components, and Wasm target declared in `rust-toolchain.toml`. Homebrew `rustup` users may need to add `/opt/homebrew/opt/rustup/bin` to `PATH`; see the README setup note. Check the active toolchain before running the suite:
 
 ```console
 command -v cargo
 command -v rustc
 rustc --version
+rustup target list --installed
 ```
 
 ```console
 cargo fmt --check
-cargo test --locked
-cargo clippy --all-targets --locked -- -D warnings
+cargo test --workspace --locked
+cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo build -p aporic-structural-analyzer --target wasm32-unknown-unknown --release --locked
 ```
 
 Changes to event contracts must update the Rust types, JSON Schema, regression tests, README, and changelog together.

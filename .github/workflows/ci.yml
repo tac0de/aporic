@@ -16,14 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Install Rust toolchain
-        run: |
-          rustup update stable --no-self-update
-          rustup default stable
-          rustup component add rustfmt clippy
-      - run: cargo fmt --check
-      - run: cargo clippy --all-targets --locked -- -D warnings
-      - run: cargo test --locked
+      - run: rustup show active-toolchain
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo test --workspace --locked
+      - run: cargo build -p aporic-structural-analyzer --target wasm32-unknown-unknown --release --locked
       - name: Validate JSON Schemas
         run: |
           python3 -m json.tool schemas/commit-request.schema.json >/dev/null
@@ -36,6 +33,9 @@ jobs:
           python3 -m json.tool schemas/aporic-projection-v2.schema.json >/dev/null
           python3 -m json.tool schemas/aporic-projection-v3.schema.json >/dev/null
           python3 -m json.tool schemas/aporic-projection-v4.schema.json >/dev/null
+          python3 -m json.tool schemas/aporic-projection-v5.schema.json >/dev/null
+          python3 -m json.tool schemas/aporic-analyzer-input-v1.schema.json >/dev/null
+          python3 -m json.tool schemas/aporic-analyzer-output-v1.schema.json >/dev/null
 
   test:
     strategy:
@@ -45,18 +45,5 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Install Rust toolchain
-        run: |
-          rustup update stable --no-self-update
-          rustup default stable
-      - run: cargo test --locked
-
-  msrv:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Install Rust 1.89
-        run: |
-          rustup toolchain install 1.89.0 --profile minimal --no-self-update
-          rustup default 1.89.0
-      - run: cargo test --locked
+      - run: rustup show active-toolchain
+      - run: cargo test --workspace --locked

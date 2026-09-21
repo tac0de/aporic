@@ -1,8 +1,9 @@
 use crate::governance::{Action, ActionEvaluation, GateStatus, evaluate_action, input_identity};
 use crate::policy::PolicyDocument;
 use crate::{
-    AcceptedRisk, ActionOutcome, Actor, ActorKind, Aporia, Checkpoint, Claim, CommitRequest,
-    Decision, Delegation, EpistemicStatus, Error, Event, State, TransitionKind,
+    AcceptedRisk, ActionOutcome, Actor, ActorKind, Aporia, ArgumentRelation, BeliefRevision,
+    Checkpoint, Claim, CommitRequest, Decision, DecisionReview, Delegation, EpistemicStatus, Error,
+    Event, State, TransitionKind,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -15,7 +16,7 @@ pub const MAX_TURN_ID_BYTES: usize = 256;
 pub const MAX_TOOL_NAME_BYTES: usize = 256;
 pub const MAX_TOOL_USE_ID_BYTES: usize = 256;
 pub const MAX_USER_PROMPT_HOOK_INPUT_BYTES: usize = 1_048_576;
-pub const PROJECTION_SCHEMA_VERSION: u32 = 4;
+pub const PROJECTION_SCHEMA_VERSION: u32 = 5;
 pub const INTENT_FIDELITY_LIMIT_BYTES: usize = 1_200;
 
 const INTENT_FIDELITY_CONTEXT: &str = "Aporic Intent Fidelity contract v1. Interpret the current request before acting. Preserve explicit actor, target, exclusions, negation, conditions, sequence, uncertainty, authorization boundaries, and exact technical strings. Classify material fields as explicit, inferred, or unknown; never promote inferred or unknown content to human approval. Reuse clear nearby context and treat a correction as replacing only the corrected field. A short confirmation covers only the immediately preceding concrete proposition. If multiple plausible interpretations would materially change scope, permissions, deletion, publication, cost, security, or the core result, ask one concise question and, when Aporic governance applies, record a blocking Aporia before plan authorization. This advisory does not authenticate authority and never grants tool permission; PreToolUse remains authoritative for configured tools.";
@@ -791,6 +792,9 @@ struct Capsule {
     active_delegations: Vec<DelegationProjection>,
     accepted_risks: Vec<RiskProjection>,
     active_claims: Vec<ClaimProjection>,
+    active_argument_relations: Vec<ArgumentRelationProjection>,
+    recent_belief_revisions: Vec<BeliefRevisionProjection>,
+    recent_decision_reviews: Vec<DecisionReviewProjection>,
     recent_action_outcomes: Vec<ActionOutcomeProjection>,
     #[serde(skip_serializing_if = "Option::is_none")]
     claimed_checkpoint: Option<CheckpointProjection>,
@@ -858,6 +862,9 @@ pub struct ProjectionCounts {
     pub delegations: usize,
     pub risks: usize,
     pub claims: usize,
+    pub argument_relations: usize,
+    pub belief_revisions: usize,
+    pub decision_reviews: usize,
     pub action_outcomes: usize,
     pub checkpoints: usize,
 }
@@ -959,6 +966,73 @@ struct ActionOutcomeProjection {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct ArgumentRelationProjection {
+    id: String,
+    source_claim_id: String,
+    target_claim_id: String,
+    kind: crate::ArgumentRelationKind,
+}
+
+impl From<&ArgumentRelation> for ArgumentRelationProjection {
+    fn from(value: &ArgumentRelation) -> Self {
+        Self {
+            id: value.id.clone(),
+            source_claim_id: value.source_claim_id.clone(),
+            target_claim_id: value.target_claim_id.clone(),
+            kind: value.kind,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct BeliefRevisionProjection {
+    id: String,
+    claim_id: String,
+    prior_status: EpistemicStatus,
+    revised_status: EpistemicStatus,
+    trigger_claim_ids: Vec<String>,
+    evidence_refs: Vec<String>,
+    rationale: String,
+}
+
+impl From<&BeliefRevision> for BeliefRevisionProjection {
+    fn from(value: &BeliefRevision) -> Self {
+        Self {
+            id: value.id.clone(),
+            claim_id: value.claim_id.clone(),
+            prior_status: value.prior_status,
+            revised_status: value.revised_status,
+            trigger_claim_ids: value.trigger_claim_ids.clone(),
+            evidence_refs: value.evidence_refs.clone(),
+            rationale: value.rationale.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct DecisionReviewProjection {
+    id: String,
+    decision_id: String,
+    outcome: crate::DecisionReviewOutcome,
+    evidence_refs: Vec<String>,
+    lessons: Vec<String>,
+    follow_up_claim_ids: Vec<String>,
+}
+
+impl From<&DecisionReview> for DecisionReviewProjection {
+    fn from(value: &DecisionReview) -> Self {
+        Self {
+            id: value.id.clone(),
+            decision_id: value.decision_id.clone(),
+            outcome: value.outcome,
+            evidence_refs: value.evidence_refs.clone(),
+            lessons: value.lessons.clone(),
+            follow_up_claim_ids: value.follow_up_claim_ids.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 struct CheckpointProjection {
     id: String,
     objective: String,
@@ -1033,9 +1107,38 @@ fn retained_counts(capsule: &Capsule) -> ProjectionCounts {
         delegations: capsule.active_delegations.len(),
         risks: capsule.accepted_risks.len(),
         claims: capsule.active_claims.len(),
+        argument_relations: capsule.active_argument_relations.len(),
+        belief_revisions: capsule.recent_belief_revisions.len(),
+        decision_reviews: capsule.recent_decision_reviews.len(),
         action_outcomes: capsule.recent_action_outcomes.len(),
         checkpoints: usize::from(capsule.claimed_checkpoint.is_some()),
     }
+}
+
+fn belief_revision_projections(state: &State, scope: &str) -> Vec<BeliefRevisionProjection> {
+    let mut records = state
+        .belief_revisions
+        .values()
+        .filter(|revision| revision.scope == scope)
+        .collect::<Vec<_>>();
+    records.sort_by_key(|revision| std::cmp::Reverse(revision.sequence));
+    records
+        .into_iter()
+        .map(BeliefRevisionProjection::from)
+        .collect()
+}
+
+fn decision_review_projections(state: &State, scope: &str) -> Vec<DecisionReviewProjection> {
+    let mut records = state
+        .decision_reviews
+        .values()
+        .filter(|review| review.scope == scope)
+        .collect::<Vec<_>>();
+    records.sort_by_key(|review| std::cmp::Reverse(review.sequence));
+    records
+        .into_iter()
+        .map(DecisionReviewProjection::from)
+        .collect()
 }
 
 fn omitted_identity(ids: &[String]) -> String {
@@ -1141,6 +1244,14 @@ pub fn session_start_output(
             .filter(|claim| claim.scope == scope && claim.superseded_by.is_none())
             .map(ClaimProjection::from)
             .collect(),
+        active_argument_relations: state
+            .argument_relations
+            .values()
+            .filter(|relation| relation.scope == scope && relation.active)
+            .map(ArgumentRelationProjection::from)
+            .collect(),
+        recent_belief_revisions: belief_revision_projections(state, scope),
+        recent_decision_reviews: decision_review_projections(state, scope),
         recent_action_outcomes: state
             .action_outcomes
             .values()
@@ -1194,9 +1305,18 @@ pub fn session_start_output(
         } else if let Some(item) = capsule.accepted_risks.pop() {
             capsule.omitted.risks += 1;
             omitted_ids.push(format!("risk:{}", item.id));
+        } else if let Some(item) = capsule.recent_decision_reviews.pop() {
+            capsule.omitted.decision_reviews += 1;
+            omitted_ids.push(format!("decision_review:{}", item.id));
+        } else if let Some(item) = capsule.recent_belief_revisions.pop() {
+            capsule.omitted.belief_revisions += 1;
+            omitted_ids.push(format!("belief_revision:{}", item.id));
         } else if let Some(item) = capsule.recent_action_outcomes.pop() {
             capsule.omitted.action_outcomes += 1;
             omitted_ids.push(format!("outcome:{}", item.tool_use_id));
+        } else if let Some(item) = capsule.active_argument_relations.pop() {
+            capsule.omitted.argument_relations += 1;
+            omitted_ids.push(format!("argument_relation:{}", item.id));
         } else if let Some(item) = capsule.active_claims.pop() {
             capsule.omitted.claims += 1;
             omitted_ids.push(format!("claim:{}", item.id));
@@ -1220,7 +1340,7 @@ pub fn session_start_output(
             return Err("context limit is too small for the minimum capsule");
         }
         capsule.omission_receipt = Some(OmissionReceipt {
-            selection_rule: "decisions_then_risks_then_outcomes_then_claims_then_delegations_then_aporia_then_tools_then_checkpoint_v2",
+            selection_rule: "decisions_then_risks_then_reviews_then_revisions_then_outcomes_then_relations_then_claims_then_delegations_then_aporia_then_tools_then_checkpoint_v3",
             identity: omitted_identity(&omitted_ids),
             identity_kind: "informational_non_cryptographic",
         });
@@ -1306,7 +1426,7 @@ mod tests {
     }
 
     #[test]
-    fn invalid_project_projection_keeps_the_required_v4_shape() {
+    fn invalid_project_projection_keeps_the_required_v5_shape() {
         let input = SessionStartInput {
             session_id: "session-1".into(),
             hook_event_name: "SessionStart".into(),
@@ -1321,7 +1441,7 @@ mod tests {
             context.find("<aporic-recorded-data>").unwrap() + "<aporic-recorded-data>".len();
         let end = context.find("</aporic-recorded-data>").unwrap();
         let projection: serde_json::Value = serde_json::from_str(&context[start..end]).unwrap();
-        assert_eq!(projection["schema"], 4);
+        assert_eq!(projection["schema"], 5);
         assert_eq!(projection["session_id"], "session-1");
         assert!(projection["scope"].is_string());
         assert_eq!(projection["coverage"], "unavailable");

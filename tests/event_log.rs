@@ -1,6 +1,7 @@
 use aporic::{
-    Actor, ActorKind, CommitRequest, CommitStatus, Delegation, Error, Event, Plan, State,
-    StoredEvent, TransitionKind, Verdict, commit, evaluate, initialize, load, load_nonblocking,
+    Actor, ActorKind, CommitRequest, CommitStatus, Delegation, Error, Event, Plan, SCHEMA_VERSION,
+    State, StoredEvent, TransitionKind, Verdict, commit, evaluate, initialize, load,
+    load_nonblocking,
 };
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Barrier};
@@ -120,7 +121,7 @@ fn unsupported_stored_schema_stops_replay_and_further_writes() {
     assert!(matches!(
         replay_error,
         Error::CorruptLog { line: 1, reason }
-            if reason == "unsupported schema version 99; expected 3"
+            if reason == "unsupported schema version 99; expected 4"
     ));
 
     let append_error = commit(&path, open_aporia("a1", "k1", 0)).unwrap_err();
@@ -344,7 +345,7 @@ fn agent_plan_authorization_rejects_missing_or_inexact_delegation() {
     );
 
     let request = |authority_ref: Option<&str>| CommitRequest {
-        schema_version: 3,
+        schema_version: SCHEMA_VERSION,
         event_id: "authorize-event-1".into(),
         idempotency_key: "authorize-key-1".into(),
         expected_revision: 0,
@@ -459,7 +460,7 @@ fn material_aporia_blocks_plan_authorization() {
 
 fn human_request(id: &str, key: &str, expected_revision: u64, event: Event) -> CommitRequest {
     CommitRequest {
-        schema_version: 3,
+        schema_version: SCHEMA_VERSION,
         event_id: id.into(),
         idempotency_key: key.into(),
         expected_revision,
@@ -584,7 +585,7 @@ fn concurrent_same_revision_has_one_winner_and_valid_log() {
 fn agent_cannot_commit_decision_without_delegation() {
     let path = temp_log("forged-authority");
     let request = CommitRequest {
-        schema_version: 3,
+        schema_version: SCHEMA_VERSION,
         event_id: "d1".into(),
         idempotency_key: "k1".into(),
         expected_revision: 0,

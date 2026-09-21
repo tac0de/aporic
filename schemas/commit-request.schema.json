@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://aporic.dev/schema/commit-request-v3.json",
-  "title": "Aporic commit request v3",
+  "$id": "https://aporic.dev/schema/commit-request-v4.json",
+  "title": "Aporic commit request v4",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -14,7 +14,7 @@
     "event"
   ],
   "properties": {
-    "schema_version": { "const": 3 },
+    "schema_version": { "const": 4 },
     "event_id": { "type": "string", "minLength": 1 },
     "idempotency_key": { "type": "string", "minLength": 1 },
     "expected_revision": { "type": "integer", "minimum": 0 },
@@ -50,6 +50,11 @@
         { "$ref": "#/$defs/claimRecorded" },
         { "$ref": "#/$defs/claimStatusChanged" },
         { "$ref": "#/$defs/claimSuperseded" },
+        { "$ref": "#/$defs/argumentRelationRecorded" },
+        { "$ref": "#/$defs/argumentRelationRetracted" },
+        { "$ref": "#/$defs/beliefRevisionRecorded" },
+        { "$ref": "#/$defs/decisionBasisLinked" },
+        { "$ref": "#/$defs/decisionReviewRecorded" },
         { "$ref": "#/$defs/planBasisLinked" },
         { "$ref": "#/$defs/actionOutcomeRecorded" },
         { "$ref": "#/$defs/verificationRecorded" },
@@ -302,6 +307,64 @@
       "properties": { "type": { "const": "claim_status_changed" }, "claim_id": { "type": "string", "minLength": 1 }, "status": { "enum": ["observed", "inferred", "hypothesized", "verified", "refuted", "stale"] }, "evidence_refs": { "$ref": "#/$defs/stringRefs" } }
     },
     "claimSuperseded": { "type": "object", "additionalProperties": false, "required": ["type", "claim_id", "replacement_id"], "properties": { "type": { "const": "claim_superseded" }, "claim_id": { "type": "string", "minLength": 1 }, "replacement_id": { "type": "string", "minLength": 1 } } },
+    "argumentRelationKind": { "enum": ["supports", "attacks", "depends_on", "contradicts"] },
+    "argumentRelationRecorded": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "relation_id", "source_claim_id", "target_claim_id", "kind"],
+      "properties": {
+        "type": { "const": "argument_relation_recorded" },
+        "relation_id": { "type": "string", "minLength": 1 },
+        "source_claim_id": { "type": "string", "minLength": 1 },
+        "target_claim_id": { "type": "string", "minLength": 1 },
+        "kind": { "$ref": "#/$defs/argumentRelationKind" }
+      }
+    },
+    "argumentRelationRetracted": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "relation_id", "evidence_refs"],
+      "properties": {
+        "type": { "const": "argument_relation_retracted" },
+        "relation_id": { "type": "string", "minLength": 1 },
+        "evidence_refs": { "$ref": "#/$defs/stringRefs" }
+      }
+    },
+    "beliefRevisionRecorded": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "revision_id", "claim_id", "prior_status", "revised_status", "trigger_claim_ids", "evidence_refs", "rationale"],
+      "properties": {
+        "type": { "const": "belief_revision_recorded" },
+        "revision_id": { "type": "string", "minLength": 1 },
+        "claim_id": { "type": "string", "minLength": 1 },
+        "prior_status": { "enum": ["observed", "inferred", "hypothesized", "verified", "refuted", "stale"] },
+        "revised_status": { "enum": ["observed", "inferred", "hypothesized", "verified", "refuted", "stale"] },
+        "trigger_claim_ids": { "$ref": "#/$defs/stringRefs" },
+        "evidence_refs": { "$ref": "#/$defs/stringRefs" },
+        "rationale": { "type": "string", "minLength": 1 }
+      }
+    },
+    "decisionBasisLinked": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "decision_id", "claim_ids", "evidence_refs"],
+      "properties": {
+        "type": { "const": "decision_basis_linked" },
+        "decision_id": { "type": "string", "minLength": 1 },
+        "claim_ids": { "$ref": "#/$defs/stringRefs" },
+        "evidence_refs": { "$ref": "#/$defs/stringRefs" }
+      }
+    },
+    "decisionReviewRecorded": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "review_id", "decision_id", "outcome", "evidence_refs", "lessons", "follow_up_claim_ids"],
+      "properties": {
+        "type": { "const": "decision_review_recorded" },
+        "review_id": { "type": "string", "minLength": 1 },
+        "decision_id": { "type": "string", "minLength": 1 },
+        "outcome": { "enum": ["confirmed", "revised", "reversed", "inconclusive"] },
+        "evidence_refs": { "$ref": "#/$defs/stringRefs" },
+        "lessons": { "$ref": "#/$defs/stringRefs" },
+        "follow_up_claim_ids": { "$ref": "#/$defs/stringRefs" }
+      }
+    },
     "planBasisLinked": { "type": "object", "additionalProperties": false, "required": ["type", "plan_id", "evidence_refs", "assumption_claim_ids"], "properties": { "type": { "const": "plan_basis_linked" }, "plan_id": { "type": "string", "minLength": 1 }, "evidence_refs": { "$ref": "#/$defs/stringRefs" }, "assumption_claim_ids": { "$ref": "#/$defs/stringRefs" } } },
     "actionOutcomeRecorded": { "type": "object", "additionalProperties": false, "required": ["type", "session_id", "tool_name", "tool_use_id", "outcome", "evidence_refs"], "properties": { "type": { "const": "action_outcome_recorded" }, "session_id": { "type": "string", "minLength": 1 }, "tool_name": { "type": "string", "minLength": 1 }, "tool_use_id": { "type": "string", "minLength": 1 }, "outcome": { "enum": ["succeeded", "failed", "interrupted", "unknown"] }, "evidence_refs": { "$ref": "#/$defs/stringRefs" } } },
     "verificationRecorded": { "type": "object", "additionalProperties": false, "required": ["type", "verification_id", "plan_id", "check_index", "result", "evidence_refs"], "properties": { "type": { "const": "verification_recorded" }, "verification_id": { "type": "string", "minLength": 1 }, "plan_id": { "type": "string", "minLength": 1 }, "check_index": { "type": "integer", "minimum": 0 }, "result": { "enum": ["passed", "failed", "inconclusive"] }, "evidence_refs": { "$ref": "#/$defs/stringRefs" } } },

@@ -1,7 +1,7 @@
 {
   "name": "aporic",
-  "version": "0.5.0",
-  "description": "Adds intent fidelity, evidence-aware checkpoints, and exact-tool gates to opted-in Codex projects.",
+  "version": "0.6.1",
+  "description": "Adds deliberation records, intent fidelity, evidence-aware checkpoints, and exact-tool gates to opted-in Codex projects.",
   "author": {
     "name": "Aporic contributors"
   },
@@ -20,6 +20,8 @@
       "PreToolUse hold, plan, and bounded-grant gate",
       "PostToolUse action occurrence recording without inferred success",
       "SessionEnd checkpoint publication and single-claim continuation",
+      "Argument relations, belief revisions, and decision retrospectives",
+      "Bounded read-only Wasm analyzer execution",
       "Explain and doctor diagnostics"
     ],
     "defaultPrompt": "Show the active Aporic commitment state for this workspace."

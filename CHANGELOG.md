@@ -2,6 +2,44 @@
 
 All notable changes are documented here. Aporic is experimental; its contracts may change between minor releases.
 
+## 0.6.1 - 2026-09-21
+
+### Added
+
+- A repository `rust-toolchain.toml` pins Rust 1.89.0, `rustfmt`, Clippy, and `wasm32-unknown-unknown`.
+- Fresh macOS arm64 Codex plugin packages include the release structural analyzer at `analyzers/structural.wasm`.
+
+### Changed
+
+- CI and contributor checks use the pinned toolchain and build the deployable analyzer artifact.
+- The plugin package and crate report `0.6.1`.
+
+### Known limitations
+
+- The packaged host remains macOS arm64 only; Wasm findings remain untrusted structural diagnostics.
+
+## 0.6.0 - 2026-09-21
+
+### Added
+
+- Event schema v4 argument relations, evidence-backed belief revisions, decision bases, and decision retrospectives.
+- Projection schema v5 for bounded argument relations, recent revisions, and decision reviews.
+- Read-only `analyze-wasm` execution with no imports and explicit module, fuel, stack, memory, input, output, schema, and revision bounds.
+- An included dependency-free structural analyzer source crate for active contradictions, invalidated premises, verified attacks, and invalidated decision bases.
+- Explicit non-destructive v3-to-v4 migration alongside v1/v2 migration to the current schema.
+
+### Changed
+
+- The plugin package and crate report `0.6.0`.
+- Commons integration is represented by independent plugin contracts rather than a coupled release version.
+
+### Known limitations
+
+- Argument and contradiction semantics remain caller-declared; Wasm findings inspect recorded structure and are not proof.
+- Wasm compilation is byte-bounded but not fuel-metered, and the `wasm32-unknown-unknown` target was not installed automatically.
+- Actor identity, provenance, evidence locators, and local analyzer module integrity are not cryptographically authenticated.
+- No plugin installation, live-store migration, commit, tag, push, publication, deployment, or release is performed by this change.
+
 ## 0.5.0 - 2026-09-21
 
 ### Added

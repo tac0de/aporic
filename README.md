@@ -1,6 +1,6 @@
 # Aporic
 
-Aporic is an experimental local commitment-state kernel for coding agents. Version `0.5.0` adds evidence-backed claims, explicit verification, action occurrence records, and bounded cross-session checkpoints while retaining exact-action governance.
+Aporic is an experimental local commitment-state kernel for coding agents. Version `0.6.1` adds argument graphs, evidence-backed belief revision, decision retrospectives, and bounded read-only Wasm analysis while retaining exact-action governance.
 
 Repository: [github.com/tac0de/aporic](https://github.com/tac0de/aporic)
 
@@ -8,11 +8,11 @@ Website: [tac0de.github.io/aporic](https://tac0de.github.io/aporic/)
 
 ## Status
 
-`0.5.0` is the current development release. Event schema v3, policy schema v1, project-binding schema v1, Codex projection schema v4, and intent-fidelity contract v1 are independent contracts. Existing v1 and v2 stores are rejected until explicitly copied through `migrate`; installed plugins and live stores are not upgraded automatically. Authenticated actors, deterministic natural-language interpretation, broad host coverage, prebuilt release artifacts, and cross-platform plugin binaries are not promised. See [SECURITY.md](SECURITY.md) before relying on Aporic for consequential work.
+`0.6.1` is the current development release. Event schema v4, policy schema v1, project-binding schema v1, Codex projection schema v5, analyzer ABI v1, and intent-fidelity contract v1 are independent contracts. Existing v1, v2, and v3 stores are rejected until explicitly copied through `migrate`; installed plugins and live stores are not upgraded automatically. Authenticated actors, deterministic natural-language interpretation, broad host coverage, prebuilt release artifacts, and cross-platform plugin binaries are not promised. See [SECURITY.md](SECURITY.md) before relying on Aporic for consequential work.
 
 ## Build and verify
 
-Rust 1.89 or newer is required for source builds because Aporic uses the standard library's file-locking API. The packaged plugin runs its bundled binary and does not need `cargo` or `rustc` after it has been built.
+Source builds use the exact Rust 1.89.0 toolchain declared in `rust-toolchain.toml`, including `rustfmt`, Clippy, and the `wasm32-unknown-unknown` target. Rustup installs missing declared components on first use. The packaged plugin runs its bundled binary and structural analyzer and does not need `cargo` or `rustc` after it has been built.
 
 Confirm that both toolchain proxies are available before building:
 
@@ -30,8 +30,8 @@ export PATH="/opt/homebrew/opt/rustup/bin:$PATH"
 
 ```console
 cargo build --locked
-cargo test --locked
-cargo clippy --all-targets --locked -- -D warnings
+cargo test --workspace --locked
+cargo clippy --workspace --all-targets --locked -- -D warnings
 ```
 
 ## Current guarantees
@@ -45,9 +45,13 @@ cargo clippy --all-targets --locked -- -D warnings
 - `status` takes a cooperative shared lock and fails if the requested store does not exist.
 - Bounded execution grants are exact to plan, scope, session, tool, and canonical JSON tool input.
 - Grant evaluation and consumption happen while one exclusive nonblocking store lock is held; a consumed `tool_use_id` is never allowed again.
-- v1-to-v3 and v2-to-v3 migration are validated, non-destructive snapshot copies and refuse to replace the destination.
+- v1-to-v4, v2-to-v4, and v3-to-v4 migration are validated, non-destructive snapshot copies and refuse to replace the destination.
 - Observations cannot be backed only by agent inference, and verified/refuted claim transitions require recorded evidence.
 - Plan completion requires every acceptance check's latest verification to pass, unless explicit accepted residual risks are named.
+- Typed `supports`, `attacks`, `depends_on`, and `contradicts` relations connect same-scope active claims without asserting that the relation text is semantically true.
+- Belief revisions compare an explicit prior status with current state and require direct evidence before verification or refutation.
+- Decision reviews require a recorded decision basis plus direct outcome evidence. A basis may be linked later, but every referenced claim and evidence record must predate the decision; the decision and link sequences are retained for audit.
+- Wasm analyzers receive a bounded graph snapshot, have no host imports, and are limited by module, fuel, stack, memory, input, and output bounds. Their findings cannot mutate the store or grant authority.
 
 The lock is cooperative, not a security boundary. Actor provenance is recorded but is not cryptographically authenticated. Replay validates record shape, sequence, schema version, and state-application invariants; it does not rerun the current authorization policy over historical events. A preventive check is not atomically bound to the later tool effect. Parent-directory metadata is not synchronized, and automatic semantic classification, recovery commands, broad host coverage, and hostile same-user tamper resistance are not implemented.
 
@@ -64,7 +68,9 @@ aporic status --store /path/to/events.jsonl
 aporic commit --store /path/to/events.jsonl < request.json
 aporic doctor --store /path/to/events.jsonl --policy /path/to/policy.json
 aporic explain --store /path/to/events.jsonl --scope repo --policy /path/to/policy.json < pre-tool-input.json
-aporic migrate --store /path/to/events-v2.jsonl --from 2 --to /path/to/events-v3.jsonl
+aporic migrate --store /path/to/events-v3.jsonl --from 3 --to /path/to/events-v4.jsonl
+aporic analyze-wasm --store /path/to/events-v4.jsonl --scope repo --module /path/to/analyzer.wasm
+aporic analyze-structural --store /path/to/events-v4.jsonl --scope repo
 aporic codex-session-start --store /path/to/events.jsonl --scope repo --workspace /absolute/repo --policy /path/to/policy.json < hook-input.json
 aporic codex-pre-tool-use --store /path/to/events.jsonl --scope repo --workspace /absolute/repo --policy /path/to/policy.json < hook-input.json
 aporic codex-post-tool-use --store /path/to/events.jsonl --scope repo --workspace /absolute/repo < hook-input.json
@@ -80,13 +86,15 @@ The Codex hook schemas intentionally allow additional host fields and nullable o
 
 `init` creates and syncs a new empty store and refuses to overwrite an existing path.
 
-`project-init` creates `.aporic/config.json`, `.aporic/policy.json`, and an external store, refusing to overwrite any of them. By default the store is empty; `--migrate-from-v1-store` instead creates it as a validated, non-destructive v1-to-v3 snapshot while leaving the source untouched. Before migration, stop writers to the old store and confirm that its recorded scope matches the new binding; otherwise the snapshot can be stale or its retained authority can be out of scope. The config is published only after the destination store is valid. It is the opt-in marker used by the global adapter; the policy starts by protecting exact `apply_patch` calls that require a registered plan. `project-paths` resolves the policy and event-log path for direct `status`, `commit`, `doctor`, and `explain` operations. The nearest binding above the hook `cwd` wins, so nested independently bound workspaces remain isolated. Set `APORIC_DATA_HOME` to an absolute path before setup and runtime to override the default user data root.
+`project-init` creates `.aporic/config.json`, `.aporic/policy.json`, and an external store, refusing to overwrite any of them. By default the store is empty; `--migrate-from-v1-store` instead creates it as a validated, non-destructive v1-to-v4 snapshot while leaving the source untouched. Before migration, stop writers to the old store and confirm that its recorded scope matches the new binding; otherwise the snapshot can be stale or its retained authority can be out of scope. The config is published only after the destination store is valid. It is the opt-in marker used by the global adapter; the policy starts by protecting exact `apply_patch` calls that require a registered plan. `project-paths` resolves the policy and event-log path for direct `status`, `commit`, `doctor`, `explain`, and `analyze-wasm` operations. The nearest binding above the hook `cwd` wins, so nested independently bound workspaces remain isolated. Set `APORIC_DATA_HOME` to an absolute path before setup and runtime to override the default user data root.
 
 `codex-session-start` implements only the documented Codex `SessionStart` command-hook response. It projects exact-scope state as bounded, untrusted developer context on startup, resume, clear, and post-compaction `source: "compact"`. Startup uses a nonblocking store read: missing, invalid, or busy state is reported as `coverage: "unavailable"` rather than an empty successful capsule or a wait. A configured workspace must canonically match the hook `cwd`; other workspaces receive only `{ "continue": true }`. It does not authenticate human authority, read transcripts, infer scope from `cwd`, enforce tool calls, or provide prompt-injection immunity.
 
 The packaged `UserPromptSubmit` hook applies intent-fidelity contract v1 to every user turn in a bound project. The contract asks the model to preserve explicit actors, targets, exclusions, negation, conditions, sequence, uncertainty, authorization boundaries, and exact technical strings; classify material meaning as explicit, inferred, or unknown; and clarify consequential ambiguity rather than guessing. Its context is deterministically limited to 1,200 UTF-8 bytes. The adapter validates project discovery but does not interpret, persist, hash, echo, or block the prompt. Raw hook input is limited to 1 MiB; an oversized payload skips the advisory without blocking the conversation. The advisory does not authenticate authority, grant permission, or replace `PreToolUse`.
 
-Projection schema v4 reports exact tools retained within the byte budget, active epistemic claims, current-session action occurrences, a checkpoint claimed by this session, sampled gate status, and matching counts. For an observed store, when a large policy forces tool-name omission, aggregate status and authority counts for every omitted tool remain in `omitted_execution_summary`. An unavailable store has no trusted status to aggregate; it reports retained unknown-status tools plus protected and omitted counts. Details are removed deterministically when needed, with retained/omitted counts, `complete: false`, and a versioned omission receipt. The complete wrapped context is limited to 6,000 UTF-8 bytes. See `schemas/aporic-projection-v4.schema.json`.
+Projection schema v5 reports exact tools retained within the byte budget, active epistemic claims and argument relations, recent belief revisions and decision reviews, current-session action occurrences, a checkpoint claimed by this session, sampled gate status, and matching counts. For an observed store, when a large policy forces tool-name omission, aggregate status and authority counts for every omitted tool remain in `omitted_execution_summary`. An unavailable store has no trusted status to aggregate; it reports retained unknown-status tools plus protected and omitted counts. Details are removed deterministically when needed, with retained/omitted counts, `complete: false`, and a versioned omission receipt. The complete wrapped context is limited to 6,000 UTF-8 bytes. See `schemas/aporic-projection-v5.schema.json`.
+
+`analyze-wasm` is read-only. It loads a schema-v1 graph snapshot at one revision and invokes a module that exports `memory`, `alloc(i32) -> i32`, and `analyze(i32, i32) -> i64`; the result packs the output pointer in the high 32 bits and byte length in the low 32 bits. Modules with imports are rejected. Defaults are 2,000,000 fuel and 8 MiB memory; callers may lower or raise them with `--fuel` and `--memory-bytes` only up to the host maxima of 50,000,000 fuel and 64 MiB. Module size, stack, table count and elements, instances, memories, input, and output are separately bounded. Output must be bounded JSON with the same `based_on_revision`; findings remain untrusted structural diagnostics. Build the included analyzer with `cargo build -p aporic-structural-analyzer --target wasm32-unknown-unknown --release`; the pinned toolchain supplies the target. Fresh Codex plugin packages include it at `analyzers/structural.wasm`, and the packaged `analyze-structural` command resolves and runs that module without a caller-supplied path.
 
 `codex-pre-tool-use` interprets no command text or natural language. Policy schema v1 maps exact visible-ASCII host tool names of at most 256 bytes to `require_plan` and `require_grant`; unknown tools produce no hook decision. A hold always denies before authority is considered. Legacy `plan_authorized` records remain unbounded session/tool approvals. A bounded `execution_grant_issued` record references a plan and stores the exact JSON tool input plus a positive use limit. Its first admitted use appends `execution_grant_consumed` before returning allow; reuse, exhaustion, input/session/scope/tool mismatch, corruption, and lock contention deny or fail closed.
 
@@ -113,7 +121,7 @@ aporic project-init --workspace /absolute/repo --scope repo
 
 The template under `packaging/codex-plugin` contains no personal filesystem path. The packager builds the locked release binary, copies static global hooks, and refuses to overwrite an existing output directory. Each repository owns its small binding and policy files; it does not receive another kernel binary or plugin installation. Validate the generated directory with Codex's plugin validator before installation.
 
-Codex plugin installation and hook trust are host state, not repository state. Hook definitions are hash-trusted by Codex; changing the packaged command requires a new review and a new Codex task to pick up the package. The v0.5 package supports macOS arm64 only and is not a cross-platform distribution artifact. Moving or renaming a bound project changes its canonical storage path; migrate the old store deliberately rather than silently merging state. This release does not migrate a live store automatically. Rollback requires restoring both a compatible plugin and store snapshot because schema v3 is not readable by older binaries.
+Codex plugin installation and hook trust are host state, not repository state. Hook definitions are hash-trusted by Codex; changing the packaged command requires a new review and a new Codex task to pick up the package. The v0.6.1 package supports macOS arm64 only and is not a cross-platform distribution artifact. Moving or renaming a bound project changes its canonical storage path; migrate the old store deliberately rather than silently merging state. This release does not migrate a live store automatically. Rollback requires restoring both a compatible plugin and store snapshot because schema v4 is not readable by older binaries.
 
 ## Source standards
 
@@ -123,7 +131,7 @@ Codex plugin installation and hook trust are host state, not repository state. H
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Release history and known limitations are tracked in [CHANGELOG.md](CHANGELOG.md), with the current verification record in [docs/v0.5.0-evaluation.md](docs/v0.5.0-evaluation.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md). Release history and known limitations are tracked in [CHANGELOG.md](CHANGELOG.md), with the current verification record in [docs/v0.6.1-evaluation.md](docs/v0.6.1-evaluation.md).
 
 ## License
 

@@ -1,3 +1,4 @@
+use aporic::analysis::{AnalyzerInput, DEFAULT_FUEL, DEFAULT_MEMORY_BYTES, run_wasm_analyzer};
 use aporic::codex::{
     DEFAULT_PROJECTION_LIMIT_BYTES, GatePolicy, MAX_SCOPE_BYTES, MAX_USER_PROMPT_HOOK_INPUT_BYTES,
     PostToolUseInput, PreToolUseInput, SessionEndInput, SessionStartInput, UserPromptSubmitInput,
@@ -71,6 +72,46 @@ fn optional_argument(args: &[String], name: &str) -> Result<Option<String>, Stri
     argument(args, name).map(Some)
 }
 
+fn packaged_structural_analyzer_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
+    let plugin_root = match env::var_os("PLUGIN_ROOT") {
+        Some(root) => {
+            let root = PathBuf::from(root);
+            if !root.is_absolute() {
+                return Err("PLUGIN_ROOT must be absolute".into());
+            }
+            root
+        }
+        None => env::current_exe()?
+            .parent()
+            .and_then(std::path::Path::parent)
+            .ok_or("cannot resolve the package root from the executable path")?
+            .to_path_buf(),
+    };
+    Ok(plugin_root.join("analyzers/structural.wasm"))
+}
+
+fn analyzer_limits(args: &[String]) -> Result<(u64, usize), Box<dyn std::error::Error>> {
+    let fuel = optional_argument(args, "--fuel")?
+        .map(|value| value.parse::<u64>())
+        .transpose()?
+        .unwrap_or(DEFAULT_FUEL);
+    let memory_bytes = optional_argument(args, "--memory-bytes")?
+        .map(|value| value.parse::<usize>())
+        .transpose()?
+        .unwrap_or(DEFAULT_MEMORY_BYTES);
+    Ok((fuel, memory_bytes))
+}
+
+fn analyze(args: &[String], module: PathBuf) -> Result<i32, Box<dyn std::error::Error>> {
+    let path = store_path(args)?;
+    let scope = argument(args, "--scope")?;
+    let (fuel, memory_bytes) = analyzer_limits(args)?;
+    let log = load(path)?;
+    let input = AnalyzerInput::from_state(log.state(), &scope);
+    print_json(&run_wasm_analyzer(module, &input, fuel, memory_bytes)?)?;
+    Ok(0)
+}
+
 fn data_root(args: &[String]) -> Result<PathBuf, Box<dyn std::error::Error>> {
     let path = match optional_argument(args, "--data-root")? {
         Some(path) => PathBuf::from(path),
@@ -120,7 +161,7 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().skip(1).collect();
     let Some(command) = args.first().map(String::as_str) else {
         return Err(
-            "usage: aporic <project-init|project-paths|init|status|commit|explain|doctor|migrate|codex-session-start|codex-pre-tool-use|codex-post-tool-use|codex-session-end|codex-global-session-start|codex-global-user-prompt-submit|codex-global-pre-tool-use|codex-global-post-tool-use|codex-global-session-end>".into(),
+            "usage: aporic <project-init|project-paths|init|status|commit|analyze-wasm|analyze-structural|explain|doctor|migrate|codex-session-start|codex-pre-tool-use|codex-post-tool-use|codex-session-end|codex-global-session-start|codex-global-user-prompt-submit|codex-global-pre-tool-use|codex-global-post-tool-use|codex-global-session-end>".into(),
         );
     };
 
@@ -195,6 +236,11 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
                 0
             })
         }
+        "analyze-wasm" => {
+            let module = PathBuf::from(argument(&args, "--module")?);
+            analyze(&args, module)
+        }
+        "analyze-structural" => analyze(&args, packaged_structural_analyzer_path()?),
         "migrate" => {
             let path = store_path(&args)?;
             let from = argument(&args, "--from")?;

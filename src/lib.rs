@@ -5,12 +5,13 @@ use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
+pub mod analysis;
 pub mod codex;
 pub mod governance;
 pub mod policy;
 pub mod project;
 
-pub const SCHEMA_VERSION: u32 = 3;
+pub const SCHEMA_VERSION: u32 = 4;
 
 #[derive(Debug)]
 pub enum Error {
@@ -124,6 +125,24 @@ pub enum CheckpointState {
     Expired,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ArgumentRelationKind {
+    Supports,
+    Attacks,
+    DependsOn,
+    Contradicts,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DecisionReviewOutcome {
+    Confirmed,
+    Revised,
+    Reversed,
+    Inconclusive,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct CommitRequest {
@@ -232,6 +251,38 @@ pub enum Event {
         claim_id: String,
         replacement_id: String,
     },
+    ArgumentRelationRecorded {
+        relation_id: String,
+        source_claim_id: String,
+        target_claim_id: String,
+        kind: ArgumentRelationKind,
+    },
+    ArgumentRelationRetracted {
+        relation_id: String,
+        evidence_refs: Vec<String>,
+    },
+    BeliefRevisionRecorded {
+        revision_id: String,
+        claim_id: String,
+        prior_status: EpistemicStatus,
+        revised_status: EpistemicStatus,
+        trigger_claim_ids: Vec<String>,
+        evidence_refs: Vec<String>,
+        rationale: String,
+    },
+    DecisionBasisLinked {
+        decision_id: String,
+        claim_ids: Vec<String>,
+        evidence_refs: Vec<String>,
+    },
+    DecisionReviewRecorded {
+        review_id: String,
+        decision_id: String,
+        outcome: DecisionReviewOutcome,
+        evidence_refs: Vec<String>,
+        lessons: Vec<String>,
+        follow_up_claim_ids: Vec<String>,
+    },
     PlanBasisLinked {
         plan_id: String,
         evidence_refs: Vec<String>,
@@ -292,6 +343,11 @@ impl Event {
             | Self::ClaimRecorded { .. }
             | Self::ClaimStatusChanged { .. }
             | Self::ClaimSuperseded { .. }
+            | Self::ArgumentRelationRecorded { .. }
+            | Self::ArgumentRelationRetracted { .. }
+            | Self::BeliefRevisionRecorded { .. }
+            | Self::DecisionBasisLinked { .. }
+            | Self::DecisionReviewRecorded { .. }
             | Self::PlanBasisLinked { .. }
             | Self::ActionOutcomeRecorded { .. }
             | Self::VerificationRecorded { .. }
@@ -341,6 +397,7 @@ pub struct Decision {
     pub scope: String,
     pub authority_ref: Option<String>,
     pub superseded_by: Option<String>,
+    pub sequence: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -385,6 +442,7 @@ pub struct EvidenceRecord {
     pub digest: Option<String>,
     pub scope: String,
     pub actor: Actor,
+    pub sequence: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -396,6 +454,57 @@ pub struct Claim {
     pub evidence_refs: Vec<String>,
     pub scope: String,
     pub superseded_by: Option<String>,
+    pub sequence: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ArgumentRelation {
+    pub id: String,
+    pub source_claim_id: String,
+    pub target_claim_id: String,
+    pub kind: ArgumentRelationKind,
+    pub scope: String,
+    pub active: bool,
+    pub retraction_evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct BeliefRevision {
+    pub id: String,
+    pub claim_id: String,
+    pub prior_status: EpistemicStatus,
+    pub revised_status: EpistemicStatus,
+    pub trigger_claim_ids: Vec<String>,
+    pub evidence_refs: Vec<String>,
+    pub rationale: String,
+    pub scope: String,
+    pub sequence: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DecisionBasis {
+    pub decision_id: String,
+    pub claim_ids: Vec<String>,
+    pub evidence_refs: Vec<String>,
+    pub scope: String,
+    pub decision_sequence: u64,
+    pub sequence: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DecisionReview {
+    pub id: String,
+    pub decision_id: String,
+    pub outcome: DecisionReviewOutcome,
+    pub evidence_refs: Vec<String>,
+    pub lessons: Vec<String>,
+    pub follow_up_claim_ids: Vec<String>,
+    pub scope: String,
+    pub sequence: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -482,6 +591,10 @@ pub struct State {
     pub consumed_tool_uses: BTreeMap<String, String>,
     pub evidence: BTreeMap<String, EvidenceRecord>,
     pub claims: BTreeMap<String, Claim>,
+    pub argument_relations: BTreeMap<String, ArgumentRelation>,
+    pub belief_revisions: BTreeMap<String, BeliefRevision>,
+    pub decision_bases: BTreeMap<String, DecisionBasis>,
+    pub decision_reviews: BTreeMap<String, DecisionReview>,
     pub action_outcomes: BTreeMap<String, ActionOutcomeRecord>,
     pub verifications: BTreeMap<String, Verification>,
     pub checkpoints: BTreeMap<String, Checkpoint>,
@@ -587,6 +700,7 @@ impl State {
                         scope,
                         authority_ref: authority_ref.clone(),
                         superseded_by: None,
+                        sequence: stored.sequence,
                     },
                 );
             }
@@ -806,6 +920,7 @@ impl State {
                         digest: digest.clone(),
                         scope,
                         actor: stored.request.actor.clone(),
+                        sequence: stored.sequence,
                     },
                 );
             }
@@ -824,6 +939,7 @@ impl State {
                         evidence_refs: evidence_refs.clone(),
                         scope,
                         superseded_by: None,
+                        sequence: stored.sequence,
                     },
                 );
             }
@@ -852,6 +968,116 @@ impl State {
                     .get_mut(claim_id)
                     .ok_or_else(|| Error::Invariant(format!("unknown claim {claim_id}")))?;
                 claim.superseded_by = Some(replacement_id.clone());
+            }
+            Event::ArgumentRelationRecorded {
+                relation_id,
+                source_claim_id,
+                target_claim_id,
+                kind,
+            } => {
+                self.argument_relations.insert(
+                    relation_id.clone(),
+                    ArgumentRelation {
+                        id: relation_id.clone(),
+                        source_claim_id: source_claim_id.clone(),
+                        target_claim_id: target_claim_id.clone(),
+                        kind: *kind,
+                        scope,
+                        active: true,
+                        retraction_evidence_refs: Vec::new(),
+                    },
+                );
+            }
+            Event::ArgumentRelationRetracted {
+                relation_id,
+                evidence_refs,
+            } => {
+                let relation = self
+                    .argument_relations
+                    .get_mut(relation_id)
+                    .ok_or_else(|| {
+                        Error::Invariant(format!("unknown argument relation {relation_id}"))
+                    })?;
+                relation.active = false;
+                relation.retraction_evidence_refs = evidence_refs.clone();
+            }
+            Event::BeliefRevisionRecorded {
+                revision_id,
+                claim_id,
+                prior_status,
+                revised_status,
+                trigger_claim_ids,
+                evidence_refs,
+                rationale,
+            } => {
+                let claim = self
+                    .claims
+                    .get_mut(claim_id)
+                    .ok_or_else(|| Error::Invariant(format!("unknown claim {claim_id}")))?;
+                claim.status = *revised_status;
+                for evidence_ref in evidence_refs {
+                    if !claim.evidence_refs.contains(evidence_ref) {
+                        claim.evidence_refs.push(evidence_ref.clone());
+                    }
+                }
+                self.belief_revisions.insert(
+                    revision_id.clone(),
+                    BeliefRevision {
+                        id: revision_id.clone(),
+                        claim_id: claim_id.clone(),
+                        prior_status: *prior_status,
+                        revised_status: *revised_status,
+                        trigger_claim_ids: trigger_claim_ids.clone(),
+                        evidence_refs: evidence_refs.clone(),
+                        rationale: rationale.clone(),
+                        scope,
+                        sequence: stored.sequence,
+                    },
+                );
+            }
+            Event::DecisionBasisLinked {
+                decision_id,
+                claim_ids,
+                evidence_refs,
+            } => {
+                let decision_sequence = self
+                    .decisions
+                    .get(decision_id)
+                    .ok_or_else(|| Error::Invariant(format!("unknown decision {decision_id}")))?
+                    .sequence;
+                self.decision_bases.insert(
+                    decision_id.clone(),
+                    DecisionBasis {
+                        decision_id: decision_id.clone(),
+                        claim_ids: claim_ids.clone(),
+                        evidence_refs: evidence_refs.clone(),
+                        scope,
+                        decision_sequence,
+                        sequence: stored.sequence,
+                    },
+                );
+            }
+            Event::DecisionReviewRecorded {
+                review_id,
+                decision_id,
+                outcome,
+                evidence_refs,
+                lessons,
+                follow_up_claim_ids,
+            } => {
+                self.decision_reviews.insert(
+                    review_id.clone(),
+                    DecisionReview {
+                        id: review_id.clone(),
+                        decision_id: decision_id.clone(),
+                        outcome: *outcome,
+                        evidence_refs: evidence_refs.clone(),
+                        lessons: lessons.clone(),
+                        follow_up_claim_ids: follow_up_claim_ids.clone(),
+                        scope,
+                        sequence: stored.sequence,
+                    },
+                );
             }
             Event::PlanBasisLinked {
                 plan_id,
@@ -1438,10 +1664,10 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
             } else if state.claims.contains_key(claim_id) {
                 Some(("CLAIM_ALREADY_EXISTS", "claim id already exists"))
             } else if let Some(reference) = evidence_refs.iter().find(|reference| {
-                !state
+                state
                     .evidence
                     .get(*reference)
-                    .is_some_and(|evidence| evidence.scope == request.scope)
+                    .is_none_or(|evidence| evidence.scope != request.scope)
             }) {
                 let _ = reference;
                 Some((
@@ -1500,10 +1726,10 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                         "verified and refuted statuses require evidence",
                     ))
                 } else if evidence_refs.iter().any(|reference| {
-                    !state
+                    state
                         .evidence
                         .get(reference)
-                        .is_some_and(|evidence| evidence.scope == request.scope)
+                        .is_none_or(|evidence| evidence.scope != request.scope)
                 }) {
                     Some((
                         "INVALID_EVIDENCE_REFERENCE",
@@ -1551,6 +1777,313 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                 Some(("UNKNOWN_CLAIM", "claim or replacement does not exist"))
             }
         }
+        Event::ArgumentRelationRecorded {
+            relation_id,
+            source_claim_id,
+            target_claim_id,
+            kind,
+        } => {
+            if !required(&[relation_id, source_claim_id, target_claim_id])
+                || source_claim_id == target_claim_id
+            {
+                Some((
+                    "INVALID_ARGUMENT_RELATION",
+                    "a relation requires an id and two distinct claim ids",
+                ))
+            } else if state.argument_relations.contains_key(relation_id) {
+                Some((
+                    "ARGUMENT_RELATION_ALREADY_EXISTS",
+                    "argument relation id already exists",
+                ))
+            } else if state.argument_relations.values().any(|relation| {
+                relation.active
+                    && relation.scope == request.scope
+                    && relation.source_claim_id == *source_claim_id
+                    && relation.target_claim_id == *target_claim_id
+                    && relation.kind == *kind
+            }) {
+                Some((
+                    "DUPLICATE_ARGUMENT_RELATION",
+                    "an identical active relation already exists",
+                ))
+            } else if [source_claim_id, target_claim_id].iter().any(|claim_id| {
+                !state.claims.get(*claim_id).is_some_and(|claim| {
+                    claim.scope == request.scope
+                        && claim.superseded_by.is_none()
+                        && !matches!(
+                            claim.status,
+                            EpistemicStatus::Refuted | EpistemicStatus::Stale
+                        )
+                })
+            }) {
+                Some((
+                    "INVALID_ARGUMENT_CLAIM_REFERENCE",
+                    "relation claims must be active and in the same scope",
+                ))
+            } else {
+                None
+            }
+        }
+        Event::ArgumentRelationRetracted {
+            relation_id,
+            evidence_refs,
+        } => {
+            if !required(&[relation_id])
+                || evidence_refs.is_empty()
+                || !unique_nonempty_strings(evidence_refs)
+            {
+                Some((
+                    "INVALID_ARGUMENT_RETRACTION",
+                    "relation retraction requires unique supporting evidence",
+                ))
+            } else if let Some(relation) = state.argument_relations.get(relation_id) {
+                if relation.scope != request.scope {
+                    Some((
+                        "SCOPE_MISMATCH",
+                        "argument relation scope differs from request scope",
+                    ))
+                } else if !relation.active {
+                    Some((
+                        "ARGUMENT_RELATION_INACTIVE",
+                        "argument relation is already retracted",
+                    ))
+                } else if evidence_refs.iter().any(|reference| {
+                    state
+                        .evidence
+                        .get(reference)
+                        .is_none_or(|evidence| evidence.scope != request.scope)
+                }) {
+                    Some((
+                        "INVALID_EVIDENCE_REFERENCE",
+                        "retraction evidence must exist in the same scope",
+                    ))
+                } else {
+                    None
+                }
+            } else {
+                Some((
+                    "UNKNOWN_ARGUMENT_RELATION",
+                    "argument relation does not exist",
+                ))
+            }
+        }
+        Event::BeliefRevisionRecorded {
+            revision_id,
+            claim_id,
+            prior_status,
+            revised_status,
+            trigger_claim_ids,
+            evidence_refs,
+            rationale,
+        } => {
+            if !required(&[revision_id, claim_id, rationale])
+                || prior_status == revised_status
+                || !unique_nonempty_strings(trigger_claim_ids)
+                || !unique_nonempty_strings(evidence_refs)
+                || trigger_claim_ids.iter().any(|trigger| trigger == claim_id)
+                || (trigger_claim_ids.is_empty() && evidence_refs.is_empty())
+            {
+                Some((
+                    "INVALID_BELIEF_REVISION",
+                    "belief revision requires distinct statuses, rationale, and unique non-self references",
+                ))
+            } else if state.belief_revisions.contains_key(revision_id) {
+                Some((
+                    "BELIEF_REVISION_ALREADY_EXISTS",
+                    "belief revision id already exists",
+                ))
+            } else if let Some(claim) = state.claims.get(claim_id) {
+                if claim.scope != request.scope {
+                    Some(("SCOPE_MISMATCH", "claim scope differs from request scope"))
+                } else if claim.superseded_by.is_some() {
+                    Some(("CLAIM_SUPERSEDED", "a superseded claim cannot be revised"))
+                } else if claim.status != *prior_status {
+                    Some((
+                        "STALE_BELIEF_REVISION",
+                        "prior status does not match the current claim status",
+                    ))
+                } else if *prior_status == EpistemicStatus::Refuted
+                    && *revised_status != EpistemicStatus::Stale
+                {
+                    Some((
+                        "REFUTED_CLAIM_IMMUTABLE",
+                        "a refuted claim must be replaced by a new claim",
+                    ))
+                } else if trigger_claim_ids.iter().any(|trigger_id| {
+                    !state.claims.get(trigger_id).is_some_and(|trigger| {
+                        trigger.scope == request.scope && trigger.superseded_by.is_none()
+                    })
+                }) {
+                    Some((
+                        "INVALID_TRIGGER_CLAIM",
+                        "trigger claims must be active and in the same scope",
+                    ))
+                } else if evidence_refs.iter().any(|reference| {
+                    state
+                        .evidence
+                        .get(reference)
+                        .is_none_or(|evidence| evidence.scope != request.scope)
+                }) {
+                    Some((
+                        "INVALID_EVIDENCE_REFERENCE",
+                        "revision evidence must exist in the same scope",
+                    ))
+                } else if matches!(
+                    revised_status,
+                    EpistemicStatus::Observed
+                        | EpistemicStatus::Verified
+                        | EpistemicStatus::Refuted
+                ) && (evidence_refs.is_empty()
+                    || !evidence_refs.iter().any(|reference| {
+                        state.evidence.get(reference).is_some_and(|evidence| {
+                            evidence.scope == request.scope
+                                && evidence.kind != EvidenceKind::AgentInference
+                        })
+                    }))
+                {
+                    Some((
+                        "DIRECT_EVIDENCE_REQUIRED",
+                        "observed, verified, and refuted revisions require non-inference evidence",
+                    ))
+                } else {
+                    None
+                }
+            } else {
+                Some(("UNKNOWN_CLAIM", "claim does not exist"))
+            }
+        }
+        Event::DecisionBasisLinked {
+            decision_id,
+            claim_ids,
+            evidence_refs,
+        } => {
+            if !required(&[decision_id])
+                || (claim_ids.is_empty() && evidence_refs.is_empty())
+                || !unique_nonempty_strings(claim_ids)
+                || !unique_nonempty_strings(evidence_refs)
+            {
+                Some((
+                    "INVALID_DECISION_BASIS",
+                    "decision basis requires unique claim or evidence references",
+                ))
+            } else if state.decision_bases.contains_key(decision_id) {
+                Some((
+                    "DECISION_BASIS_ALREADY_LINKED",
+                    "decision basis is already linked",
+                ))
+            } else if state
+                .decisions
+                .get(decision_id)
+                .is_none_or(|decision| decision.scope != request.scope)
+            {
+                Some((
+                    "UNKNOWN_DECISION",
+                    "decision does not exist in the same scope",
+                ))
+            } else if claim_ids.iter().any(|claim_id| {
+                !state.claims.get(claim_id).is_some_and(|claim| {
+                    claim.scope == request.scope && claim.superseded_by.is_none()
+                })
+            }) || evidence_refs.iter().any(|reference| {
+                state
+                    .evidence
+                    .get(reference)
+                    .is_none_or(|evidence| evidence.scope != request.scope)
+            }) {
+                Some((
+                    "INVALID_DECISION_BASIS_REFERENCE",
+                    "decision basis references must be active and in the same scope",
+                ))
+            } else if state.decisions.get(decision_id).is_some_and(|decision| {
+                claim_ids.iter().any(|claim_id| {
+                    state
+                        .claims
+                        .get(claim_id)
+                        .is_some_and(|claim| claim.sequence > decision.sequence)
+                }) || evidence_refs.iter().any(|reference| {
+                    state
+                        .evidence
+                        .get(reference)
+                        .is_some_and(|evidence| evidence.sequence > decision.sequence)
+                })
+            }) {
+                Some((
+                    "NONCONTEMPORANEOUS_DECISION_BASIS",
+                    "decision basis references must predate the decision",
+                ))
+            } else {
+                None
+            }
+        }
+        Event::DecisionReviewRecorded {
+            review_id,
+            decision_id,
+            evidence_refs,
+            lessons,
+            follow_up_claim_ids,
+            ..
+        } => {
+            if !required(&[review_id, decision_id])
+                || evidence_refs.is_empty()
+                || lessons.is_empty()
+                || !unique_nonempty_strings(evidence_refs)
+                || !unique_nonempty_strings(lessons)
+                || !unique_nonempty_strings(follow_up_claim_ids)
+            {
+                Some((
+                    "INVALID_DECISION_REVIEW",
+                    "decision review requires ids, evidence, and at least one lesson",
+                ))
+            } else if state.decision_reviews.contains_key(review_id) {
+                Some((
+                    "DECISION_REVIEW_ALREADY_EXISTS",
+                    "decision review id already exists",
+                ))
+            } else if state
+                .decisions
+                .get(decision_id)
+                .is_none_or(|decision| decision.scope != request.scope)
+            {
+                Some((
+                    "UNKNOWN_DECISION",
+                    "decision does not exist in the same scope",
+                ))
+            } else if state
+                .decision_bases
+                .get(decision_id)
+                .is_none_or(|basis| basis.scope != request.scope)
+            {
+                Some((
+                    "DECISION_BASIS_REQUIRED",
+                    "decision review requires a contemporaneous decision basis",
+                ))
+            } else if evidence_refs.iter().any(|reference| {
+                state
+                    .evidence
+                    .get(reference)
+                    .is_none_or(|evidence| evidence.scope != request.scope)
+            }) || follow_up_claim_ids.iter().any(|claim_id| {
+                !state.claims.get(claim_id).is_some_and(|claim| {
+                    claim.scope == request.scope && claim.superseded_by.is_none()
+                })
+            }) {
+                Some((
+                    "INVALID_DECISION_REVIEW_REFERENCE",
+                    "review references must exist in the same scope",
+                ))
+            } else if !evidence_refs.iter().any(|reference| {
+                state.evidence.get(reference).is_some_and(|evidence| {
+                    evidence.scope == request.scope && evidence.kind != EvidenceKind::AgentInference
+                })
+            }) {
+                Some((
+                    "DIRECT_EVIDENCE_REQUIRED",
+                    "decision review requires non-inference evidence",
+                ))
+            } else {
+                None
+            }
+        }
         Event::PlanBasisLinked {
             plan_id,
             evidence_refs,
@@ -1571,10 +2104,10 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                 } else if !plan.evidence_refs.is_empty() || !plan.assumption_claim_ids.is_empty() {
                     Some(("PLAN_BASIS_ALREADY_LINKED", "plan basis is already linked"))
                 } else if evidence_refs.iter().any(|reference| {
-                    !state
+                    state
                         .evidence
                         .get(reference)
-                        .is_some_and(|evidence| evidence.scope == request.scope)
+                        .is_none_or(|evidence| evidence.scope != request.scope)
                 }) || assumption_claim_ids.iter().any(|claim_id| {
                     !state.claims.get(claim_id).is_some_and(|claim| {
                         claim.scope == request.scope && claim.superseded_by.is_none()
@@ -1615,10 +2148,10 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                     "tool use already has an outcome",
                 ))
             } else if evidence_refs.iter().any(|reference| {
-                !state
+                state
                     .evidence
                     .get(reference)
-                    .is_some_and(|evidence| evidence.scope == request.scope)
+                    .is_none_or(|evidence| evidence.scope != request.scope)
             }) {
                 Some((
                     "INVALID_EVIDENCE_REFERENCE",
@@ -1657,10 +2190,10 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                         "check index is outside the plan",
                     ))
                 } else if evidence_refs.iter().any(|reference| {
-                    !state
+                    state
                         .evidence
                         .get(reference)
-                        .is_some_and(|evidence| evidence.scope == request.scope)
+                        .is_none_or(|evidence| evidence.scope != request.scope)
                 }) {
                     Some((
                         "INVALID_EVIDENCE_REFERENCE",
@@ -1698,10 +2231,10 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                 } else if plan.completed {
                     Some(("PLAN_ALREADY_COMPLETED", "plan is already completed"))
                 } else if residual_risk_refs.iter().any(|risk_id| {
-                    !state
+                    state
                         .accepted_risks
                         .get(risk_id)
-                        .is_some_and(|risk| risk.scope == request.scope)
+                        .is_none_or(|risk| risk.scope != request.scope)
                 }) {
                     Some((
                         "INVALID_RESIDUAL_RISK",
@@ -1777,10 +2310,10 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                     aporia.scope == request.scope && aporia.resolution_ref.is_none()
                 })
             }) || artifact_refs.iter().any(|evidence_id| {
-                !state
+                state
                     .evidence
                     .get(evidence_id)
-                    .is_some_and(|evidence| evidence.scope == request.scope)
+                    .is_none_or(|evidence| evidence.scope != request.scope)
             }) {
                 Some((
                     "INVALID_CHECKPOINT_REFERENCE",
@@ -2194,9 +2727,9 @@ pub fn migrate_to_current(
     destination: impl AsRef<Path>,
     from_schema: u32,
 ) -> Result<MigrationOutcome> {
-    if !matches!(from_schema, 1 | 2) || from_schema >= SCHEMA_VERSION {
+    if !matches!(from_schema, 1..=3) || from_schema >= SCHEMA_VERSION {
         return Err(Error::Invariant(format!(
-            "migration supports schema versions 1 or 2 below current version {SCHEMA_VERSION}"
+            "migration supports schema versions 1, 2, or 3 below current version {SCHEMA_VERSION}"
         )));
     }
     let source = source.as_ref();
@@ -2274,7 +2807,27 @@ pub fn migrate_to_current(
                         | "execution_grant_consumed"
                 )
             );
-        if (from_schema == 1 && !v1_event) || (from_schema == 2 && !v2_event) {
+        let v3_event = v2_event
+            || matches!(
+                event_type,
+                Some(
+                    "evidence_recorded"
+                        | "claim_recorded"
+                        | "claim_status_changed"
+                        | "claim_superseded"
+                        | "plan_basis_linked"
+                        | "action_outcome_recorded"
+                        | "verification_recorded"
+                        | "plan_completed"
+                        | "checkpoint_published"
+                        | "checkpoint_claimed"
+                        | "checkpoint_expired"
+                )
+            );
+        if (from_schema == 1 && !v1_event)
+            || (from_schema == 2 && !v2_event)
+            || (from_schema == 3 && !v3_event)
+        {
             return Err(Error::CorruptLog {
                 line: index + 1,
                 reason: format!(
@@ -2321,26 +2874,49 @@ pub fn migrate_to_current(
     })
 }
 
-pub fn migrate_v1_to_v3(
+pub fn migrate_v1_to_v4(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
     migrate_to_current(source, destination, 1)
 }
 
-#[deprecated(note = "use migrate_v1_to_v3; the destination schema is now version 3")]
+#[deprecated(note = "use migrate_v1_to_v4; the destination schema is now version 4")]
 pub fn migrate_v1_to_v2(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
-    migrate_v1_to_v3(source, destination)
+    migrate_v1_to_v4(source, destination)
 }
 
-pub fn migrate_v2_to_v3(
+#[deprecated(note = "use migrate_v1_to_v4; the destination schema is now version 4")]
+pub fn migrate_v1_to_v3(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<MigrationOutcome> {
+    migrate_v1_to_v4(source, destination)
+}
+
+pub fn migrate_v2_to_v4(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
     migrate_to_current(source, destination, 2)
+}
+
+#[deprecated(note = "use migrate_v2_to_v4; the destination schema is now version 4")]
+pub fn migrate_v2_to_v3(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<MigrationOutcome> {
+    migrate_v2_to_v4(source, destination)
+}
+
+pub fn migrate_v3_to_v4(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<MigrationOutcome> {
+    migrate_to_current(source, destination, 3)
 }
 
 pub fn commit(path: impl AsRef<Path>, request: CommitRequest) -> Result<CommitOutcome> {

@@ -2,7 +2,7 @@
 
 ## Project status
 
-Aporic `0.5.x` is an experimental governance kernel, not a hardened security boundary. Do not rely on it as the sole control for untrusted code execution, secrets, production deployment, or access control.
+Aporic `0.6.x` is an experimental governance kernel, not a hardened security boundary. Do not rely on it as the sole control for untrusted code execution, secrets, production deployment, or access control.
 
 ## Current trust boundary
 
@@ -24,6 +24,10 @@ Aporic `0.5.x` is an experimental governance kernel, not a hardened security bou
 - The 6,000-byte projection limit bounds injected UTF-8 bytes; it does not promise a token count, model-cost reduction, or retention of every detailed record. For observed state, critical gate status and authority counts remain as per-tool entries or explicit omitted-tool aggregates, blocker kinds are retained, and detail omission is explicit. Unavailable state has no trusted status to aggregate and reports only unknown retained entries plus protected and omitted counts.
 - FNV identities in diagnostics and omission receipts are non-cryptographic lookup aids. The authorization boundary compares canonical JSON values exactly and never trusts these identities.
 - Replay rejects malformed sequences and unsupported schema versions, but it does not rerun the current authorization policy over historical events.
+- Argument relations, counterarguments, contradiction labels, belief revisions, and decision reviews are caller-declared records. Structural consistency does not prove semantic truth, soundness, or decision quality.
+- Wasm analyzer modules are untrusted local inputs. Aporic rejects imports and bounds module bytes, fuel, stack, linear memory, instances, table count and elements, input, and output, but compilation is not fuel-metered and same-user module replacement is not prevented. The runtime exposes no store, filesystem, network, clock, randomness, or authorization host capability.
+- Analyzer output must match the input revision and schema, but remains an untrusted diagnostic. It cannot append events, grant authority, accept risk, or revise a claim without a separate governed event.
+- Rollback from schema v4 requires restoring a compatible binary and a pre-migration store snapshot. Migration is offline, non-destructive, and does not merge concurrent writes.
 
 ## Reporting a vulnerability
 

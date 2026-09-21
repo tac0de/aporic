@@ -36,6 +36,16 @@ fn run(args: &[&str], input: Option<&str>) -> Output {
     child.wait_with_output().unwrap()
 }
 
+fn run_with_plugin_root(args: &[&str], plugin_root: &std::path::Path) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_aporic"))
+        .args(args)
+        .env("PLUGIN_ROOT", plugin_root)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .output()
+        .unwrap()
+}
+
 #[test]
 fn init_and_status_are_wired_through_the_binary() {
     let store = temp_path("init-status").join("events.jsonl");
@@ -58,6 +68,49 @@ fn init_and_status_are_wired_through_the_binary() {
     let duplicate = run(&["init", "--store", store_arg], None);
     assert_eq!(duplicate.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&duplicate.stderr).starts_with("aporic:"));
+}
+
+#[test]
+fn analyze_structural_resolves_the_packaged_module() {
+    let package = temp_path("structural-package");
+    let analyzer_dir = package.join("analyzers");
+    std::fs::create_dir_all(&analyzer_dir).unwrap();
+    let store = temp_path("structural-store").join("events.jsonl");
+    assert!(
+        run(&["init", "--store", store.to_str().unwrap()], None)
+            .status
+            .success()
+    );
+
+    let payload = r#"{"schema_version":1,"based_on_revision":0,"findings":[]}"#;
+    let wat_payload = payload.replace('"', "\\\"");
+    let packed = ((1024_u64) << 32) | payload.len() as u64;
+    std::fs::write(
+        analyzer_dir.join("structural.wasm"),
+        format!(
+            r#"(module (memory (export "memory") 1) (data (i32.const 1024) "{wat_payload}") (func (export "alloc") (param i32) (result i32) i32.const 0) (func (export "analyze") (param i32 i32) (result i64) i64.const {packed}))"#
+        ),
+    )
+    .unwrap();
+
+    let output = run_with_plugin_root(
+        &[
+            "analyze-structural",
+            "--store",
+            store.to_str().unwrap(),
+            "--scope",
+            "repo",
+        ],
+        &package,
+    );
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let result: Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(result["based_on_revision"], 0);
+    assert_eq!(result["findings"], serde_json::json!([]));
 }
 
 #[test]
@@ -498,7 +551,7 @@ fn project_init_can_migrate_a_v1_store_without_changing_the_source() {
     let setup: Value = serde_json::from_slice(&setup.stdout).unwrap();
     assert_eq!(setup["status"], "migrated");
     assert_eq!(setup["migration"]["from_schema"], 1);
-    assert_eq!(setup["migration"]["to_schema"], 3);
+    assert_eq!(setup["migration"]["to_schema"], 4);
     assert_eq!(std::fs::read_to_string(&source).unwrap(), source_bytes);
 
     let status = run(
@@ -554,7 +607,7 @@ fn policy_rejection_uses_exit_two_and_structured_json() {
     assert!(run(&["init", "--store", store_arg], None).status.success());
 
     let request = serde_json::json!({
-        "schema_version": 3,
+        "schema_version": 4,
         "event_id": "decision-event",
         "idempotency_key": "decision-key",
         "expected_revision": 0,
@@ -714,7 +767,7 @@ fn session_start_reports_the_same_plan_gate_policy() {
     let start = context.find("<aporic-recorded-data>").unwrap() + "<aporic-recorded-data>".len();
     let end = context.find("</aporic-recorded-data>").unwrap();
     let projection: Value = serde_json::from_str(&context[start..end]).unwrap();
-    assert_eq!(projection["schema"], 4);
+    assert_eq!(projection["schema"], 5);
     assert_eq!(projection["budget"]["limit"], 6_000);
     assert_eq!(
         projection["executions"][0]["status"],

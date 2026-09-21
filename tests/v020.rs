@@ -2,7 +2,7 @@ use aporic::codex::{GatePolicy, PreToolUseInput, explain_action, pre_tool_use_tr
 use aporic::policy::{PolicyDocument, ToolPolicy};
 use aporic::{
     Actor, ActorKind, CommitRequest, CommitStatus, Event, SCHEMA_VERSION, commit, initialize, load,
-    migrate_v1_to_v3,
+    migrate_v1_to_v4,
 };
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -593,12 +593,12 @@ fn migration_preserves_v1_source_and_refuses_destination_overwrite() {
     std::fs::write(&source, &source_bytes).unwrap();
     let destination = source.parent().unwrap().join("events-v2.jsonl");
 
-    let outcome = migrate_v1_to_v3(&source, &destination).unwrap();
+    let outcome = migrate_v1_to_v4(&source, &destination).unwrap();
     assert_eq!(outcome.revision, 1);
     assert_eq!(outcome.records, 1);
     assert_eq!(std::fs::read(&source).unwrap(), source_bytes);
     assert_eq!(load(&destination).unwrap().state().revision, 1);
-    assert!(migrate_v1_to_v3(&source, &destination).is_err());
+    assert!(migrate_v1_to_v4(&source, &destination).is_err());
 }
 
 #[test]
@@ -626,7 +626,7 @@ fn migration_rejects_v2_grant_events_mislabeled_as_v1() {
     });
     std::fs::write(&source, format!("{record}\n")).unwrap();
     let destination = source.parent().unwrap().join("events-v2.jsonl");
-    let error = migrate_v1_to_v3(&source, &destination).unwrap_err();
+    let error = migrate_v1_to_v4(&source, &destination).unwrap_err();
     assert!(
         error
             .to_string()

@@ -23,6 +23,14 @@ fn packaged_hooks_include_turn_scoped_intent_fidelity() {
     );
 }
 
+#[test]
+fn packager_builds_and_copies_the_structural_wasm_analyzer() {
+    let script = include_str!("../scripts/package-codex-plugin.sh");
+    assert!(script.contains("--target wasm32-unknown-unknown --release --locked"));
+    assert!(script.contains("analyzers/structural.wasm"));
+    assert!(script.contains("aporic_structural_analyzer.wasm"));
+}
+
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 #[test]
 fn packager_explains_missing_rust_toolchain_before_creating_output() {
