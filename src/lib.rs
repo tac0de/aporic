@@ -6,12 +6,15 @@ use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
 pub mod analysis;
+pub mod capability;
 pub mod codex;
 pub mod governance;
+pub mod mcp;
 pub mod policy;
 pub mod project;
+pub mod verifier;
 
-pub const SCHEMA_VERSION: u32 = 4;
+pub const SCHEMA_VERSION: u32 = 5;
 
 #[derive(Debug)]
 pub enum Error {
@@ -158,6 +161,19 @@ pub struct CommitRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Event {
+    IntentEnvelopeRecorded {
+        intent_id: String,
+        source_ref: String,
+        goal: String,
+        explicit_items: Vec<String>,
+        inferred_items: Vec<String>,
+        unknown_items: Vec<String>,
+    },
+    IntentEnvelopeSuperseded {
+        intent_id: String,
+        replacement_intent_id: String,
+        reason: String,
+    },
     AporiaOpened {
         aporia_id: String,
         question: String,
@@ -203,6 +219,8 @@ pub enum Event {
         objective: String,
         acceptance_checks: Vec<String>,
         unresolved_questions: Vec<String>,
+        #[serde(default)]
+        intent_id: Option<String>,
     },
     PlanAuthorized {
         authorization_id: String,
@@ -295,8 +313,26 @@ pub enum Event {
         outcome: ActionOutcome,
         evidence_refs: Vec<String>,
     },
+    EffectReceiptRecorded {
+        receipt_id: String,
+        session_id: String,
+        tool_name: String,
+        tool_use_id: String,
+        tool_input_identity: String,
+        tool_response_identity: String,
+        outcome: ActionOutcome,
+    },
     VerificationRecorded {
         verification_id: String,
+        plan_id: String,
+        check_index: u32,
+        result: VerificationResult,
+        evidence_refs: Vec<String>,
+    },
+    EffectVerificationRecorded {
+        verification_id: String,
+        receipt_id: String,
+        verifier_id: String,
         plan_id: String,
         check_index: u32,
         result: VerificationResult,
@@ -328,12 +364,14 @@ pub enum Event {
 impl Event {
     fn transition_kind(&self) -> Option<TransitionKind> {
         match self {
+            Self::IntentEnvelopeSuperseded { .. } => Some(TransitionKind::DirectionSupersede),
             Self::DecisionCommitted { .. } => Some(TransitionKind::DecisionCommit),
             Self::DecisionSuperseded { .. } => Some(TransitionKind::DirectionSupersede),
             Self::RiskAccepted { .. } => Some(TransitionKind::RiskAccept),
             Self::PlanAuthorized { .. } => Some(TransitionKind::PlanAuthorize),
             Self::PlanCompleted { .. } => Some(TransitionKind::CompletionClaim),
-            Self::ToolHoldPlaced { .. }
+            Self::IntentEnvelopeRecorded { .. }
+            | Self::ToolHoldPlaced { .. }
             | Self::ToolHoldReleased { .. }
             | Self::PlanRegistered { .. }
             | Self::PlanAuthorizationRevoked { .. }
@@ -350,7 +388,9 @@ impl Event {
             | Self::DecisionReviewRecorded { .. }
             | Self::PlanBasisLinked { .. }
             | Self::ActionOutcomeRecorded { .. }
+            | Self::EffectReceiptRecorded { .. }
             | Self::VerificationRecorded { .. }
+            | Self::EffectVerificationRecorded { .. }
             | Self::CheckpointPublished { .. }
             | Self::CheckpointClaimed { .. }
             | Self::CheckpointExpired { .. } => None,
@@ -428,9 +468,25 @@ pub struct Plan {
     pub scope: String,
     pub acceptance_checks: Vec<String>,
     pub unresolved_questions: Vec<String>,
+    pub intent_id: Option<String>,
     pub evidence_refs: Vec<String>,
     pub assumption_claim_ids: Vec<String>,
     pub completed: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IntentEnvelope {
+    pub id: String,
+    pub source_ref: String,
+    pub goal: String,
+    pub explicit_items: Vec<String>,
+    pub inferred_items: Vec<String>,
+    pub unknown_items: Vec<String>,
+    pub scope: String,
+    pub actor: Actor,
+    pub superseded_by: Option<String>,
+    pub sequence: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -520,12 +576,32 @@ pub struct ActionOutcomeRecord {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct EffectReceipt {
+    pub id: String,
+    pub session_id: String,
+    pub tool_name: String,
+    pub tool_use_id: String,
+    pub tool_input_identity: String,
+    pub tool_response_identity: String,
+    pub outcome: ActionOutcome,
+    pub scope: String,
+    pub sequence: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Verification {
     pub id: String,
     pub plan_id: String,
     pub check_index: u32,
     pub result: VerificationResult,
     pub evidence_refs: Vec<String>,
+    #[serde(default)]
+    pub effect_receipt_id: Option<String>,
+    #[serde(default)]
+    pub verifier_id: Option<String>,
+    #[serde(default)]
+    pub verifier_provenance: Option<String>,
     pub scope: String,
     pub sequence: u64,
 }
@@ -580,6 +656,7 @@ pub struct ExecutionGrant {
 #[serde(deny_unknown_fields)]
 pub struct State {
     pub revision: u64,
+    pub intents: BTreeMap<String, IntentEnvelope>,
     pub aporias: BTreeMap<String, Aporia>,
     pub delegations: BTreeMap<String, Delegation>,
     pub decisions: BTreeMap<String, Decision>,
@@ -596,6 +673,7 @@ pub struct State {
     pub decision_bases: BTreeMap<String, DecisionBasis>,
     pub decision_reviews: BTreeMap<String, DecisionReview>,
     pub action_outcomes: BTreeMap<String, ActionOutcomeRecord>,
+    pub effect_receipts: BTreeMap<String, EffectReceipt>,
     pub verifications: BTreeMap<String, Verification>,
     pub checkpoints: BTreeMap<String, Checkpoint>,
 }
@@ -612,6 +690,55 @@ impl State {
 
         let scope = stored.request.scope.clone();
         match &stored.request.event {
+            Event::IntentEnvelopeRecorded {
+                intent_id,
+                source_ref,
+                goal,
+                explicit_items,
+                inferred_items,
+                unknown_items,
+            } => {
+                if self.intents.contains_key(intent_id) {
+                    return Err(Error::Invariant(format!(
+                        "intent envelope {intent_id} already exists"
+                    )));
+                }
+                self.intents.insert(
+                    intent_id.clone(),
+                    IntentEnvelope {
+                        id: intent_id.clone(),
+                        source_ref: source_ref.clone(),
+                        goal: goal.clone(),
+                        explicit_items: explicit_items.clone(),
+                        inferred_items: inferred_items.clone(),
+                        unknown_items: unknown_items.clone(),
+                        scope,
+                        actor: stored.request.actor.clone(),
+                        superseded_by: None,
+                        sequence: stored.sequence,
+                    },
+                );
+            }
+            Event::IntentEnvelopeSuperseded {
+                intent_id,
+                replacement_intent_id,
+                ..
+            } => {
+                if !self.intents.contains_key(replacement_intent_id) {
+                    return Err(Error::Invariant(format!(
+                        "unknown replacement intent envelope {replacement_intent_id}"
+                    )));
+                }
+                let intent = self.intents.get_mut(intent_id).ok_or_else(|| {
+                    Error::Invariant(format!("unknown intent envelope {intent_id}"))
+                })?;
+                if intent.superseded_by.is_some() {
+                    return Err(Error::Invariant(format!(
+                        "intent envelope {intent_id} is already superseded"
+                    )));
+                }
+                intent.superseded_by = Some(replacement_intent_id.clone());
+            }
             Event::AporiaOpened {
                 aporia_id,
                 question,
@@ -781,6 +908,7 @@ impl State {
                 objective,
                 acceptance_checks,
                 unresolved_questions,
+                intent_id,
             } => {
                 if self.plans.contains_key(plan_id) {
                     return Err(Error::Invariant(format!("plan {plan_id} already exists")));
@@ -793,6 +921,7 @@ impl State {
                         scope,
                         acceptance_checks: acceptance_checks.clone(),
                         unresolved_questions: unresolved_questions.clone(),
+                        intent_id: intent_id.clone(),
                         evidence_refs: Vec::new(),
                         assumption_claim_ids: Vec::new(),
                         completed: false,
@@ -1111,6 +1240,30 @@ impl State {
                     },
                 );
             }
+            Event::EffectReceiptRecorded {
+                receipt_id,
+                session_id,
+                tool_name,
+                tool_use_id,
+                tool_input_identity,
+                tool_response_identity,
+                outcome,
+            } => {
+                self.effect_receipts.insert(
+                    receipt_id.clone(),
+                    EffectReceipt {
+                        id: receipt_id.clone(),
+                        session_id: session_id.clone(),
+                        tool_name: tool_name.clone(),
+                        tool_use_id: tool_use_id.clone(),
+                        tool_input_identity: tool_input_identity.clone(),
+                        tool_response_identity: tool_response_identity.clone(),
+                        outcome: *outcome,
+                        scope,
+                        sequence: stored.sequence,
+                    },
+                );
+            }
             Event::VerificationRecorded {
                 verification_id,
                 plan_id,
@@ -1126,6 +1279,34 @@ impl State {
                         check_index: *check_index,
                         result: *result,
                         evidence_refs: evidence_refs.clone(),
+                        effect_receipt_id: None,
+                        verifier_id: None,
+                        verifier_provenance: None,
+                        scope,
+                        sequence: stored.sequence,
+                    },
+                );
+            }
+            Event::EffectVerificationRecorded {
+                verification_id,
+                receipt_id,
+                verifier_id,
+                plan_id,
+                check_index,
+                result,
+                evidence_refs,
+            } => {
+                self.verifications.insert(
+                    verification_id.clone(),
+                    Verification {
+                        id: verification_id.clone(),
+                        plan_id: plan_id.clone(),
+                        check_index: *check_index,
+                        result: *result,
+                        evidence_refs: evidence_refs.clone(),
+                        effect_receipt_id: Some(receipt_id.clone()),
+                        verifier_id: Some(verifier_id.clone()),
+                        verifier_provenance: Some(stored.request.actor.provenance.clone()),
                         scope,
                         sequence: stored.sequence,
                     },
@@ -1187,6 +1368,15 @@ impl State {
         self.revision = stored.sequence;
         Ok(())
     }
+}
+
+fn plan_intent_is_stale(state: &State, plan: &Plan) -> bool {
+    plan.intent_id.as_ref().is_some_and(|intent_id| {
+        state
+            .intents
+            .get(intent_id)
+            .is_none_or(|intent| intent.scope != plan.scope || intent.superseded_by.is_some())
+    })
 }
 
 fn action_outcome_key(scope: &str, session_id: &str, tool_use_id: &str) -> String {
@@ -1267,8 +1457,90 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
             .enumerate()
             .all(|(index, value)| !value.trim().is_empty() && !values[..index].contains(value))
     };
+    let informational_identity = |value: &str| {
+        value.strip_prefix("fnv1a64:").is_some_and(|digest| {
+            digest.len() == 16
+                && digest
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        })
+    };
 
     let structural_error = match &request.event {
+        Event::IntentEnvelopeRecorded {
+            intent_id,
+            source_ref,
+            goal,
+            explicit_items,
+            inferred_items,
+            unknown_items,
+        } => {
+            if !required(&[intent_id, source_ref, goal]) {
+                Some((
+                    "MISSING_REQUIRED_FIELD",
+                    "intent id, source ref, and goal are required",
+                ))
+            } else if !unique_nonempty_strings(explicit_items)
+                || !unique_nonempty_strings(inferred_items)
+                || !unique_nonempty_strings(unknown_items)
+            {
+                Some((
+                    "INVALID_INTENT_LIST",
+                    "intent lists must contain unique non-empty strings",
+                ))
+            } else if state.intents.contains_key(intent_id) {
+                Some((
+                    "INTENT_ENVELOPE_ALREADY_EXISTS",
+                    "intent envelope id already exists",
+                ))
+            } else {
+                None
+            }
+        }
+        Event::IntentEnvelopeSuperseded {
+            intent_id,
+            replacement_intent_id,
+            reason,
+        } => {
+            if !required(&[intent_id, replacement_intent_id, reason]) {
+                Some((
+                    "MISSING_REQUIRED_FIELD",
+                    "intent id, replacement intent id, and reason are required",
+                ))
+            } else if intent_id == replacement_intent_id {
+                Some((
+                    "INVALID_REPLACEMENT",
+                    "intent envelope cannot replace itself",
+                ))
+            } else if let (Some(intent), Some(replacement)) = (
+                state.intents.get(intent_id),
+                state.intents.get(replacement_intent_id),
+            ) {
+                if intent.superseded_by.is_some() {
+                    Some((
+                        "INTENT_ENVELOPE_ALREADY_SUPERSEDED",
+                        "intent envelope is already superseded",
+                    ))
+                } else if replacement.superseded_by.is_some() {
+                    Some((
+                        "STALE_REPLACEMENT_INTENT",
+                        "replacement intent envelope must still be active",
+                    ))
+                } else if intent.scope != request.scope || replacement.scope != request.scope {
+                    Some((
+                        "SCOPE_MISMATCH",
+                        "intent envelope scopes do not match request scope",
+                    ))
+                } else {
+                    None
+                }
+            } else {
+                Some((
+                    "UNKNOWN_INTENT_ENVELOPE",
+                    "intent envelope or replacement does not exist",
+                ))
+            }
+        }
         Event::AporiaOpened {
             aporia_id,
             question,
@@ -1463,6 +1735,7 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
             objective,
             acceptance_checks,
             unresolved_questions,
+            intent_id,
         } => {
             if !required(&[plan_id, objective]) || acceptance_checks.is_empty() {
                 Some((
@@ -1478,6 +1751,22 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                 ))
             } else if state.plans.contains_key(plan_id) {
                 Some(("PLAN_ALREADY_EXISTS", "plan id already exists"))
+            } else if let Some(intent_id) = intent_id {
+                match state.intents.get(intent_id) {
+                    None => Some((
+                        "UNKNOWN_INTENT_ENVELOPE",
+                        "plan intent envelope does not exist",
+                    )),
+                    Some(intent) if intent.scope != request.scope => Some((
+                        "SCOPE_MISMATCH",
+                        "plan scope differs from intent envelope scope",
+                    )),
+                    Some(intent) if intent.superseded_by.is_some() => Some((
+                        "STALE_INTENT_ENVELOPE",
+                        "plan cannot bind a superseded intent envelope",
+                    )),
+                    Some(_) => None,
+                }
             } else {
                 None
             }
@@ -1504,6 +1793,11 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                     Some((
                         "SCOPE_MISMATCH",
                         "authorization scope differs from plan scope",
+                    ))
+                } else if plan_intent_is_stale(state, plan) {
+                    Some((
+                        "STALE_PLAN_INTENT",
+                        "plan authorization requires a current intent envelope",
                     ))
                 } else {
                     None
@@ -1562,6 +1856,11 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                     Some((
                         "SCOPE_MISMATCH",
                         "execution grant scope differs from plan scope",
+                    ))
+                } else if plan_intent_is_stale(state, plan) {
+                    Some((
+                        "STALE_PLAN_INTENT",
+                        "execution grant requires a current plan intent envelope",
                     ))
                 } else {
                     None
@@ -2161,6 +2460,54 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                 None
             }
         }
+        Event::EffectReceiptRecorded {
+            receipt_id,
+            session_id,
+            tool_name,
+            tool_use_id,
+            tool_input_identity,
+            tool_response_identity,
+            outcome,
+        } => {
+            if !required(&[receipt_id, session_id, tool_name, tool_use_id])
+                || receipt_id.len() > crate::verifier::MAX_RECEIPT_ID_BYTES
+                || session_id.len() > crate::codex::MAX_SESSION_ID_BYTES
+                || tool_name.len() > crate::codex::MAX_TOOL_NAME_BYTES
+                || tool_use_id.len() > crate::codex::MAX_TOOL_USE_ID_BYTES
+                || !informational_identity(tool_input_identity)
+                || !informational_identity(tool_response_identity)
+            {
+                Some((
+                    "INVALID_EFFECT_RECEIPT",
+                    "effect receipt requires ids and canonical informational identities",
+                ))
+            } else if *outcome != ActionOutcome::Unknown {
+                Some((
+                    "UNVERIFIED_EFFECT_OUTCOME",
+                    "host effect receipts must not infer success or failure",
+                ))
+            } else if state.effect_receipts.contains_key(receipt_id) {
+                Some((
+                    "EFFECT_RECEIPT_ALREADY_EXISTS",
+                    "effect receipt id already exists",
+                ))
+            } else if state.effect_receipts.values().any(|receipt| {
+                receipt.scope == request.scope
+                    && receipt.session_id == *session_id
+                    && receipt.tool_use_id == *tool_use_id
+            }) || state.action_outcomes.values().any(|record| {
+                record.scope == request.scope
+                    && record.session_id == *session_id
+                    && record.tool_use_id == *tool_use_id
+            }) {
+                Some((
+                    "EFFECT_RECEIPT_ALREADY_EXISTS",
+                    "tool use already has an effect receipt or legacy outcome",
+                ))
+            } else {
+                None
+            }
+        }
         Event::VerificationRecorded {
             verification_id,
             plan_id,
@@ -2216,6 +2563,77 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                 Some(("UNKNOWN_PLAN", "plan does not exist"))
             }
         }
+        Event::EffectVerificationRecorded {
+            verification_id,
+            receipt_id,
+            verifier_id,
+            plan_id,
+            check_index,
+            evidence_refs,
+            ..
+        } => {
+            if !required(&[verification_id, receipt_id, verifier_id, plan_id])
+                || evidence_refs.is_empty()
+                || !unique_nonempty_strings(evidence_refs)
+            {
+                Some((
+                    "INVALID_EFFECT_VERIFICATION",
+                    "effect verification requires receipt, verifier, plan, check, and unique evidence",
+                ))
+            } else if state.verifications.contains_key(verification_id) {
+                Some((
+                    "VERIFICATION_ALREADY_EXISTS",
+                    "verification id already exists",
+                ))
+            } else if request.actor.id != *verifier_id {
+                Some((
+                    "VERIFIER_ID_MISMATCH",
+                    "verifier id must match the evidence actor id",
+                ))
+            } else if state
+                .effect_receipts
+                .get(receipt_id)
+                .is_none_or(|receipt| receipt.scope != request.scope)
+            {
+                Some((
+                    "INVALID_EFFECT_RECEIPT_REFERENCE",
+                    "effect verification receipt must exist in the same scope",
+                ))
+            } else if let Some(plan) = state.plans.get(plan_id) {
+                if plan.scope != request.scope {
+                    Some(("SCOPE_MISMATCH", "plan scope differs from request scope"))
+                } else if (*check_index as usize) >= plan.acceptance_checks.len() {
+                    Some((
+                        "UNKNOWN_ACCEPTANCE_CHECK",
+                        "check index is outside the plan",
+                    ))
+                } else if evidence_refs.iter().any(|reference| {
+                    state
+                        .evidence
+                        .get(reference)
+                        .is_none_or(|evidence| evidence.scope != request.scope)
+                }) {
+                    Some((
+                        "INVALID_EVIDENCE_REFERENCE",
+                        "effect verification evidence must exist in the same scope",
+                    ))
+                } else if !evidence_refs.iter().any(|reference| {
+                    state.evidence.get(reference).is_some_and(|evidence| {
+                        evidence.scope == request.scope
+                            && evidence.kind != EvidenceKind::AgentInference
+                    })
+                }) {
+                    Some((
+                        "DIRECT_EVIDENCE_REQUIRED",
+                        "effect verification requires at least one non-inference evidence record",
+                    ))
+                } else {
+                    None
+                }
+            } else {
+                Some(("UNKNOWN_PLAN", "plan does not exist"))
+            }
+        }
         Event::PlanCompleted {
             plan_id,
             residual_risk_refs,
@@ -2230,6 +2648,11 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                     Some(("SCOPE_MISMATCH", "plan scope differs from request scope"))
                 } else if plan.completed {
                     Some(("PLAN_ALREADY_COMPLETED", "plan is already completed"))
+                } else if plan_intent_is_stale(state, plan) {
+                    Some((
+                        "STALE_PLAN_INTENT",
+                        "a plan bound to a superseded intent cannot be completed",
+                    ))
                 } else if residual_risk_refs.iter().any(|risk_id| {
                     state
                         .accepted_risks
@@ -2397,7 +2820,8 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
     }
 
     match &request.event {
-        Event::DelegationGranted { .. }
+        Event::IntentEnvelopeSuperseded { .. }
+        | Event::DelegationGranted { .. }
         | Event::DelegationRevoked { .. }
         | Event::DecisionSuperseded { .. } => {
             if request.actor.kind != ActorKind::Human {
@@ -2470,6 +2894,18 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
             return Evaluation::deny(
                 "OUTCOME_OBSERVER_REQUIRED",
                 "action outcome requires a host or evidence-authored event",
+            );
+        }
+        Event::EffectReceiptRecorded { .. } if request.actor.kind != ActorKind::Host => {
+            return Evaluation::deny(
+                "EFFECT_OBSERVER_REQUIRED",
+                "effect receipt requires a host-authored event",
+            );
+        }
+        Event::EffectVerificationRecorded { .. } if request.actor.kind != ActorKind::Evidence => {
+            return Evaluation::deny(
+                "INDEPENDENT_VERIFIER_REQUIRED",
+                "effect verification requires an evidence-authored verifier report",
             );
         }
         Event::CheckpointClaimed { .. } if request.actor.kind != ActorKind::Host => {
@@ -2727,9 +3163,9 @@ pub fn migrate_to_current(
     destination: impl AsRef<Path>,
     from_schema: u32,
 ) -> Result<MigrationOutcome> {
-    if !matches!(from_schema, 1..=3) || from_schema >= SCHEMA_VERSION {
+    if !matches!(from_schema, 1..=4) || from_schema >= SCHEMA_VERSION {
         return Err(Error::Invariant(format!(
-            "migration supports schema versions 1, 2, or 3 below current version {SCHEMA_VERSION}"
+            "migration supports schema versions 1, 2, 3, or 4 below current version {SCHEMA_VERSION}"
         )));
     }
     let source = source.as_ref();
@@ -2824,9 +3260,21 @@ pub fn migrate_to_current(
                         | "checkpoint_expired"
                 )
             );
+        let v4_event = v3_event
+            || matches!(
+                event_type,
+                Some(
+                    "argument_relation_recorded"
+                        | "argument_relation_retracted"
+                        | "belief_revision_recorded"
+                        | "decision_basis_linked"
+                        | "decision_review_recorded"
+                )
+            );
         if (from_schema == 1 && !v1_event)
             || (from_schema == 2 && !v2_event)
             || (from_schema == 3 && !v3_event)
+            || (from_schema == 4 && !v4_event)
         {
             return Err(Error::CorruptLog {
                 line: index + 1,
@@ -2874,49 +3322,80 @@ pub fn migrate_to_current(
     })
 }
 
-pub fn migrate_v1_to_v4(
+pub fn migrate_v1_to_v5(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
     migrate_to_current(source, destination, 1)
 }
 
-#[deprecated(note = "use migrate_v1_to_v4; the destination schema is now version 4")]
+#[deprecated(note = "use migrate_v1_to_v5; the destination schema is now version 5")]
+pub fn migrate_v1_to_v4(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<MigrationOutcome> {
+    migrate_v1_to_v5(source, destination)
+}
+
+#[deprecated(note = "use migrate_v1_to_v5; the destination schema is now version 5")]
 pub fn migrate_v1_to_v2(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
-    migrate_v1_to_v4(source, destination)
+    migrate_v1_to_v5(source, destination)
 }
 
-#[deprecated(note = "use migrate_v1_to_v4; the destination schema is now version 4")]
+#[deprecated(note = "use migrate_v1_to_v5; the destination schema is now version 5")]
 pub fn migrate_v1_to_v3(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
-    migrate_v1_to_v4(source, destination)
+    migrate_v1_to_v5(source, destination)
 }
 
-pub fn migrate_v2_to_v4(
+pub fn migrate_v2_to_v5(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
     migrate_to_current(source, destination, 2)
 }
 
-#[deprecated(note = "use migrate_v2_to_v4; the destination schema is now version 4")]
+#[deprecated(note = "use migrate_v2_to_v5; the destination schema is now version 5")]
+pub fn migrate_v2_to_v4(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<MigrationOutcome> {
+    migrate_v2_to_v5(source, destination)
+}
+
+#[deprecated(note = "use migrate_v2_to_v5; the destination schema is now version 5")]
 pub fn migrate_v2_to_v3(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
-    migrate_v2_to_v4(source, destination)
+    migrate_v2_to_v5(source, destination)
 }
 
-pub fn migrate_v3_to_v4(
+pub fn migrate_v3_to_v5(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
     migrate_to_current(source, destination, 3)
+}
+
+#[deprecated(note = "use migrate_v3_to_v5; the destination schema is now version 5")]
+pub fn migrate_v3_to_v4(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<MigrationOutcome> {
+    migrate_v3_to_v5(source, destination)
+}
+
+pub fn migrate_v4_to_v5(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<MigrationOutcome> {
+    migrate_to_current(source, destination, 4)
 }
 
 pub fn commit(path: impl AsRef<Path>, request: CommitRequest) -> Result<CommitOutcome> {

@@ -29,6 +29,26 @@ fn packager_builds_and_copies_the_structural_wasm_analyzer() {
     assert!(script.contains("--target wasm32-unknown-unknown --release --locked"));
     assert!(script.contains("analyzers/structural.wasm"));
     assert!(script.contains("aporic_structural_analyzer.wasm"));
+    assert!(script.contains("cp \"$template_dir/.mcp.json\" \"$output_dir/.mcp.json\""));
+}
+
+#[test]
+fn plugin_declares_the_bounded_mcp_server_and_prompts_for_the_write_tool() {
+    let manifest: serde_json::Value = serde_json::from_str(include_str!(
+        "../packaging/codex-plugin/.codex-plugin/plugin.json"
+    ))
+    .unwrap();
+    let mcp: serde_json::Value =
+        serde_json::from_str(include_str!("../packaging/codex-plugin/.mcp.json")).unwrap();
+    assert_eq!(manifest["mcpServers"], "./.mcp.json");
+    assert_eq!(
+        mcp["mcpServers"]["aporic"]["args"],
+        serde_json::json!(["mcp-serve"])
+    );
+    assert_eq!(
+        mcp["mcpServers"]["aporic"]["tools"]["ingest_verifier_report"]["approval_mode"],
+        "prompt"
+    );
 }
 
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]

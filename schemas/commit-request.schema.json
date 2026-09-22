@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://aporic.dev/schema/commit-request-v4.json",
-  "title": "Aporic commit request v4",
+  "$id": "https://aporic.dev/schema/commit-request-v5.json",
+  "title": "Aporic commit request v5",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -14,7 +14,7 @@
     "event"
   ],
   "properties": {
-    "schema_version": { "const": 4 },
+    "schema_version": { "const": 5 },
     "event_id": { "type": "string", "minLength": 1 },
     "idempotency_key": { "type": "string", "minLength": 1 },
     "expected_revision": { "type": "integer", "minimum": 0 },
@@ -31,6 +31,8 @@
     "scope": { "type": "string", "minLength": 1 },
     "event": {
       "oneOf": [
+        { "$ref": "#/$defs/intentEnvelopeRecorded" },
+        { "$ref": "#/$defs/intentEnvelopeSuperseded" },
         { "$ref": "#/$defs/aporiaOpened" },
         { "$ref": "#/$defs/aporiaResolved" },
         { "$ref": "#/$defs/delegationGranted" },
@@ -57,7 +59,9 @@
         { "$ref": "#/$defs/decisionReviewRecorded" },
         { "$ref": "#/$defs/planBasisLinked" },
         { "$ref": "#/$defs/actionOutcomeRecorded" },
+        { "$ref": "#/$defs/effectReceiptRecorded" },
         { "$ref": "#/$defs/verificationRecorded" },
+        { "$ref": "#/$defs/effectVerificationRecorded" },
         { "$ref": "#/$defs/planCompleted" },
         { "$ref": "#/$defs/checkpointPublished" },
         { "$ref": "#/$defs/checkpointClaimed" },
@@ -66,6 +70,36 @@
     }
   },
   "$defs": {
+    "stringList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "intentEnvelopeRecorded": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "intent_id", "source_ref", "goal", "explicit_items", "inferred_items", "unknown_items"],
+      "properties": {
+        "type": { "const": "intent_envelope_recorded" },
+        "intent_id": { "type": "string", "minLength": 1 },
+        "source_ref": { "type": "string", "minLength": 1 },
+        "goal": { "type": "string", "minLength": 1 },
+        "explicit_items": { "$ref": "#/$defs/stringList" },
+        "inferred_items": { "$ref": "#/$defs/stringList" },
+        "unknown_items": { "$ref": "#/$defs/stringList" }
+      }
+    },
+    "intentEnvelopeSuperseded": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "intent_id", "replacement_intent_id", "reason"],
+      "properties": {
+        "type": { "const": "intent_envelope_superseded" },
+        "intent_id": { "type": "string", "minLength": 1 },
+        "replacement_intent_id": { "type": "string", "minLength": 1 },
+        "reason": { "type": "string", "minLength": 1 }
+      }
+    },
     "transitionKind": {
       "enum": [
         "decision_commit",
@@ -208,6 +242,12 @@
           "type": "array",
           "uniqueItems": true,
           "items": { "type": "string", "minLength": 1 }
+        },
+        "intent_id": {
+          "oneOf": [
+            { "type": "string", "minLength": 1 },
+            { "type": "null" }
+          ]
         }
       }
     },
@@ -367,7 +407,35 @@
     },
     "planBasisLinked": { "type": "object", "additionalProperties": false, "required": ["type", "plan_id", "evidence_refs", "assumption_claim_ids"], "properties": { "type": { "const": "plan_basis_linked" }, "plan_id": { "type": "string", "minLength": 1 }, "evidence_refs": { "$ref": "#/$defs/stringRefs" }, "assumption_claim_ids": { "$ref": "#/$defs/stringRefs" } } },
     "actionOutcomeRecorded": { "type": "object", "additionalProperties": false, "required": ["type", "session_id", "tool_name", "tool_use_id", "outcome", "evidence_refs"], "properties": { "type": { "const": "action_outcome_recorded" }, "session_id": { "type": "string", "minLength": 1 }, "tool_name": { "type": "string", "minLength": 1 }, "tool_use_id": { "type": "string", "minLength": 1 }, "outcome": { "enum": ["succeeded", "failed", "interrupted", "unknown"] }, "evidence_refs": { "$ref": "#/$defs/stringRefs" } } },
+    "effectReceiptRecorded": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "receipt_id", "session_id", "tool_name", "tool_use_id", "tool_input_identity", "tool_response_identity", "outcome"],
+      "properties": {
+        "type": { "const": "effect_receipt_recorded" },
+        "receipt_id": { "type": "string", "minLength": 1 },
+        "session_id": { "type": "string", "minLength": 1 },
+        "tool_name": { "type": "string", "minLength": 1 },
+        "tool_use_id": { "type": "string", "minLength": 1 },
+        "tool_input_identity": { "type": "string", "pattern": "^fnv1a64:[0-9a-f]{16}$" },
+        "tool_response_identity": { "type": "string", "pattern": "^fnv1a64:[0-9a-f]{16}$" },
+        "outcome": { "const": "unknown" }
+      }
+    },
     "verificationRecorded": { "type": "object", "additionalProperties": false, "required": ["type", "verification_id", "plan_id", "check_index", "result", "evidence_refs"], "properties": { "type": { "const": "verification_recorded" }, "verification_id": { "type": "string", "minLength": 1 }, "plan_id": { "type": "string", "minLength": 1 }, "check_index": { "type": "integer", "minimum": 0 }, "result": { "enum": ["passed", "failed", "inconclusive"] }, "evidence_refs": { "$ref": "#/$defs/stringRefs" } } },
+    "effectVerificationRecorded": {
+      "type": "object", "additionalProperties": false,
+      "required": ["type", "verification_id", "receipt_id", "verifier_id", "plan_id", "check_index", "result", "evidence_refs"],
+      "properties": {
+        "type": { "const": "effect_verification_recorded" },
+        "verification_id": { "type": "string", "minLength": 1 },
+        "receipt_id": { "type": "string", "minLength": 1 },
+        "verifier_id": { "type": "string", "minLength": 1 },
+        "plan_id": { "type": "string", "minLength": 1 },
+        "check_index": { "type": "integer", "minimum": 0 },
+        "result": { "enum": ["passed", "failed", "inconclusive"] },
+        "evidence_refs": { "$ref": "#/$defs/stringRefs" }
+      }
+    },
     "planCompleted": { "type": "object", "additionalProperties": false, "required": ["type", "plan_id", "residual_risk_refs"], "properties": { "type": { "const": "plan_completed" }, "plan_id": { "type": "string", "minLength": 1 }, "residual_risk_refs": { "$ref": "#/$defs/stringRefs" } } },
     "checkpointPublished": { "type": "object", "additionalProperties": false, "required": ["type", "checkpoint_id", "session_id", "objective", "verified_claim_ids", "unresolved_claim_ids", "aporia_ids", "next_checks", "artifact_refs"], "properties": { "type": { "const": "checkpoint_published" }, "checkpoint_id": { "type": "string", "minLength": 1 }, "session_id": { "type": "string", "minLength": 1 }, "objective": { "type": "string", "minLength": 1 }, "verified_claim_ids": { "$ref": "#/$defs/stringRefs" }, "unresolved_claim_ids": { "$ref": "#/$defs/stringRefs" }, "aporia_ids": { "$ref": "#/$defs/stringRefs" }, "next_checks": { "$ref": "#/$defs/stringRefs" }, "artifact_refs": { "$ref": "#/$defs/stringRefs" } } },
     "checkpointClaimed": { "type": "object", "additionalProperties": false, "required": ["type", "checkpoint_id", "session_id"], "properties": { "type": { "const": "checkpoint_claimed" }, "checkpoint_id": { "type": "string", "minLength": 1 }, "session_id": { "type": "string", "minLength": 1 } } },

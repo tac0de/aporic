@@ -5,7 +5,7 @@ use aporic::codex::{
 };
 use aporic::{
     ActionOutcome, Actor, ActorKind, CommitRequest, CommitStatus, EpistemicStatus, Event,
-    EvidenceKind, SCHEMA_VERSION, VerificationResult, commit, initialize, load, migrate_v2_to_v4,
+    EvidenceKind, SCHEMA_VERSION, VerificationResult, commit, initialize, load, migrate_v2_to_v5,
 };
 use serde_json::json;
 use std::path::PathBuf;
@@ -94,6 +94,7 @@ fn plan_completion_requires_latest_passing_verification() {
                 objective: "prove completion".into(),
                 acceptance_checks: vec!["tests pass".into()],
                 unresolved_questions: vec![],
+                intent_id: None,
             },
         ),
     )
@@ -195,7 +196,7 @@ fn plan_completion_requires_latest_passing_verification() {
 }
 
 #[test]
-fn post_tool_use_is_idempotent_and_does_not_infer_success() {
+fn post_tool_use_records_bounded_idempotent_effect_receipts_without_inferring_success() {
     let store = path("post-tool").join("events.jsonl");
     initialize(&store).unwrap();
     let input = PostToolUseInput {
@@ -212,19 +213,43 @@ fn post_tool_use_is_idempotent_and_does_not_infer_success() {
     };
     post_tool_use_transaction(&store, &input, "repo").unwrap();
     post_tool_use_transaction(&store, &input, "repo").unwrap();
+    let original_receipt = load(&store)
+        .unwrap()
+        .state()
+        .effect_receipts
+        .values()
+        .next()
+        .unwrap()
+        .clone();
+    let mut conflicting_response = input.clone();
+    conflicting_response.tool_response = json!({"tool_specific": false});
+    post_tool_use_transaction(&store, &conflicting_response, "repo").unwrap();
+    let retained_receipt = load(&store)
+        .unwrap()
+        .state()
+        .effect_receipts
+        .values()
+        .next()
+        .unwrap()
+        .clone();
+    assert_eq!(retained_receipt, original_receipt);
     let mut conflicting = input.clone();
     conflicting.session_id = "s2".into();
     post_tool_use_transaction(&store, &conflicting, "repo").unwrap();
+    post_tool_use_transaction(&store, &input, "other-scope").unwrap();
     let state = load(&store).unwrap();
-    assert_eq!(state.state().revision, 2);
-    assert_eq!(state.state().action_outcomes.len(), 2);
+    assert_eq!(state.state().revision, 3);
+    assert_eq!(state.state().effect_receipts.len(), 3);
     assert!(
         state
             .state()
-            .action_outcomes
+            .effect_receipts
             .values()
-            .all(|outcome| outcome.outcome == ActionOutcome::Unknown)
+            .all(|receipt| receipt.outcome == ActionOutcome::Unknown)
     );
+    let stored = std::fs::read_to_string(&store).unwrap();
+    assert!(!stored.contains("tool_specific"));
+    assert!(!stored.contains("..."));
 }
 
 #[test]
@@ -284,7 +309,7 @@ fn checkpoint_is_published_and_claimed_once_by_the_next_session() {
 }
 
 #[test]
-fn schema_two_logs_migrate_to_schema_four_without_mutating_source() {
+fn schema_two_logs_migrate_to_schema_five_without_mutating_source() {
     let source = path("migration").join("events-v2.jsonl");
     std::fs::create_dir_all(source.parent().unwrap()).unwrap();
     let record = json!({
@@ -300,9 +325,9 @@ fn schema_two_logs_migrate_to_schema_four_without_mutating_source() {
     let bytes = format!("{record}\n");
     std::fs::write(&source, &bytes).unwrap();
     let destination = source.parent().unwrap().join("events-v3.jsonl");
-    let outcome = migrate_v2_to_v4(&source, &destination).unwrap();
+    let outcome = migrate_v2_to_v5(&source, &destination).unwrap();
     assert_eq!(outcome.from_schema, 2);
-    assert_eq!(outcome.to_schema, 4);
+    assert_eq!(outcome.to_schema, 5);
     assert_eq!(std::fs::read_to_string(source).unwrap(), bytes);
     assert_eq!(load(destination).unwrap().state().revision, 1);
 }

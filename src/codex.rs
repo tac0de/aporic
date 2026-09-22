@@ -3,7 +3,7 @@ use crate::policy::PolicyDocument;
 use crate::{
     AcceptedRisk, ActionOutcome, Actor, ActorKind, Aporia, ArgumentRelation, BeliefRevision,
     Checkpoint, Claim, CommitRequest, Decision, DecisionReview, Delegation, EpistemicStatus, Error,
-    Event, State, TransitionKind,
+    Event, IntentEnvelope, State, TransitionKind,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -16,7 +16,7 @@ pub const MAX_TURN_ID_BYTES: usize = 256;
 pub const MAX_TOOL_NAME_BYTES: usize = 256;
 pub const MAX_TOOL_USE_ID_BYTES: usize = 256;
 pub const MAX_USER_PROMPT_HOOK_INPUT_BYTES: usize = 1_048_576;
-pub const PROJECTION_SCHEMA_VERSION: u32 = 5;
+pub const PROJECTION_SCHEMA_VERSION: u32 = 6;
 pub const INTENT_FIDELITY_LIMIT_BYTES: usize = 1_200;
 
 const INTENT_FIDELITY_CONTEXT: &str = "Aporic Intent Fidelity contract v1. Interpret the current request before acting. Preserve explicit actor, target, exclusions, negation, conditions, sequence, uncertainty, authorization boundaries, and exact technical strings. Classify material fields as explicit, inferred, or unknown; never promote inferred or unknown content to human approval. Reuse clear nearby context and treat a correction as replacing only the corrected field. A short confirmation covers only the immediately preceding concrete proposition. If multiple plausible interpretations would materially change scope, permissions, deletion, publication, cost, security, or the core result, ask one concise question and, when Aporic governance applies, record a blocking Aporia before plan authorization. This advisory does not authenticate authority and never grants tool permission; PreToolUse remains authoritative for configured tools.";
@@ -324,6 +324,10 @@ pub fn pre_tool_use_output(
             "APORIC_TOOL_HELD: {} is blocked by recorded commitment state; inspect Aporic status.",
             input.tool_name
         )))),
+        GateStatus::IntentBoundPlanRequired => Ok(Some(deny_pre_tool(format!(
+            "APORIC_INTENT_BOUND_PLAN_REQUIRED: {} requires authority from a plan bound to an active intent envelope.",
+            input.tool_name
+        )))),
         GateStatus::PlanAuthorizationRequired => Ok(Some(deny_pre_tool(format!(
             "APORIC_PLAN_AUTHORIZATION_REQUIRED: {} requires an active plan authorization for this scope and session.",
             input.tool_name
@@ -420,6 +424,20 @@ pub fn post_tool_use_transaction(
         .validate()
         .map_err(|reason| Error::Invariant(reason.into()))?;
     crate::transact_nonblocking(path, |log| {
+        let tool_input_identity = input_identity(&input.tool_input);
+        let tool_response_identity = input_identity(&input.tool_response);
+        if let Some(existing) = log.state().effect_receipts.values().find(|existing| {
+            existing.scope == scope
+                && existing.session_id == input.session_id
+                && existing.tool_use_id == input.tool_use_id
+        }) {
+            if existing.tool_name == input.tool_name {
+                return Ok(((), None));
+            }
+            return Err(Error::Invariant(
+                "tool_use_id already belongs to another tool in this session".into(),
+            ));
+        }
         if let Some(existing) = log.state().action_outcomes.values().find(|existing| {
             existing.scope == scope
                 && existing.session_id == input.session_id
@@ -432,15 +450,15 @@ pub fn post_tool_use_transaction(
                 "tool_use_id already belongs to another tool in this session".into(),
             ));
         }
-        let pair = serde_json::to_string(&(&input.session_id, &input.tool_use_id))
-            .expect("string-pair serialization is infallible");
-        let identity = format!("tool-outcome:{pair}");
+        let triple = serde_json::to_string(&(scope, &input.session_id, &input.tool_use_id))
+            .expect("string-triple serialization is infallible");
+        let identity = format!("effect-receipt:{triple}");
         Ok((
             (),
             Some(CommitRequest {
                 schema_version: crate::SCHEMA_VERSION,
                 event_id: identity.clone(),
-                idempotency_key: identity,
+                idempotency_key: identity.clone(),
                 expected_revision: log.state().revision,
                 actor: Actor {
                     kind: ActorKind::Host,
@@ -448,13 +466,15 @@ pub fn post_tool_use_transaction(
                     provenance: "codex-hook".into(),
                 },
                 scope: scope.into(),
-                event: Event::ActionOutcomeRecorded {
+                event: Event::EffectReceiptRecorded {
+                    receipt_id: identity,
                     session_id: input.session_id.clone(),
                     tool_name: input.tool_name.clone(),
                     tool_use_id: input.tool_use_id.clone(),
-                    // Codex responses are tool-specific. This hook records occurrence, not success.
+                    tool_input_identity,
+                    tool_response_identity,
+                    // Codex responses are tool-specific. This receipt records occurrence, not success.
                     outcome: ActionOutcome::Unknown,
-                    evidence_refs: Vec::new(),
                 },
             }),
         ))
@@ -791,11 +811,14 @@ struct Capsule {
     open_aporia: Vec<AporiaProjection>,
     active_delegations: Vec<DelegationProjection>,
     accepted_risks: Vec<RiskProjection>,
+    active_intents: Vec<IntentProjection>,
     active_claims: Vec<ClaimProjection>,
     active_argument_relations: Vec<ArgumentRelationProjection>,
     recent_belief_revisions: Vec<BeliefRevisionProjection>,
     recent_decision_reviews: Vec<DecisionReviewProjection>,
     recent_action_outcomes: Vec<ActionOutcomeProjection>,
+    recent_effect_receipts: Vec<EffectReceiptProjection>,
+    recent_effect_verifications: Vec<EffectVerificationProjection>,
     #[serde(skip_serializing_if = "Option::is_none")]
     claimed_checkpoint: Option<CheckpointProjection>,
     retained: ProjectionCounts,
@@ -820,6 +843,7 @@ struct ExecutionProjection {
     tool_name: String,
     require_plan: bool,
     require_grant: bool,
+    require_intent: bool,
     status: GateStatus,
     active_hold_count: usize,
     matching_plan_authorization_count: usize,
@@ -831,6 +855,7 @@ struct OmittedExecutionSummary {
     tool_count: usize,
     allowed: usize,
     held: usize,
+    intent_bound_plan_required: usize,
     plan_authorization_required: usize,
     execution_grant_required: usize,
     tool_use_already_consumed: usize,
@@ -845,6 +870,7 @@ impl OmittedExecutionSummary {
         match execution.status {
             GateStatus::Allowed => self.allowed += 1,
             GateStatus::Held => self.held += 1,
+            GateStatus::IntentBoundPlanRequired => self.intent_bound_plan_required += 1,
             GateStatus::PlanAuthorizationRequired => self.plan_authorization_required += 1,
             GateStatus::ExecutionGrantRequired => self.execution_grant_required += 1,
             GateStatus::ToolUseAlreadyConsumed => self.tool_use_already_consumed += 1,
@@ -861,11 +887,14 @@ pub struct ProjectionCounts {
     pub aporia: usize,
     pub delegations: usize,
     pub risks: usize,
+    pub intents: usize,
     pub claims: usize,
     pub argument_relations: usize,
     pub belief_revisions: usize,
     pub decision_reviews: usize,
     pub action_outcomes: usize,
+    pub effect_receipts: usize,
+    pub effect_verifications: usize,
     pub checkpoints: usize,
 }
 
@@ -939,6 +968,29 @@ struct RiskProjection {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct IntentProjection {
+    id: String,
+    source_ref: String,
+    goal: String,
+    explicit_items: Vec<String>,
+    inferred_items: Vec<String>,
+    unknown_items: Vec<String>,
+}
+
+impl From<&IntentEnvelope> for IntentProjection {
+    fn from(value: &IntentEnvelope) -> Self {
+        Self {
+            id: value.id.clone(),
+            source_ref: value.source_ref.clone(),
+            goal: value.goal.clone(),
+            explicit_items: value.explicit_items.clone(),
+            inferred_items: value.inferred_items.clone(),
+            unknown_items: value.unknown_items.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 struct ClaimProjection {
     id: String,
     statement: String,
@@ -963,6 +1015,30 @@ struct ActionOutcomeProjection {
     tool_name: String,
     tool_use_id: String,
     outcome: ActionOutcome,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct EffectReceiptProjection {
+    id: String,
+    session_id: String,
+    tool_name: String,
+    tool_use_id: String,
+    tool_input_identity: String,
+    tool_response_identity: String,
+    identity_kind: &'static str,
+    outcome: ActionOutcome,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct EffectVerificationProjection {
+    id: String,
+    receipt_id: String,
+    verifier_id: String,
+    verifier_provenance: String,
+    plan_id: String,
+    check_index: u32,
+    result: crate::VerificationResult,
+    evidence_refs: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -1106,11 +1182,14 @@ fn retained_counts(capsule: &Capsule) -> ProjectionCounts {
         aporia: capsule.open_aporia.len(),
         delegations: capsule.active_delegations.len(),
         risks: capsule.accepted_risks.len(),
+        intents: capsule.active_intents.len(),
         claims: capsule.active_claims.len(),
         argument_relations: capsule.active_argument_relations.len(),
         belief_revisions: capsule.recent_belief_revisions.len(),
         decision_reviews: capsule.recent_decision_reviews.len(),
         action_outcomes: capsule.recent_action_outcomes.len(),
+        effect_receipts: capsule.recent_effect_receipts.len(),
+        effect_verifications: capsule.recent_effect_verifications.len(),
         checkpoints: usize::from(capsule.claimed_checkpoint.is_some()),
     }
 }
@@ -1138,6 +1217,79 @@ fn decision_review_projections(state: &State, scope: &str) -> Vec<DecisionReview
     records
         .into_iter()
         .map(DecisionReviewProjection::from)
+        .collect()
+}
+
+fn effect_receipt_projections(
+    state: &State,
+    scope: &str,
+    session_id: &str,
+) -> Vec<EffectReceiptProjection> {
+    let mut records = state
+        .effect_receipts
+        .values()
+        .filter(|receipt| receipt.scope == scope && receipt.session_id == session_id)
+        .collect::<Vec<_>>();
+    records.sort_by_key(|receipt| std::cmp::Reverse(receipt.sequence));
+    records
+        .into_iter()
+        .map(|receipt| EffectReceiptProjection {
+            id: receipt.id.clone(),
+            session_id: receipt.session_id.clone(),
+            tool_name: receipt.tool_name.clone(),
+            tool_use_id: receipt.tool_use_id.clone(),
+            tool_input_identity: receipt.tool_input_identity.clone(),
+            tool_response_identity: receipt.tool_response_identity.clone(),
+            identity_kind: "informational_non_cryptographic",
+            outcome: receipt.outcome,
+        })
+        .collect()
+}
+
+fn effect_verification_projections(
+    state: &State,
+    scope: &str,
+    session_id: &str,
+) -> Vec<EffectVerificationProjection> {
+    let receipt_ids = state
+        .effect_receipts
+        .values()
+        .filter(|receipt| receipt.scope == scope && receipt.session_id == session_id)
+        .map(|receipt| receipt.id.as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    let mut records = state
+        .verifications
+        .values()
+        .filter(|verification| {
+            verification.scope == scope
+                && verification
+                    .effect_receipt_id
+                    .as_deref()
+                    .is_some_and(|receipt_id| receipt_ids.contains(receipt_id))
+        })
+        .collect::<Vec<_>>();
+    records.sort_by_key(|verification| std::cmp::Reverse(verification.sequence));
+    records
+        .into_iter()
+        .map(|verification| EffectVerificationProjection {
+            id: verification.id.clone(),
+            receipt_id: verification
+                .effect_receipt_id
+                .clone()
+                .expect("effect verification has a receipt"),
+            verifier_id: verification
+                .verifier_id
+                .clone()
+                .expect("effect verification has a verifier"),
+            verifier_provenance: verification
+                .verifier_provenance
+                .clone()
+                .expect("effect verification has verifier provenance"),
+            plan_id: verification.plan_id.clone(),
+            check_index: verification.check_index,
+            result: verification.result,
+            evidence_refs: verification.evidence_refs.clone(),
+        })
         .collect()
 }
 
@@ -1188,6 +1340,7 @@ pub fn session_start_output(
                 tool_name: tool_name.clone(),
                 require_plan: rule.require_plan,
                 require_grant: rule.require_grant,
+                require_intent: rule.requires_intent(),
                 status: gate.status,
                 active_hold_count: gate.active_hold_count,
                 matching_plan_authorization_count: gate.matching_plan_authorization_count,
@@ -1238,6 +1391,12 @@ pub fn session_start_output(
             .filter(|risk| risk.scope == scope)
             .map(RiskProjection::from)
             .collect(),
+        active_intents: state
+            .intents
+            .values()
+            .filter(|intent| intent.scope == scope && intent.superseded_by.is_none())
+            .map(IntentProjection::from)
+            .collect(),
         active_claims: state
             .claims
             .values()
@@ -1263,6 +1422,12 @@ pub fn session_start_output(
                 outcome: outcome.outcome,
             })
             .collect(),
+        recent_effect_receipts: effect_receipt_projections(state, scope, &input.session_id),
+        recent_effect_verifications: effect_verification_projections(
+            state,
+            scope,
+            &input.session_id,
+        ),
         claimed_checkpoint: state
             .checkpoints
             .values()
@@ -1305,6 +1470,9 @@ pub fn session_start_output(
         } else if let Some(item) = capsule.accepted_risks.pop() {
             capsule.omitted.risks += 1;
             omitted_ids.push(format!("risk:{}", item.id));
+        } else if let Some(item) = capsule.active_intents.pop() {
+            capsule.omitted.intents += 1;
+            omitted_ids.push(format!("intent:{}", item.id));
         } else if let Some(item) = capsule.recent_decision_reviews.pop() {
             capsule.omitted.decision_reviews += 1;
             omitted_ids.push(format!("decision_review:{}", item.id));
@@ -1314,6 +1482,12 @@ pub fn session_start_output(
         } else if let Some(item) = capsule.recent_action_outcomes.pop() {
             capsule.omitted.action_outcomes += 1;
             omitted_ids.push(format!("outcome:{}", item.tool_use_id));
+        } else if let Some(item) = capsule.recent_effect_verifications.pop() {
+            capsule.omitted.effect_verifications += 1;
+            omitted_ids.push(format!("effect_verification:{}", item.id));
+        } else if let Some(item) = capsule.recent_effect_receipts.pop() {
+            capsule.omitted.effect_receipts += 1;
+            omitted_ids.push(format!("effect_receipt:{}", item.id));
         } else if let Some(item) = capsule.active_argument_relations.pop() {
             capsule.omitted.argument_relations += 1;
             omitted_ids.push(format!("argument_relation:{}", item.id));
@@ -1340,7 +1514,7 @@ pub fn session_start_output(
             return Err("context limit is too small for the minimum capsule");
         }
         capsule.omission_receipt = Some(OmissionReceipt {
-            selection_rule: "decisions_then_risks_then_reviews_then_revisions_then_outcomes_then_relations_then_claims_then_delegations_then_aporia_then_tools_then_checkpoint_v3",
+            selection_rule: "decisions_then_risks_then_intents_then_reviews_then_revisions_then_legacy_outcomes_then_effect_verifications_then_effect_receipts_then_relations_then_claims_then_delegations_then_aporia_then_tools_then_checkpoint_projection_v6",
             identity: omitted_identity(&omitted_ids),
             identity_kind: "informational_non_cryptographic",
         });
@@ -1373,6 +1547,7 @@ pub fn unavailable_output(
                 "tool_name": tool_name,
                 "require_plan": rule.require_plan,
                 "require_grant": rule.require_grant,
+                "require_intent": rule.requires_intent(),
                 "status": "unknown"
             })
         })
@@ -1426,7 +1601,7 @@ mod tests {
     }
 
     #[test]
-    fn invalid_project_projection_keeps_the_required_v5_shape() {
+    fn invalid_project_projection_keeps_the_required_v6_shape() {
         let input = SessionStartInput {
             session_id: "session-1".into(),
             hook_event_name: "SessionStart".into(),
@@ -1441,7 +1616,7 @@ mod tests {
             context.find("<aporic-recorded-data>").unwrap() + "<aporic-recorded-data>".len();
         let end = context.find("</aporic-recorded-data>").unwrap();
         let projection: serde_json::Value = serde_json::from_str(&context[start..end]).unwrap();
-        assert_eq!(projection["schema"], 5);
+        assert_eq!(projection["schema"], 6);
         assert_eq!(projection["session_id"], "session-1");
         assert!(projection["scope"].is_string());
         assert_eq!(projection["coverage"], "unavailable");

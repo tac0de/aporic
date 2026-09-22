@@ -17,6 +17,7 @@ pub struct Action<'a> {
 pub enum GateStatus {
     Allowed,
     Held,
+    IntentBoundPlanRequired,
     PlanAuthorizationRequired,
     ExecutionGrantRequired,
     ToolUseAlreadyConsumed,
@@ -31,6 +32,24 @@ pub struct ActionEvaluation {
     pub matching_plan_authorization_count: usize,
     pub matching_execution_grant_count: usize,
     pub selected_execution_grant_id: Option<String>,
+}
+
+fn plan_intent_is_eligible(
+    state: &State,
+    plan_id: &str,
+    scope: &str,
+    require_intent: bool,
+) -> bool {
+    state.plans.get(plan_id).map_or(!require_intent, |plan| {
+        plan.intent_id
+            .as_ref()
+            .map_or(!require_intent, |intent_id| {
+                state
+                    .intents
+                    .get(intent_id)
+                    .is_some_and(|intent| intent.scope == scope && intent.superseded_by.is_none())
+            })
+    })
 }
 
 pub fn evaluate_action(
@@ -57,7 +76,7 @@ pub fn evaluate_action(
             hold.active && hold.scope == action.scope && hold.tool_name == action.tool_name
         })
         .count();
-    let matching_plan_authorization_count = state
+    let matching_plan_authorizations = state
         .plan_authorizations
         .values()
         .filter(|authorization| {
@@ -66,8 +85,20 @@ pub fn evaluate_action(
                 && authorization.session_id == action.session_id
                 && authorization.tool_name == action.tool_name
         })
+        .collect::<Vec<_>>();
+    let raw_matching_plan_authorization_count = matching_plan_authorizations.len();
+    let matching_plan_authorization_count = matching_plan_authorizations
+        .iter()
+        .filter(|authorization| {
+            plan_intent_is_eligible(
+                state,
+                &authorization.plan_id,
+                action.scope,
+                tool_policy.requires_intent(),
+            )
+        })
         .count();
-    let matching_grants: Vec<_> = state
+    let raw_matching_grants: Vec<_> = state
         .execution_grants
         .values()
         .filter(|grant| {
@@ -81,6 +112,18 @@ pub fn evaluate_action(
                     .is_some_and(|input| input == &grant.tool_input)
         })
         .collect();
+    let raw_matching_execution_grant_count = raw_matching_grants.len();
+    let matching_grants = raw_matching_grants
+        .into_iter()
+        .filter(|grant| {
+            plan_intent_is_eligible(
+                state,
+                &grant.plan_id,
+                action.scope,
+                tool_policy.requires_intent(),
+            )
+        })
+        .collect::<Vec<_>>();
     let matching_execution_grant_count = matching_grants.len();
     let selected_execution_grant_id = matching_grants.first().map(|grant| grant.id.clone());
     let tool_use_already_consumed = action
@@ -92,6 +135,8 @@ pub fn evaluate_action(
         active_hold_count,
         matching_plan_authorization_count,
         matching_execution_grant_count,
+        raw_matching_plan_authorization_count,
+        raw_matching_execution_grant_count,
         tool_use_already_consumed,
     );
 
@@ -111,6 +156,8 @@ fn decide(
     holds: usize,
     plan_authorizations: usize,
     grants: usize,
+    raw_plan_authorizations: usize,
+    raw_grants: usize,
     tool_use_already_consumed: bool,
 ) -> (GateStatus, &'static str) {
     if holds > 0 {
@@ -124,15 +171,31 @@ fn decide(
         && plan_authorizations == 0
         && !(policy.require_grant && grants > 0)
     {
-        (
-            GateStatus::PlanAuthorizationRequired,
-            "PLAN_AUTHORIZATION_REQUIRED",
-        )
+        if policy.requires_intent()
+            && (raw_plan_authorizations > 0 || (policy.require_grant && raw_grants > 0))
+        {
+            (
+                GateStatus::IntentBoundPlanRequired,
+                "INTENT_BOUND_PLAN_REQUIRED",
+            )
+        } else {
+            (
+                GateStatus::PlanAuthorizationRequired,
+                "PLAN_AUTHORIZATION_REQUIRED",
+            )
+        }
     } else if policy.require_grant && grants == 0 {
-        (
-            GateStatus::ExecutionGrantRequired,
-            "EXECUTION_GRANT_REQUIRED",
-        )
+        if policy.requires_intent() && raw_grants > 0 {
+            (
+                GateStatus::IntentBoundPlanRequired,
+                "INTENT_BOUND_PLAN_REQUIRED",
+            )
+        } else {
+            (
+                GateStatus::ExecutionGrantRequired,
+                "EXECUTION_GRANT_REQUIRED",
+            )
+        }
     } else {
         (GateStatus::Allowed, "ALLOW")
     }

@@ -2,6 +2,32 @@
 
 All notable changes are documented here. Aporic is experimental; its contracts may change between minor releases.
 
+## 0.7.0 - 2026-09-21
+
+### Added
+
+- Event schema v5 structured intent envelopes with explicit, inferred, and unknown items, source references, and explicit supersession.
+- Optional immutable plan-to-intent binding for new plans while retaining replay compatibility for migrated legacy plans.
+- Projection schema v6 with bounded active-intent context and explicit retained and omitted intent counts.
+- Policy schema v2 with per-tool `require_intent` enforcement and backward-compatible schema-v1 decoding as false.
+- Idempotent `PostToolUse` effect receipts that retain only non-cryptographic canonical input and response identities with an explicit unknown outcome.
+- A bounded `ingest-verifier-report` adapter contract that links separately produced evidence-backed results to an effect receipt and plan acceptance check.
+- A static capability registry and bundled local MCP server with read-only capability, project-status, and action-explanation tools plus approval-prompted verifier-report ingestion.
+- Explicit non-destructive v4-to-v5 migration alongside v1/v2/v3 migration to the current schema.
+
+### Changed
+
+- A superseded intent invalidates matching plan authorizations and execution grants at the action gate, and blocks new authorization, grant, and completion events for its bound plan.
+- Fresh project policies require active intent-bound plans for `apply_patch`; migrated schema-v1 policies retain their prior behavior until explicitly upgraded.
+- The latest legacy or effect-linked verification for each acceptance check determines whether plan completion may proceed.
+- The plugin package and crate report `0.7.0`.
+
+### Known limitations
+
+- Intent envelopes are caller-declared records, not authenticated interpretations of natural language or proof of human approval.
+- Intent binding is opt-in: migrated legacy plans and newly registered unbound plans remain outside stale-intent enforcement so migration does not invent historical meaning.
+- Verifier identity and evidence provenance remain caller-declared; production verifier implementations and cryptographic attestation remain outside this release. The MCP surface intentionally cannot create authority, mutate plans, accept risk, or target arbitrary stores.
+
 ## 0.6.1 - 2026-09-21
 
 ### Added

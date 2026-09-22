@@ -1,12 +1,13 @@
 {
   "name": "aporic",
-  "version": "0.6.1",
-  "description": "Adds deliberation records, intent fidelity, evidence-aware checkpoints, and exact-tool gates to opted-in Codex projects.",
+  "version": "0.7.0",
+  "description": "Adds persistent intent lineage, effect receipts, evidence-aware verification, and exact-tool gates to opted-in Codex projects.",
   "author": {
     "name": "Aporic contributors"
   },
   "repository": "https://github.com/tac0de/aporic",
   "license": "MIT OR Apache-2.0",
+  "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Aporic",
     "shortDescription": "Project commitments and gate exact tools.",
@@ -16,9 +17,12 @@
     "capabilities": [
       "Opt-in project discovery from one global installation",
       "UserPromptSubmit intent-fidelity guidance",
+      "Persistent structured intent envelopes and plan lineage",
       "SessionStart multi-tool bounded state projection",
       "PreToolUse hold, plan, and bounded-grant gate",
-      "PostToolUse action occurrence recording without inferred success",
+      "PostToolUse effect receipts without raw payload retention or inferred success",
+      "Independent verifier-report ingestion bound to receipts and plan checks",
+      "Bounded MCP tools for capabilities, status, action explanation, and verifier reports",
       "SessionEnd checkpoint publication and single-claim continuation",
       "Argument relations, belief revisions, and decision retrospectives",
       "Bounded read-only Wasm analyzer execution",

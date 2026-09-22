@@ -11,7 +11,7 @@ output_dir=$1
 case "$(uname -s)-$(uname -m)" in
   Darwin-arm64) ;;
   *)
-    echo "the v0.6.1 plugin package supports macOS arm64 only" >&2
+    echo "the v0.7.0 plugin package supports macOS arm64 only" >&2
     exit 2
     ;;
 esac
@@ -39,6 +39,7 @@ cargo build --manifest-path "$repo_dir/Cargo.toml" --release --locked
 cargo build --manifest-path "$repo_dir/Cargo.toml" --package aporic-structural-analyzer --target wasm32-unknown-unknown --release --locked
 mkdir -p "$output_dir/.codex-plugin" "$output_dir/hooks" "$output_dir/bin" "$output_dir/analyzers"
 cp "$template_dir/.codex-plugin/plugin.json" "$output_dir/.codex-plugin/plugin.json"
+cp "$template_dir/.mcp.json" "$output_dir/.mcp.json"
 cp "$repo_dir/target/release/aporic" "$output_dir/bin/aporic"
 cp "$template_dir/hooks/hooks.json" "$output_dir/hooks/hooks.json"
 cp "$repo_dir/target/wasm32-unknown-unknown/release/aporic_structural_analyzer.wasm" "$output_dir/analyzers/structural.wasm"

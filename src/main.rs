@@ -8,10 +8,12 @@ use aporic::codex::{
     session_start_output, skipped_output, unavailable_output, unavailable_pre_tool_output,
     user_prompt_submit_output,
 };
+use aporic::mcp::serve_stdio;
 use aporic::policy::PolicyDocument;
 use aporic::project::{
     default_data_root, discover_project, initialize_project, store_path as project_store_path,
 };
+use aporic::verifier::{MAX_VERIFIER_REPORT_BYTES, VerifierReportInput, ingest_verifier_report};
 use aporic::{
     CommitRequest, CommitStatus, SCHEMA_VERSION, commit, initialize, load, load_nonblocking,
     migrate_to_current,
@@ -26,7 +28,10 @@ fn print_json(value: &impl Serialize) -> Result<(), Box<dyn std::error::Error>> 
     Ok(())
 }
 
-fn read_bounded_stdin(limit_bytes: usize) -> Result<String, Box<dyn std::error::Error>> {
+fn read_bounded_stdin(
+    limit_bytes: usize,
+    input_kind: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
     let mut input = String::new();
     let mut stdin = io::stdin();
     {
@@ -35,7 +40,7 @@ fn read_bounded_stdin(limit_bytes: usize) -> Result<String, Box<dyn std::error::
     }
     if input.len() > limit_bytes {
         io::copy(&mut stdin, &mut io::sink())?;
-        return Err(format!("hook input exceeds {limit_bytes} UTF-8 bytes").into());
+        return Err(format!("{input_kind} exceeds {limit_bytes} UTF-8 bytes").into());
     }
     Ok(input)
 }
@@ -161,11 +166,15 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().skip(1).collect();
     let Some(command) = args.first().map(String::as_str) else {
         return Err(
-            "usage: aporic <project-init|project-paths|init|status|commit|analyze-wasm|analyze-structural|explain|doctor|migrate|codex-session-start|codex-pre-tool-use|codex-post-tool-use|codex-session-end|codex-global-session-start|codex-global-user-prompt-submit|codex-global-pre-tool-use|codex-global-post-tool-use|codex-global-session-end>".into(),
+            "usage: aporic <mcp-serve|project-init|project-paths|init|status|commit|ingest-verifier-report|analyze-wasm|analyze-structural|explain|doctor|migrate|codex-session-start|codex-pre-tool-use|codex-post-tool-use|codex-session-end|codex-global-session-start|codex-global-user-prompt-submit|codex-global-pre-tool-use|codex-global-post-tool-use|codex-global-session-end>".into(),
         );
     };
 
     match command {
+        "mcp-serve" => {
+            serve_stdio()?;
+            Ok(0)
+        }
         "project-init" => {
             let workspace = PathBuf::from(argument(&args, "--workspace")?);
             let scope = argument(&args, "--scope")?;
@@ -236,6 +245,18 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
                 0
             })
         }
+        "ingest-verifier-report" => {
+            let path = store_path(&args)?;
+            let scope = argument(&args, "--scope")?;
+            let input = read_bounded_stdin(MAX_VERIFIER_REPORT_BYTES, "verifier report")?;
+            let report: VerifierReportInput = serde_json::from_str(&input)?;
+            ingest_verifier_report(path, &scope, &report)?;
+            print_json(&serde_json::json!({
+                "status": "accepted",
+                "verification_id": report.verification_id
+            }))?;
+            Ok(0)
+        }
         "analyze-wasm" => {
             let module = PathBuf::from(argument(&args, "--module")?);
             analyze(&args, module)
@@ -286,7 +307,7 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
             let path = store_path(&args)?;
             let scope = argument(&args, "--scope")?;
             let workspace = PathBuf::from(argument(&args, "--workspace")?);
-            let input = read_bounded_stdin(MAX_USER_PROMPT_HOOK_INPUT_BYTES)?;
+            let input = read_bounded_stdin(MAX_USER_PROMPT_HOOK_INPUT_BYTES, "hook input")?;
             let input: PostToolUseInput = serde_json::from_str(&input)?;
             input.validate().map_err(String::from)?;
             if workspace_matches(&input.cwd, &workspace) {
@@ -298,7 +319,7 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
             let path = store_path(&args)?;
             let scope = argument(&args, "--scope")?;
             let workspace = PathBuf::from(argument(&args, "--workspace")?);
-            let input = read_bounded_stdin(MAX_USER_PROMPT_HOOK_INPUT_BYTES)?;
+            let input = read_bounded_stdin(MAX_USER_PROMPT_HOOK_INPUT_BYTES, "hook input")?;
             let input: SessionEndInput = serde_json::from_str(&input)?;
             input.validate().map_err(String::from)?;
             if workspace_matches(&input.cwd, &workspace) {
@@ -424,7 +445,7 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
             Ok(0)
         }
         "codex-global-pre-tool-use" => {
-            let input = read_bounded_stdin(MAX_USER_PROMPT_HOOK_INPUT_BYTES)?;
+            let input = read_bounded_stdin(MAX_USER_PROMPT_HOOK_INPUT_BYTES, "hook input")?;
             let input: PreToolUseInput = serde_json::from_str(&input)?;
             input.validate().map_err(String::from)?;
             let data_root = match data_root(&args) {
@@ -467,7 +488,7 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
             Ok(0)
         }
         "codex-global-post-tool-use" => {
-            let input = read_bounded_stdin(MAX_USER_PROMPT_HOOK_INPUT_BYTES)?;
+            let input = read_bounded_stdin(MAX_USER_PROMPT_HOOK_INPUT_BYTES, "hook input")?;
             let input: PostToolUseInput = serde_json::from_str(&input)?;
             input.validate().map_err(String::from)?;
             let data_root = data_root(&args)?;
@@ -478,7 +499,7 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
             Ok(0)
         }
         "codex-global-session-end" => {
-            let input = read_bounded_stdin(MAX_USER_PROMPT_HOOK_INPUT_BYTES)?;
+            let input = read_bounded_stdin(MAX_USER_PROMPT_HOOK_INPUT_BYTES, "hook input")?;
             let input: SessionEndInput = serde_json::from_str(&input)?;
             input.validate().map_err(String::from)?;
             let data_root = data_root(&args)?;

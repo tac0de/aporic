@@ -154,7 +154,7 @@ fn projects_only_exact_scope_and_labels_data_untrusted() {
     );
     let data = capsule(&output.hook_specific_output.additional_context);
     assert_eq!(data["revision"], 7);
-    assert_eq!(data["schema"], 5);
+    assert_eq!(data["schema"], 6);
     assert_eq!(data["scope"], "repo");
     assert_eq!(data["authenticated_human_authority"], false);
     assert_eq!(data["active_decisions"].as_array().unwrap().len(), 1);
@@ -256,10 +256,10 @@ fn truncates_deterministically_and_marks_projection_incomplete() {
         &input(SessionSource::Resume),
         "repo",
         &policy("apply_patch", true),
-        2_000,
+        2_200,
     )
     .unwrap();
-    assert!(output.hook_specific_output.additional_context.len() <= 2_000);
+    assert!(output.hook_specific_output.additional_context.len() <= 2_200);
     let data = capsule(&output.hook_specific_output.additional_context);
     assert_eq!(data["complete"], false);
     assert!(data["omitted"]["decisions"].as_u64().unwrap() > 0);
@@ -685,6 +685,7 @@ fn unavailable_projection_bounds_large_multi_tool_policy() {
                 aporic::policy::ToolPolicy {
                     require_plan: true,
                     require_grant: index % 2 == 0,
+                    require_intent: None,
                 },
             )
         })
@@ -720,6 +721,7 @@ fn observed_projection_bounds_large_multi_tool_policy() {
                 aporic::policy::ToolPolicy {
                     require_plan: true,
                     require_grant: index % 2 == 0,
+                    require_intent: None,
                 },
             )
         })

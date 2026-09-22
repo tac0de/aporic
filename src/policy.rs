@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-pub const POLICY_SCHEMA_VERSION: u32 = 1;
+pub const POLICY_SCHEMA_VERSION: u32 = 2;
+pub const MIN_POLICY_SCHEMA_VERSION: u32 = 1;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -15,13 +16,21 @@ pub struct PolicyDocument {
 pub struct ToolPolicy {
     pub require_plan: bool,
     pub require_grant: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub require_intent: Option<bool>,
+}
+
+impl ToolPolicy {
+    pub fn requires_intent(&self) -> bool {
+        self.require_intent.unwrap_or(false)
+    }
 }
 
 impl PolicyDocument {
     pub fn validate(&self) -> Result<(), String> {
-        if self.schema_version != POLICY_SCHEMA_VERSION {
+        if !(MIN_POLICY_SCHEMA_VERSION..=POLICY_SCHEMA_VERSION).contains(&self.schema_version) {
             return Err(format!(
-                "unsupported policy schema {}; expected {POLICY_SCHEMA_VERSION}",
+                "unsupported policy schema {}; expected {MIN_POLICY_SCHEMA_VERSION}..={POLICY_SCHEMA_VERSION}",
                 self.schema_version
             ));
         }
@@ -39,6 +48,23 @@ impl PolicyDocument {
                 ));
             }
         }
+        for (name, policy) in &self.tools {
+            if self.schema_version == 1 && policy.require_intent.is_some() {
+                return Err(format!(
+                    "tool {name} cannot declare require_intent under policy schema 1"
+                ));
+            }
+            if self.schema_version == 2 && policy.require_intent.is_none() {
+                return Err(format!(
+                    "tool {name} must declare require_intent under policy schema 2"
+                ));
+            }
+            if policy.requires_intent() && !policy.require_plan && !policy.require_grant {
+                return Err(format!(
+                    "tool {name} requires plan or grant enforcement when require_intent is true"
+                ));
+            }
+        }
         Ok(())
     }
 
@@ -49,6 +75,7 @@ impl PolicyDocument {
             ToolPolicy {
                 require_plan,
                 require_grant: false,
+                require_intent: Some(false),
             },
         );
         let policy = Self {

@@ -110,6 +110,7 @@ fn unsupported_stored_schema_stops_replay_and_further_writes() {
                 objective: "Future semantics".into(),
                 acceptance_checks: vec!["future check".into()],
                 unresolved_questions: vec![],
+                intent_id: None,
             },
         },
     };
@@ -121,7 +122,7 @@ fn unsupported_stored_schema_stops_replay_and_further_writes() {
     assert!(matches!(
         replay_error,
         Error::CorruptLog { line: 1, reason }
-            if reason == "unsupported schema version 99; expected 4"
+            if reason == "unsupported schema version 99; expected 5"
     ));
 
     let append_error = commit(&path, open_aporia("a1", "k1", 0)).unwrap_err();
@@ -175,6 +176,7 @@ fn plan_authorization_lifecycle_is_session_bound_and_revocable() {
             objective: "Implement the approved slice".into(),
             acceptance_checks: vec!["focused tests pass".into()],
             unresolved_questions: vec!["Which follow-up slice comes next?".into()],
+            intent_id: None,
         },
     );
     assert_eq!(
@@ -247,6 +249,7 @@ fn delegated_agent_plan_authorization_requires_exact_capability() {
                 objective: "Implement a bounded change".into(),
                 acceptance_checks: vec!["tests pass".into()],
                 unresolved_questions: vec![],
+                intent_id: None,
             },
         ),
     )
@@ -338,6 +341,7 @@ fn agent_plan_authorization_rejects_missing_or_inexact_delegation() {
             scope: "repo".into(),
             acceptance_checks: vec!["tests pass".into()],
             unresolved_questions: vec![],
+            intent_id: None,
             evidence_refs: vec![],
             assumption_claim_ids: vec![],
             completed: false,
@@ -421,6 +425,7 @@ fn material_aporia_blocks_plan_authorization() {
                 objective: "Implement a bounded change".into(),
                 acceptance_checks: vec!["tests pass".into()],
                 unresolved_questions: vec![],
+                intent_id: None,
             },
         ),
     )

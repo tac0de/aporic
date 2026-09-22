@@ -1,3 +1,7 @@
+use aporic::codex::{PostToolUseInput, post_tool_use_transaction};
+use aporic::{
+    Actor, ActorKind, CommitRequest, Event, EvidenceKind, SCHEMA_VERSION, commit, initialize, load,
+};
 use serde_json::Value;
 use std::io::Write;
 use std::path::PathBuf;
@@ -68,6 +72,156 @@ fn init_and_status_are_wired_through_the_binary() {
     let duplicate = run(&["init", "--store", store_arg], None);
     assert_eq!(duplicate.status.code(), Some(1));
     assert!(String::from_utf8_lossy(&duplicate.stderr).starts_with("aporic:"));
+}
+
+#[test]
+fn verifier_report_ingestion_is_wired_and_idempotent() {
+    let store = temp_path("verifier-report").join("events.jsonl");
+    initialize(&store).unwrap();
+    let request = |revision, id: &str, actor_kind, event| CommitRequest {
+        schema_version: SCHEMA_VERSION,
+        event_id: id.into(),
+        idempotency_key: id.into(),
+        expected_revision: revision,
+        actor: Actor {
+            kind: actor_kind,
+            id: "cli-test".into(),
+            provenance: "cli-test".into(),
+        },
+        scope: "repo".into(),
+        event,
+    };
+    commit(
+        &store,
+        request(
+            0,
+            "plan",
+            ActorKind::Human,
+            Event::PlanRegistered {
+                plan_id: "plan".into(),
+                objective: "verify effect".into(),
+                acceptance_checks: vec!["state matches".into()],
+                unresolved_questions: vec![],
+                intent_id: None,
+            },
+        ),
+    )
+    .unwrap();
+    post_tool_use_transaction(
+        &store,
+        &PostToolUseInput {
+            session_id: "session".into(),
+            hook_event_name: "PostToolUse".into(),
+            cwd: "/repo".into(),
+            turn_id: "turn".into(),
+            tool_name: "apply_patch".into(),
+            tool_use_id: "use".into(),
+            tool_input: serde_json::json!({"patch": "..."}),
+            tool_response: serde_json::json!({"ok": true}),
+            model: None,
+            permission_mode: None,
+        },
+        "repo",
+    )
+    .unwrap();
+    let receipt_id = load(&store)
+        .unwrap()
+        .state()
+        .effect_receipts
+        .values()
+        .next()
+        .unwrap()
+        .id
+        .clone();
+    commit(
+        &store,
+        request(
+            2,
+            "evidence",
+            ActorKind::Evidence,
+            Event::EvidenceRecorded {
+                evidence_id: "evidence".into(),
+                kind: EvidenceKind::RepositoryState,
+                locator: "git:worktree".into(),
+                digest: None,
+            },
+        ),
+    )
+    .unwrap();
+    let report = serde_json::json!({
+        "schema_version": 1,
+        "verification_id": "verification",
+        "receipt_id": receipt_id,
+        "verifier_id": "repo-verifier",
+        "provenance": "test-adapter",
+        "plan_id": "plan",
+        "check_index": 0,
+        "result": "passed",
+        "evidence_refs": ["evidence"]
+    });
+    for _ in 0..2 {
+        let output = run(
+            &[
+                "ingest-verifier-report",
+                "--store",
+                store.to_str().unwrap(),
+                "--scope",
+                "repo",
+            ],
+            Some(&report.to_string()),
+        );
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(
+            serde_json::from_slice::<Value>(&output.stdout).unwrap()["status"],
+            "accepted"
+        );
+    }
+    let mut conflicting_report = report.clone();
+    conflicting_report["provenance"] = "different-adapter".into();
+    let conflicting = run(
+        &[
+            "ingest-verifier-report",
+            "--store",
+            store.to_str().unwrap(),
+            "--scope",
+            "repo",
+        ],
+        Some(&conflicting_report.to_string()),
+    );
+    assert_eq!(conflicting.status.code(), Some(1));
+    assert!(
+        String::from_utf8_lossy(&conflicting.stderr)
+            .contains("verification_id already belongs to another verifier report")
+    );
+    let state = load(&store).unwrap();
+    assert_eq!(state.state().revision, 4);
+    assert_eq!(
+        state.state().verifications["verification"]
+            .effect_receipt_id
+            .as_deref(),
+        Some(receipt_id.as_str())
+    );
+
+    let oversized = "x".repeat(65_537);
+    let rejected = run(
+        &[
+            "ingest-verifier-report",
+            "--store",
+            store.to_str().unwrap(),
+            "--scope",
+            "repo",
+        ],
+        Some(&oversized),
+    );
+    assert_eq!(rejected.status.code(), Some(1));
+    assert!(
+        String::from_utf8_lossy(&rejected.stderr)
+            .contains("verifier report exceeds 65536 UTF-8 bytes")
+    );
 }
 
 #[test]
@@ -159,6 +313,14 @@ fn one_global_adapter_discovers_only_explicitly_bound_projects() {
         .unwrap();
     assert!(context.contains("\"scope\":\"global-test\""));
     assert!(data_root.join("workspaces").exists());
+    let generated_policy: Value =
+        serde_json::from_slice(&std::fs::read(workspace.join(".aporic/policy.json")).unwrap())
+            .unwrap();
+    assert_eq!(generated_policy["schema_version"], 2);
+    assert_eq!(
+        generated_policy["tools"]["apply_patch"]["require_intent"],
+        true
+    );
 
     let unrelated = temp_path("global-unrelated");
     std::fs::create_dir_all(&unrelated).unwrap();
@@ -551,7 +713,7 @@ fn project_init_can_migrate_a_v1_store_without_changing_the_source() {
     let setup: Value = serde_json::from_slice(&setup.stdout).unwrap();
     assert_eq!(setup["status"], "migrated");
     assert_eq!(setup["migration"]["from_schema"], 1);
-    assert_eq!(setup["migration"]["to_schema"], 4);
+    assert_eq!(setup["migration"]["to_schema"], 5);
     assert_eq!(std::fs::read_to_string(&source).unwrap(), source_bytes);
 
     let status = run(
@@ -607,7 +769,7 @@ fn policy_rejection_uses_exit_two_and_structured_json() {
     assert!(run(&["init", "--store", store_arg], None).status.success());
 
     let request = serde_json::json!({
-        "schema_version": 4,
+        "schema_version": 5,
         "event_id": "decision-event",
         "idempotency_key": "decision-key",
         "expected_revision": 0,
@@ -767,7 +929,7 @@ fn session_start_reports_the_same_plan_gate_policy() {
     let start = context.find("<aporic-recorded-data>").unwrap() + "<aporic-recorded-data>".len();
     let end = context.find("</aporic-recorded-data>").unwrap();
     let projection: Value = serde_json::from_str(&context[start..end]).unwrap();
-    assert_eq!(projection["schema"], 5);
+    assert_eq!(projection["schema"], 6);
     assert_eq!(projection["budget"]["limit"], 6_000);
     assert_eq!(
         projection["executions"][0]["status"],
@@ -874,10 +1036,10 @@ fn json_policy_drives_explain_and_doctor_without_mutating_state() {
     std::fs::write(
         &policy,
         serde_json::to_vec_pretty(&serde_json::json!({
-            "schema_version": 1,
+            "schema_version": 2,
             "tools": {
-                "apply_patch": {"require_plan": true, "require_grant": false},
-                "exec_command": {"require_plan": false, "require_grant": false}
+                "apply_patch": {"require_plan": true, "require_grant": false, "require_intent": true},
+                "exec_command": {"require_plan": false, "require_grant": false, "require_intent": false}
             }
         }))
         .unwrap(),

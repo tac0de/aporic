@@ -203,7 +203,7 @@ a { color: inherit; }
       <a href="#system">System</a>
       <a href="#evaluate">Evaluate</a>
       <a href="https://github.com/tac0de/aporic" target="_blank" rel="noopener noreferrer">GitHub ↗</a>
-      <span class="site-version">EXPERIMENTAL · v0.6.1</span>
+      <span class="site-version">EXPERIMENTAL · v0.7.0</span>
     </div>
   </nav>
 </header>
@@ -553,14 +553,14 @@ a { color: inherit; }
 
   <section class="section site-shell">
     <div class="section-heading reveal">
-      <span class="section-index">03 / v0.6.1</span>
+      <span class="section-index">03 / v0.7.0</span>
       <h2>Useful governance primitives, kept deliberately narrow.</h2>
     </div>
     <div class="capability-grid">
       <article class="capability reveal">
         <span class="capability-tag">REPLAY</span>
         <h3>Deterministic state</h3>
-        <p>Event schema v4 replays evidence, claims, typed argument relations, belief revisions, decision reviews, verification, completion, and checkpoints with explicit migration from v1, v2, or v3.</p>
+        <p>Event schema v5 replays structured intent lineage, effect receipts, evidence, verifier reports, claims, decision reviews, completion, and checkpoints with explicit migration from v1, v2, v3, or v4.</p>
       </article>
       <article class="capability reveal">
         <span class="capability-tag">GLOBAL</span>
@@ -575,7 +575,7 @@ a { color: inherit; }
       <article class="capability reveal">
         <span class="capability-tag">VERIFY</span>
         <h3>Evidence before completion</h3>
-        <p>Tool occurrence is not success: completion requires direct evidence for every acceptance check or explicitly accepted residual risk.</p>
+        <p>Tool occurrence is not success: bounded receipts retain no raw payload, and separately produced verifier reports must bind direct evidence to a plan check before completion.</p>
       </article>
       <article class="capability reveal">
         <span class="capability-tag">DELIBERATE</span>
@@ -583,9 +583,9 @@ a { color: inherit; }
         <p>Support, attack, dependency, and contradiction relations keep premises, revisions, and decision retrospectives explicit.</p>
       </article>
       <article class="capability reveal">
-        <span class="capability-tag">WASM</span>
-        <h3>Bounded structural analysis</h3>
-        <p>Read-only analyzers run without host imports under explicit module, fuel, stack, memory, input, and output limits.</p>
+        <span class="capability-tag">MCP</span>
+        <h3>Tools, not prompt folklore</h3>
+        <p>A static registry exposes bounded status and explanation tools, while the sole write tool records verifier evidence and remains approval-prompted.</p>
       </article>
     </div>
   </section>
@@ -605,7 +605,7 @@ a { color: inherit; }
       </div>
       <div class="requirements">
         <h3>Evaluation release</h3>
-        <p>Aporic v0.6.1 is for dogfooding and evaluation, not a broad security boundary.</p>
+        <p>Aporic v0.7.0 is for dogfooding and evaluation, not a broad security boundary.</p>
         <ul>
           <li>Rust 1.89 or newer to build the plugin package</li>
           <li>macOS arm64 for the packaged Codex plugin</li>
@@ -622,7 +622,7 @@ a { color: inherit; }
     <div class="limits reveal">
       <h2>What it does<br>not promise.</h2>
       <ul class="limits-list">
-        <li><strong>Not all agent actions.</strong> The packaged default protects <code>apply_patch</code>; other exact tool names require policy and host validation.</li>
+        <li><strong>Not all agent actions.</strong> The packaged default requires an active intent-bound plan for <code>apply_patch</code>; other exact tool names require policy and host validation.</li>
         <li><strong>Not authenticated identity.</strong> Actor provenance is caller-declared, not cryptographically proven.</li>
         <li><strong>Not an atomic sandbox.</strong> A preventive decision is not atomically bound to the later filesystem effect.</li>
         <li><strong>Not tamper-proof storage.</strong> Cooperative locks and local records do not resist a hostile same-user process.</li>
@@ -633,7 +633,7 @@ a { color: inherit; }
 
 <footer class="site-footer">
   <div class="site-shell footer-row">
-    <span>APORIC · EXPERIMENTAL v0.6.1</span>
+    <span>APORIC · EXPERIMENTAL v0.7.0</span>
     <span><a href="https://github.com/tac0de/aporic/blob/main/SECURITY.md" target="_blank" rel="noopener noreferrer">Security</a> · <a href="https://github.com/tac0de/aporic" target="_blank" rel="noopener noreferrer">Source</a></span>
   </div>
 </footer>
