@@ -2,6 +2,19 @@
 
 All notable changes are documented here. Aporic is experimental; its contracts may change between minor releases.
 
+## Unreleased
+
+### Added
+
+- Event schema v6 `plan_approval_recorded` events atomically project one intent, its bound plan, and one session/tool authorization.
+- A one-command `approve-plan` CLI workflow with strict JSON input, exact retry handling, and unchanged Aporia and delegation enforcement.
+- Explicit non-destructive v5-to-v6 migration alongside v1/v2/v3/v4 migration to the current schema.
+
+### Known limitations
+
+- Approval actors and provenance remain caller-declared; the consolidated CLI workflow is not human authentication.
+- Existing stores and installed plugins are not migrated or upgraded automatically.
+
 ## 0.7.0 - 2026-09-21
 
 ### Added

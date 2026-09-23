@@ -6,9 +6,9 @@ use aporic::governance::GateStatus;
 use aporic::policy::{PolicyDocument, ToolPolicy};
 use aporic::{
     Actor, ActorKind, CommitRequest, CommitStatus, Event, SCHEMA_VERSION, commit, initialize, load,
-    migrate_v4_to_v5,
+    migrate_v4_to_v6, migrate_v5_to_v6,
 };
-use serde_json::json;
+use serde_json::{Value, json};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -370,16 +370,93 @@ fn schema_four_migration_preserves_legacy_unbound_plans() {
     });
     let source_bytes = format!("{record}\n");
     std::fs::write(&source, &source_bytes).unwrap();
-    let destination = path("migration-destination").join("events-v5.jsonl");
+    let destination = path("migration-destination").join("events-v6.jsonl");
 
-    let outcome = migrate_v4_to_v5(&source, &destination).unwrap();
+    let outcome = migrate_v4_to_v6(&source, &destination).unwrap();
     assert_eq!(outcome.from_schema, 4);
-    assert_eq!(outcome.to_schema, 5);
+    assert_eq!(outcome.to_schema, 6);
     assert_eq!(std::fs::read_to_string(&source).unwrap(), source_bytes);
     assert_eq!(
         load(&destination).unwrap().state().plans["legacy"].intent_id,
         None
     );
+}
+
+#[test]
+fn schema_five_logs_migrate_to_schema_six_without_mutating_source() {
+    let source = path("migration-source-v5").join("events-v5.jsonl");
+    std::fs::create_dir_all(source.parent().unwrap()).unwrap();
+    let record = json!({
+        "sequence": 1,
+        "schema_version": 5,
+        "event_id": "intent",
+        "idempotency_key": "intent",
+        "expected_revision": 0,
+        "actor": {"kind": "human", "id": "user", "provenance": "test"},
+        "scope": "repo",
+        "event": {
+            "type": "intent_envelope_recorded",
+            "intent_id": "intent-1",
+            "source_ref": "conversation:test",
+            "goal": "preserve the v5 record",
+            "explicit_items": ["migrate"],
+            "inferred_items": [],
+            "unknown_items": []
+        }
+    });
+    let source_bytes = format!("{record}\n");
+    std::fs::write(&source, &source_bytes).unwrap();
+    let destination = path("migration-destination-v6").join("events-v6.jsonl");
+
+    let outcome = migrate_v5_to_v6(&source, &destination).unwrap();
+    assert_eq!(outcome.from_schema, 5);
+    assert_eq!(outcome.to_schema, 6);
+    assert_eq!(outcome.records, 1);
+    assert_eq!(std::fs::read_to_string(&source).unwrap(), source_bytes);
+    assert_eq!(load(&destination).unwrap().state().intents.len(), 1);
+    let migrated: Value =
+        serde_json::from_str(std::fs::read_to_string(&destination).unwrap().trim_end()).unwrap();
+    assert_eq!(migrated["schema_version"], 6);
+}
+
+#[test]
+fn schema_five_migration_rejects_schema_six_approval_events() {
+    let source = path("migration-invalid-v5").join("events-v5.jsonl");
+    std::fs::create_dir_all(source.parent().unwrap()).unwrap();
+    let record = json!({
+        "sequence": 1,
+        "schema_version": 5,
+        "event_id": "approval:one",
+        "idempotency_key": "approval:one",
+        "expected_revision": 0,
+        "actor": {"kind": "human", "id": "user", "provenance": "test"},
+        "scope": "repo",
+        "event": {
+            "type": "plan_approval_recorded",
+            "approval_id": "one",
+            "source_ref": "conversation:test",
+            "goal": "change",
+            "explicit_items": ["change"],
+            "inferred_items": [],
+            "unknown_items": [],
+            "objective": "change",
+            "acceptance_checks": ["passes"],
+            "unresolved_questions": [],
+            "session_id": "session",
+            "tool_name": "apply_patch",
+            "authority_ref": "approval"
+        }
+    });
+    std::fs::write(&source, format!("{record}\n")).unwrap();
+    let destination = path("migration-invalid-v5-destination").join("events-v6.jsonl");
+
+    let error = migrate_v5_to_v6(&source, &destination).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("is not part of schema version 5")
+    );
+    assert!(!destination.exists());
 }
 
 #[test]

@@ -8,7 +8,7 @@ Website: [tac0de.github.io/aporic](https://tac0de.github.io/aporic/)
 
 ## Status
 
-`0.7.0` is the current evaluation release. Event schema v5, policy schema v2, project-binding schema v1, Codex projection schema v6, analyzer ABI v1, and intent-fidelity contract v1 are independent contracts. Policy schema v1 remains readable with `require_intent: false`. Existing v1, v2, v3, and v4 event stores are rejected until explicitly copied through `migrate`; installed plugins and live stores are not upgraded automatically. Authenticated actors, deterministic natural-language interpretation, broad host coverage, prebuilt release artifacts, and cross-platform plugin binaries are not promised. See [SECURITY.md](SECURITY.md) before relying on Aporic for consequential work.
+`0.7.0` is the current evaluation release; the current source uses event schema v6. Event schema v6, policy schema v2, project-binding schema v1, Codex projection schema v6, analyzer ABI v1, and intent-fidelity contract v1 are independent contracts. Policy schema v1 remains readable with `require_intent: false`. Existing v1 through v5 event stores are rejected until explicitly copied through `migrate`; installed plugins and live stores are not upgraded automatically. Authenticated actors, deterministic natural-language interpretation, broad host coverage, prebuilt release artifacts, and cross-platform plugin binaries are not promised. See [SECURITY.md](SECURITY.md) before relying on Aporic for consequential work.
 
 ## Build and verify
 
@@ -45,7 +45,7 @@ cargo clippy --workspace --all-targets --locked -- -D warnings
 - `status` takes a cooperative shared lock and fails if the requested store does not exist.
 - Bounded execution grants are exact to plan, scope, session, tool, and canonical JSON tool input.
 - Grant evaluation and consumption happen while one exclusive nonblocking store lock is held; a consumed `tool_use_id` is never allowed again.
-- v1-to-v5, v2-to-v5, v3-to-v5, and v4-to-v5 migration are validated, non-destructive snapshot copies and refuse to replace the destination.
+- v1-through-v5 migration to v6 uses validated, non-destructive snapshot copies and refuses to replace the destination.
 - Structured intent envelopes preserve caller-declared explicit, inferred, and unknown items without requiring raw prompt storage.
 - Plans may bind one intent envelope; superseding it makes matching authorizations and grants ineligible at the action gate.
 - `PostToolUse` records an idempotent effect receipt with bounded input and response identities instead of raw hook payloads, while retaining an explicit `unknown` outcome.
@@ -71,12 +71,13 @@ aporic project-init --workspace /absolute/repo --scope repo --migrate-from-v1-st
 aporic project-paths --workspace /absolute/repo
 aporic status --store /path/to/events.jsonl
 aporic commit --store /path/to/events.jsonl < request.json
+aporic approve-plan --store /path/to/events.jsonl < approval.json
 aporic ingest-verifier-report --store /path/to/events.jsonl --scope repo < verifier-report.json
 aporic doctor --store /path/to/events.jsonl --policy /path/to/policy.json
 aporic explain --store /path/to/events.jsonl --scope repo --policy /path/to/policy.json < pre-tool-input.json
-aporic migrate --store /path/to/events-v4.jsonl --from 4 --to /path/to/events-v5.jsonl
-aporic analyze-wasm --store /path/to/events-v5.jsonl --scope repo --module /path/to/analyzer.wasm
-aporic analyze-structural --store /path/to/events-v5.jsonl --scope repo
+aporic migrate --store /path/to/events-v5.jsonl --from 5 --to /path/to/events-v6.jsonl
+aporic analyze-wasm --store /path/to/events-v6.jsonl --scope repo --module /path/to/analyzer.wasm
+aporic analyze-structural --store /path/to/events-v6.jsonl --scope repo
 aporic mcp-serve
 aporic codex-session-start --store /path/to/events.jsonl --scope repo --workspace /absolute/repo --policy /path/to/policy.json < hook-input.json
 aporic codex-pre-tool-use --store /path/to/events.jsonl --scope repo --workspace /absolute/repo --policy /path/to/policy.json < hook-input.json
@@ -84,7 +85,43 @@ aporic codex-post-tool-use --store /path/to/events.jsonl --scope repo --workspac
 aporic codex-session-end --store /path/to/events.jsonl --scope repo --workspace /absolute/repo < hook-input.json
 ```
 
-`commit` accepts the contract in `schemas/commit-request.schema.json`. `ingest-verifier-report` accepts `schemas/aporic-verifier-report-v1.schema.json`. Runtime decoding uses strict Rust types; the JSON Schemas are the language-neutral external contracts.
+`approve-plan` is the one-command path for recording a new intent, its bound plan, and one
+session/tool plan authorization. It stores one composite event and derives the three projected
+record IDs from `approval_id`, so policy rejection cannot leave a partial semantic approval. Exact
+retries return `duplicate`; reuse of an approval ID with different content is rejected. Example
+input follows. In an agent-hosted workflow, the host constructs this request from the concrete
+proposal and explicit approval; the human should not be asked to edit source or hand-author JSON.
+
+```json
+{
+  "schema_version": 6,
+  "approval_id": "change-readme",
+  "expected_revision": 12,
+  "actor": { "kind": "human", "id": "operator", "provenance": "local-cli" },
+  "scope": "repo",
+  "intent": {
+    "source_ref": "issue:123",
+    "goal": "Update the documented workflow",
+    "explicit_items": ["Change README.md"],
+    "inferred_items": [],
+    "unknown_items": []
+  },
+  "plan": {
+    "objective": "Update and verify the documented workflow",
+    "acceptance_checks": ["Documentation test passes"],
+    "unresolved_questions": []
+  },
+  "session_id": "current-session-id",
+  "tool_name": "apply_patch",
+  "authority_ref": "explicit local approval"
+}
+```
+
+The resulting IDs are `intent:change-readme`, `plan:change-readme`, and
+`authorization:change-readme`. The command preserves the existing authority and open-Aporia
+checks; it is workflow consolidation, not an authentication mechanism or policy bypass.
+
+`commit` accepts the contract in `schemas/commit-request.schema.json`; `approve-plan` accepts `schemas/plan-approval-request.schema.json`; and `ingest-verifier-report` accepts `schemas/aporic-verifier-report-v1.schema.json`. Runtime decoding uses strict Rust types; the JSON Schemas are the language-neutral external contracts.
 Policy rejection is emitted as JSON with exit code `2`; runtime or storage failure uses exit code `1`.
 
 JSON Schema validates the portable input shape. Runtime validation remains authoritative for semantic invariants and UTF-8 byte limits that JSON Schema cannot express exactly.
@@ -93,7 +130,7 @@ The Codex hook schemas intentionally allow additional host fields and nullable o
 
 `init` creates and syncs a new empty store and refuses to overwrite an existing path.
 
-`project-init` creates `.aporic/config.json`, `.aporic/policy.json`, and an external store, refusing to overwrite any of them. By default the store is empty; `--migrate-from-v1-store` instead creates it as a validated, non-destructive v1-to-v5 snapshot while leaving the source untouched. Before migration, stop writers to the old store and confirm that its recorded scope matches the new binding; otherwise the snapshot can be stale or its retained authority can be out of scope. The config is published only after the destination store is valid. It is the opt-in marker used by the global adapter; the generated policy protects exact `apply_patch` calls and requires their plan to bind an active intent envelope. `project-paths` resolves the policy and event-log path for direct `status`, `commit`, `doctor`, `explain`, and `analyze-wasm` operations. The nearest binding above the hook `cwd` wins, so nested independently bound workspaces remain isolated. Set `APORIC_DATA_HOME` to an absolute path before setup and runtime to override the default user data root.
+`project-init` creates `.aporic/config.json`, `.aporic/policy.json`, and an external store, refusing to overwrite any of them. By default the store is empty; `--migrate-from-v1-store` instead creates it as a validated, non-destructive v1-to-v6 snapshot while leaving the source untouched. Before migration, stop writers to the old store and confirm that its recorded scope matches the new binding; otherwise the snapshot can be stale or its retained authority can be out of scope. The config is published only after the destination store is valid. It is the opt-in marker used by the global adapter; the generated policy protects exact `apply_patch` calls and requires their plan to bind an active intent envelope. `project-paths` resolves the policy and event-log path for direct `status`, `commit`, `doctor`, `explain`, and `analyze-wasm` operations. The nearest binding above the hook `cwd` wins, so nested independently bound workspaces remain isolated. Set `APORIC_DATA_HOME` to an absolute path before setup and runtime to override the default user data root.
 
 `codex-session-start` implements only the documented Codex `SessionStart` command-hook response. It projects exact-scope state as bounded, untrusted developer context on startup, resume, clear, and post-compaction `source: "compact"`. Startup uses a nonblocking store read: missing, invalid, or busy state is reported as `coverage: "unavailable"` rather than an empty successful capsule or a wait. A configured workspace must canonically match the hook `cwd`; other workspaces receive only `{ "continue": true }`. It does not authenticate human authority, read transcripts, infer scope from `cwd`, enforce tool calls, or provide prompt-injection immunity.
 
@@ -130,7 +167,7 @@ aporic project-init --workspace /absolute/repo --scope repo
 
 The template under `packaging/codex-plugin` contains no personal filesystem path. The packager builds the locked release binary, copies static global hooks plus `.mcp.json`, and refuses to overwrite an existing output directory. Each repository owns its small binding and policy files; it does not receive another kernel binary or plugin installation. Validate the generated directory with Codex's plugin validator before installation.
 
-Codex plugin installation and hook trust are host state, not repository state. Hook definitions are hash-trusted by Codex; changing the packaged command requires a new review and a new Codex task to pick up the package. The v0.7.0 package supports macOS arm64 only and is not a cross-platform distribution artifact. Moving or renaming a bound project changes its canonical storage path; migrate the old store deliberately rather than silently merging state. This release does not migrate a live store automatically. Rollback requires restoring both a compatible plugin and store snapshot because schema v5 is not readable by older binaries.
+Codex plugin installation and hook trust are host state, not repository state. Hook definitions are hash-trusted by Codex; changing the packaged command requires a new review and a new Codex task to pick up the package. The v0.7.0 package supports macOS arm64 only and is not a cross-platform distribution artifact. Moving or renaming a bound project changes its canonical storage path; migrate the old store deliberately rather than silently merging state. This source does not migrate a live store automatically. Rollback requires restoring both a compatible plugin and store snapshot because schema v6 is not readable by older binaries.
 
 ## Source standards
 

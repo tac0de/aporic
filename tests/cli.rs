@@ -50,6 +50,196 @@ fn run_with_plugin_root(args: &[&str], plugin_root: &std::path::Path) -> Output 
         .unwrap()
 }
 
+fn plan_approval_request(revision: u64, approval_id: &str, actor_kind: &str) -> Value {
+    serde_json::json!({
+        "schema_version": SCHEMA_VERSION,
+        "approval_id": approval_id,
+        "expected_revision": revision,
+        "actor": {
+            "kind": actor_kind,
+            "id": "approver",
+            "provenance": "cli-test"
+        },
+        "scope": "repo",
+        "intent": {
+            "source_ref": "conversation:approval",
+            "goal": "make one bounded change",
+            "explicit_items": ["edit the requested file"],
+            "inferred_items": [],
+            "unknown_items": []
+        },
+        "plan": {
+            "objective": "make one bounded change",
+            "acceptance_checks": ["focused test passes"],
+            "unresolved_questions": []
+        },
+        "session_id": "session-1",
+        "tool_name": "apply_patch",
+        "authority_ref": "explicit CLI approval"
+    })
+}
+
+#[test]
+fn approve_plan_records_intent_plan_and_authorization_in_one_command() {
+    let store = temp_path("approve-plan").join("events.jsonl");
+    initialize(&store).unwrap();
+    let request = plan_approval_request(0, "approval-1", "human");
+
+    let approved = run(
+        &["approve-plan", "--store", store.to_str().unwrap()],
+        Some(&request.to_string()),
+    );
+    assert!(
+        approved.status.success(),
+        "{}",
+        String::from_utf8_lossy(&approved.stderr)
+    );
+    let result: Value = serde_json::from_slice(&approved.stdout).unwrap();
+    assert_eq!(result["status"], "committed");
+    assert_eq!(result["revision"], 1);
+    assert_eq!(result["intent_id"], "intent:approval-1");
+    assert_eq!(result["plan_id"], "plan:approval-1");
+    assert_eq!(result["authorization_id"], "authorization:approval-1");
+
+    let state = load(&store).unwrap();
+    assert_eq!(state.state().revision, 1);
+    assert_eq!(
+        state.state().plans["plan:approval-1"].intent_id.as_deref(),
+        Some("intent:approval-1")
+    );
+    assert!(state.state().plan_authorizations["authorization:approval-1"].active);
+
+    let duplicate = run(
+        &["approve-plan", "--store", store.to_str().unwrap()],
+        Some(&request.to_string()),
+    );
+    assert!(duplicate.status.success());
+    assert_eq!(
+        serde_json::from_slice::<Value>(&duplicate.stdout).unwrap()["status"],
+        "duplicate"
+    );
+    assert_eq!(load(&store).unwrap().state().revision, 1);
+
+    let mut conflict = request;
+    conflict["expected_revision"] = serde_json::json!(1);
+    conflict["plan"]["objective"] = serde_json::json!("different change");
+    let rejected = run(
+        &["approve-plan", "--store", store.to_str().unwrap()],
+        Some(&conflict.to_string()),
+    );
+    assert_eq!(rejected.status.code(), Some(2));
+    assert_eq!(
+        serde_json::from_slice::<Value>(&rejected.stdout).unwrap()["evaluation"]["reason_code"],
+        "IDEMPOTENCY_KEY_CONFLICT"
+    );
+    assert_eq!(load(&store).unwrap().state().revision, 1);
+}
+
+#[test]
+fn approve_plan_rejects_the_whole_operation_when_authority_is_invalid() {
+    let store = temp_path("approve-plan-invalid-authority").join("events.jsonl");
+    initialize(&store).unwrap();
+    let request = plan_approval_request(0, "approval-1", "agent");
+
+    let rejected = run(
+        &["approve-plan", "--store", store.to_str().unwrap()],
+        Some(&request.to_string()),
+    );
+    assert_eq!(rejected.status.code(), Some(2));
+    let result: Value = serde_json::from_slice(&rejected.stdout).unwrap();
+    assert_eq!(result["status"], "rejected");
+    assert_eq!(result["evaluation"]["reason_code"], "UNKNOWN_DELEGATION");
+    let state = load(&store).unwrap();
+    assert_eq!(state.state().revision, 0);
+    assert!(state.state().intents.is_empty());
+    assert!(state.state().plans.is_empty());
+    assert!(state.state().plan_authorizations.is_empty());
+}
+
+#[test]
+fn approve_plan_cannot_partially_write_past_a_blocking_aporia() {
+    let store = temp_path("approve-plan-aporia").join("events.jsonl");
+    initialize(&store).unwrap();
+    commit(
+        &store,
+        CommitRequest {
+            schema_version: SCHEMA_VERSION,
+            event_id: "aporia".into(),
+            idempotency_key: "aporia".into(),
+            expected_revision: 0,
+            actor: Actor {
+                kind: ActorKind::Agent,
+                id: "agent".into(),
+                provenance: "cli-test".into(),
+            },
+            scope: "repo".into(),
+            event: Event::AporiaOpened {
+                aporia_id: "aporia".into(),
+                question: "Is approval safe?".into(),
+                blocks: vec![aporic::TransitionKind::PlanAuthorize],
+            },
+        },
+    )
+    .unwrap();
+    let request = plan_approval_request(1, "approval-1", "human");
+
+    let rejected = run(
+        &["approve-plan", "--store", store.to_str().unwrap()],
+        Some(&request.to_string()),
+    );
+    assert_eq!(rejected.status.code(), Some(2));
+    let result: Value = serde_json::from_slice(&rejected.stdout).unwrap();
+    assert_eq!(result["evaluation"]["reason_code"], "OPEN_MATERIAL_APORIA");
+    let state = load(&store).unwrap();
+    assert_eq!(state.state().revision, 1);
+    assert!(state.state().intents.is_empty());
+    assert!(state.state().plans.is_empty());
+    assert!(state.state().plan_authorizations.is_empty());
+}
+
+#[test]
+fn approve_plan_rejects_a_stale_revision_without_writes() {
+    let store = temp_path("approve-plan-stale").join("events.jsonl");
+    initialize(&store).unwrap();
+    let request = plan_approval_request(1, "approval-1", "human");
+
+    let rejected = run(
+        &["approve-plan", "--store", store.to_str().unwrap()],
+        Some(&request.to_string()),
+    );
+    assert_eq!(rejected.status.code(), Some(2));
+    let result: Value = serde_json::from_slice(&rejected.stdout).unwrap();
+    assert_eq!(result["evaluation"]["reason_code"], "STALE_REVISION");
+    assert_eq!(load(&store).unwrap().state().revision, 0);
+}
+
+#[test]
+fn approve_plan_requires_a_nonempty_authority_reference() {
+    let store = temp_path("approve-plan-authority-ref").join("events.jsonl");
+    initialize(&store).unwrap();
+    let mut missing = plan_approval_request(0, "approval-1", "human");
+    missing.as_object_mut().unwrap().remove("authority_ref");
+    let rejected = run(
+        &["approve-plan", "--store", store.to_str().unwrap()],
+        Some(&missing.to_string()),
+    );
+    assert_eq!(rejected.status.code(), Some(1));
+    assert_eq!(load(&store).unwrap().state().revision, 0);
+
+    let mut empty = plan_approval_request(0, "approval-1", "human");
+    empty["authority_ref"] = serde_json::json!("");
+    let rejected = run(
+        &["approve-plan", "--store", store.to_str().unwrap()],
+        Some(&empty.to_string()),
+    );
+    assert_eq!(rejected.status.code(), Some(2));
+    assert_eq!(
+        serde_json::from_slice::<Value>(&rejected.stdout).unwrap()["evaluation"]["reason_code"],
+        "MISSING_REQUIRED_FIELD"
+    );
+    assert_eq!(load(&store).unwrap().state().revision, 0);
+}
+
 #[test]
 fn init_and_status_are_wired_through_the_binary() {
     let store = temp_path("init-status").join("events.jsonl");
@@ -713,7 +903,7 @@ fn project_init_can_migrate_a_v1_store_without_changing_the_source() {
     let setup: Value = serde_json::from_slice(&setup.stdout).unwrap();
     assert_eq!(setup["status"], "migrated");
     assert_eq!(setup["migration"]["from_schema"], 1);
-    assert_eq!(setup["migration"]["to_schema"], 5);
+    assert_eq!(setup["migration"]["to_schema"], 6);
     assert_eq!(std::fs::read_to_string(&source).unwrap(), source_bytes);
 
     let status = run(
@@ -769,7 +959,7 @@ fn policy_rejection_uses_exit_two_and_structured_json() {
     assert!(run(&["init", "--store", store_arg], None).status.success());
 
     let request = serde_json::json!({
-        "schema_version": 5,
+        "schema_version": SCHEMA_VERSION,
         "event_id": "decision-event",
         "idempotency_key": "decision-key",
         "expected_revision": 0,

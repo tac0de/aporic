@@ -5,7 +5,7 @@ use aporic::codex::{
 };
 use aporic::{
     ActionOutcome, Actor, ActorKind, CommitRequest, CommitStatus, EpistemicStatus, Event,
-    EvidenceKind, SCHEMA_VERSION, VerificationResult, commit, initialize, load, migrate_v2_to_v5,
+    EvidenceKind, SCHEMA_VERSION, VerificationResult, commit, initialize, load, migrate_v2_to_v6,
 };
 use serde_json::json;
 use std::path::PathBuf;
@@ -309,7 +309,7 @@ fn checkpoint_is_published_and_claimed_once_by_the_next_session() {
 }
 
 #[test]
-fn schema_two_logs_migrate_to_schema_five_without_mutating_source() {
+fn schema_two_logs_migrate_to_schema_six_without_mutating_source() {
     let source = path("migration").join("events-v2.jsonl");
     std::fs::create_dir_all(source.parent().unwrap()).unwrap();
     let record = json!({
@@ -325,9 +325,9 @@ fn schema_two_logs_migrate_to_schema_five_without_mutating_source() {
     let bytes = format!("{record}\n");
     std::fs::write(&source, &bytes).unwrap();
     let destination = source.parent().unwrap().join("events-v3.jsonl");
-    let outcome = migrate_v2_to_v5(&source, &destination).unwrap();
+    let outcome = migrate_v2_to_v6(&source, &destination).unwrap();
     assert_eq!(outcome.from_schema, 2);
-    assert_eq!(outcome.to_schema, 5);
+    assert_eq!(outcome.to_schema, 6);
     assert_eq!(std::fs::read_to_string(source).unwrap(), bytes);
     assert_eq!(load(destination).unwrap().state().revision, 1);
 }

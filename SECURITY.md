@@ -13,6 +13,7 @@ Aporic `0.7.x` is an experimental governance kernel, not a hardened security bou
 - Project stores are separated under `${APORIC_DATA_HOME:-$HOME/.local/share/aporic}` by a lossless versioned encoding of the canonical absolute workspace path, and the data root must resolve outside the workspace. Moving a repository selects a new store; Aporic does not infer identity across moves or merge old state automatically.
 - The initial preventive configuration requires an active intent-bound plan for `apply_patch`; shell commands, hosted tools, and other mutation paths remain outside that gate unless separately integrated.
 - Plan authorization proves that a matching record exists. It does not prove that the plan is good or that a proposed patch semantically follows it.
+- `approve-plan` consolidates intent registration, plan registration, and session/tool authorization into one composite event, so replay cannot observe only a subset of those semantic records. It does not authenticate the caller, bypass open Aporia or delegation checks, strengthen the event log's existing power-loss durability, or prevent a same-user process from invoking the lower-level `commit` command.
 - Authorization is checked before a tool runs; it is not atomically bound to the later filesystem effect. State can change between the check and the effect.
 - Bounded-grant evaluation and consumption are atomic with respect to cooperating Aporic writers, but consumption means only that preflight admission was issued. It does not attest tool success or effects.
 - `PostToolUse` records an effect receipt with an `unknown` outcome and non-cryptographic identities instead of raw input or response payloads. Exact scope, session, tool-use, and tool name make retries idempotent; the first receipt is retained without treating later payload identities as an equality or integrity check. Only a separate evidence-backed verifier report may support a success claim; verifier identity, provenance, evidence locators, and digests are caller-declared rather than authenticated attestations.
@@ -30,7 +31,7 @@ Aporic `0.7.x` is an experimental governance kernel, not a hardened security bou
 - Argument relations, counterarguments, contradiction labels, belief revisions, and decision reviews are caller-declared records. Structural consistency does not prove semantic truth, soundness, or decision quality.
 - Wasm analyzer modules are untrusted local inputs. Aporic rejects imports and bounds module bytes, fuel, stack, linear memory, instances, table count and elements, input, and output, but compilation is not fuel-metered and same-user module replacement is not prevented. The runtime exposes no store, filesystem, network, clock, randomness, or authorization host capability.
 - Analyzer output must match the input revision and schema, but remains an untrusted diagnostic. It cannot append events, grant authority, accept risk, or revise a claim without a separate governed event.
-- Rollback from schema v5 requires restoring a compatible binary and a pre-migration store snapshot. Migration is offline, non-destructive, and does not merge concurrent writes.
+- Rollback from schema v6 requires restoring a compatible binary and a pre-migration store snapshot. Migration from v1 through v5 is offline, non-destructive, and does not merge concurrent writes.
 
 ## Reporting a vulnerability
 

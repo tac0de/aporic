@@ -122,12 +122,68 @@ fn unsupported_stored_schema_stops_replay_and_further_writes() {
     assert!(matches!(
         replay_error,
         Error::CorruptLog { line: 1, reason }
-            if reason == "unsupported schema version 99; expected 5"
+            if reason == "unsupported schema version 99; expected 6"
     ));
 
     let append_error = commit(&path, open_aporia("a1", "k1", 0)).unwrap_err();
     assert!(matches!(append_error, Error::CorruptLog { line: 1, .. }));
     assert_eq!(std::fs::read(&path).unwrap(), bytes);
+}
+
+#[test]
+fn composite_plan_approval_replay_rejects_derived_id_collisions() {
+    let path = temp_log("approval-derived-id-collision");
+    initialize(&path).unwrap();
+    let first = StoredEvent {
+        sequence: 1,
+        request: human_request(
+            "intent-event",
+            "intent-key",
+            0,
+            Event::IntentEnvelopeRecorded {
+                intent_id: "intent:approval-1".into(),
+                source_ref: "conversation:first".into(),
+                goal: "first goal".into(),
+                explicit_items: vec![],
+                inferred_items: vec![],
+                unknown_items: vec![],
+            },
+        ),
+    };
+    let second = StoredEvent {
+        sequence: 2,
+        request: human_request(
+            "approval:approval-1",
+            "approval:approval-1",
+            1,
+            Event::PlanApprovalRecorded {
+                approval_id: "approval-1".into(),
+                source_ref: "conversation:second".into(),
+                goal: "second goal".into(),
+                explicit_items: vec![],
+                inferred_items: vec![],
+                unknown_items: vec![],
+                objective: "second objective".into(),
+                acceptance_checks: vec!["test passes".into()],
+                unresolved_questions: vec![],
+                session_id: "session-1".into(),
+                tool_name: "apply_patch".into(),
+                authority_ref: "explicit approval".into(),
+            },
+        ),
+    };
+    let mut bytes = serde_json::to_vec(&first).unwrap();
+    bytes.push(b'\n');
+    bytes.extend(serde_json::to_vec(&second).unwrap());
+    bytes.push(b'\n');
+    std::fs::write(&path, bytes).unwrap();
+
+    let error = load(&path).unwrap_err();
+    assert!(matches!(
+        error,
+        Error::Invariant(reason)
+            if reason == "plan approval approval-1 conflicts with an existing derived id"
+    ));
 }
 
 #[test]

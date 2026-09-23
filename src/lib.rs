@@ -14,7 +14,7 @@ pub mod policy;
 pub mod project;
 pub mod verifier;
 
-pub const SCHEMA_VERSION: u32 = 5;
+pub const SCHEMA_VERSION: u32 = 6;
 
 #[derive(Debug)]
 pub enum Error {
@@ -229,6 +229,20 @@ pub enum Event {
         tool_name: String,
         authority_ref: Option<String>,
     },
+    PlanApprovalRecorded {
+        approval_id: String,
+        source_ref: String,
+        goal: String,
+        explicit_items: Vec<String>,
+        inferred_items: Vec<String>,
+        unknown_items: Vec<String>,
+        objective: String,
+        acceptance_checks: Vec<String>,
+        unresolved_questions: Vec<String>,
+        session_id: String,
+        tool_name: String,
+        authority_ref: String,
+    },
     PlanAuthorizationRevoked {
         authorization_id: String,
     },
@@ -368,7 +382,9 @@ impl Event {
             Self::DecisionCommitted { .. } => Some(TransitionKind::DecisionCommit),
             Self::DecisionSuperseded { .. } => Some(TransitionKind::DirectionSupersede),
             Self::RiskAccepted { .. } => Some(TransitionKind::RiskAccept),
-            Self::PlanAuthorized { .. } => Some(TransitionKind::PlanAuthorize),
+            Self::PlanAuthorized { .. } | Self::PlanApprovalRecorded { .. } => {
+                Some(TransitionKind::PlanAuthorize)
+            }
             Self::PlanCompleted { .. } => Some(TransitionKind::CompletionClaim),
             Self::IntentEnvelopeRecorded { .. }
             | Self::ToolHoldPlaced { .. }
@@ -950,6 +966,74 @@ impl State {
                         scope,
                         actor: stored.request.actor.clone(),
                         authority_ref: authority_ref.clone(),
+                        active: true,
+                    },
+                );
+            }
+            Event::PlanApprovalRecorded {
+                approval_id,
+                source_ref,
+                goal,
+                explicit_items,
+                inferred_items,
+                unknown_items,
+                objective,
+                acceptance_checks,
+                unresolved_questions,
+                session_id,
+                tool_name,
+                authority_ref,
+            } => {
+                let intent_id = format!("intent:{approval_id}");
+                let plan_id = format!("plan:{approval_id}");
+                let authorization_id = format!("authorization:{approval_id}");
+                if self.intents.contains_key(&intent_id)
+                    || self.plans.contains_key(&plan_id)
+                    || self.plan_authorizations.contains_key(&authorization_id)
+                {
+                    return Err(Error::Invariant(format!(
+                        "plan approval {approval_id} conflicts with an existing derived id"
+                    )));
+                }
+                self.intents.insert(
+                    intent_id.clone(),
+                    IntentEnvelope {
+                        id: intent_id.clone(),
+                        source_ref: source_ref.clone(),
+                        goal: goal.clone(),
+                        explicit_items: explicit_items.clone(),
+                        inferred_items: inferred_items.clone(),
+                        unknown_items: unknown_items.clone(),
+                        scope: scope.clone(),
+                        actor: stored.request.actor.clone(),
+                        superseded_by: None,
+                        sequence: stored.sequence,
+                    },
+                );
+                self.plans.insert(
+                    plan_id.clone(),
+                    Plan {
+                        id: plan_id.clone(),
+                        objective: objective.clone(),
+                        scope: scope.clone(),
+                        acceptance_checks: acceptance_checks.clone(),
+                        unresolved_questions: unresolved_questions.clone(),
+                        intent_id: Some(intent_id),
+                        evidence_refs: Vec::new(),
+                        assumption_claim_ids: Vec::new(),
+                        completed: false,
+                    },
+                );
+                self.plan_authorizations.insert(
+                    authorization_id.clone(),
+                    PlanAuthorization {
+                        id: authorization_id,
+                        plan_id,
+                        session_id: session_id.clone(),
+                        tool_name: tool_name.clone(),
+                        scope,
+                        actor: stored.request.actor.clone(),
+                        authority_ref: Some(authority_ref.clone()),
                         active: true,
                     },
                 );
@@ -1804,6 +1888,59 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                 }
             } else {
                 Some(("UNKNOWN_PLAN", "plan does not exist"))
+            }
+        }
+        Event::PlanApprovalRecorded {
+            approval_id,
+            source_ref,
+            goal,
+            explicit_items,
+            inferred_items,
+            unknown_items,
+            objective,
+            acceptance_checks,
+            unresolved_questions,
+            session_id,
+            tool_name,
+            authority_ref,
+        } => {
+            let intent_id = format!("intent:{approval_id}");
+            let plan_id = format!("plan:{approval_id}");
+            let authorization_id = format!("authorization:{approval_id}");
+            if !required(&[
+                approval_id,
+                source_ref,
+                goal,
+                objective,
+                session_id,
+                tool_name,
+                authority_ref,
+            ]) || acceptance_checks.is_empty()
+            {
+                Some((
+                    "MISSING_REQUIRED_FIELD",
+                    "approval, intent, plan, session, tool, authority, and acceptance fields are required",
+                ))
+            } else if !unique_nonempty_strings(explicit_items)
+                || !unique_nonempty_strings(inferred_items)
+                || !unique_nonempty_strings(unknown_items)
+                || !unique_nonempty_strings(acceptance_checks)
+                || !unique_nonempty_strings(unresolved_questions)
+            {
+                Some((
+                    "INVALID_APPROVAL_LIST",
+                    "approval lists must contain unique non-empty strings",
+                ))
+            } else if state.intents.contains_key(&intent_id)
+                || state.plans.contains_key(&plan_id)
+                || state.plan_authorizations.contains_key(&authorization_id)
+            {
+                Some((
+                    "PLAN_APPROVAL_ALREADY_EXISTS",
+                    "a derived intent, plan, or authorization id already exists",
+                ))
+            } else {
+                None
             }
         }
         Event::PlanAuthorizationRevoked { authorization_id } => {
@@ -2983,6 +3120,35 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                 );
             }
         },
+        Event::PlanApprovalRecorded { authority_ref, .. } => match request.actor.kind {
+            ActorKind::Human => {}
+            ActorKind::Agent => {
+                let Some(delegation) = state.delegations.get(authority_ref) else {
+                    return Evaluation::deny(
+                        "UNKNOWN_DELEGATION",
+                        "authority_ref does not name a delegation",
+                    );
+                };
+                if !delegation.active
+                    || delegation.grantee != request.actor.id
+                    || delegation.scope != request.scope
+                    || !delegation
+                        .transition_kinds
+                        .contains(&TransitionKind::PlanAuthorize)
+                {
+                    return Evaluation::deny(
+                        "DELEGATION_SCOPE_VIOLATION",
+                        "delegation is inactive or does not cover actor, scope, and plan authorization",
+                    );
+                }
+            }
+            _ => {
+                return Evaluation::deny(
+                    "PLAN_AUTHORITY_REQUIRED",
+                    "plan authorization requires human authority or a delegated agent",
+                );
+            }
+        },
         Event::PlanAuthorizationRevoked { .. } | Event::ExecutionGrantRevoked { .. }
             if !matches!(request.actor.kind, ActorKind::Human | ActorKind::Evidence) =>
         {
@@ -3016,6 +3182,50 @@ pub enum CommitStatus {
 pub struct CommitOutcome {
     pub status: CommitStatus,
     pub revision: u64,
+    pub evaluation: Evaluation,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PlanApprovalIntent {
+    pub source_ref: String,
+    pub goal: String,
+    pub explicit_items: Vec<String>,
+    pub inferred_items: Vec<String>,
+    pub unknown_items: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PlanApprovalPlan {
+    pub objective: String,
+    pub acceptance_checks: Vec<String>,
+    pub unresolved_questions: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PlanApprovalRequest {
+    pub schema_version: u32,
+    pub approval_id: String,
+    pub expected_revision: u64,
+    pub actor: Actor,
+    pub scope: String,
+    pub intent: PlanApprovalIntent,
+    pub plan: PlanApprovalPlan,
+    pub session_id: String,
+    pub tool_name: String,
+    pub authority_ref: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PlanApprovalOutcome {
+    pub status: CommitStatus,
+    pub revision: u64,
+    pub intent_id: String,
+    pub plan_id: String,
+    pub authorization_id: String,
     pub evaluation: Evaluation,
 }
 
@@ -3163,9 +3373,9 @@ pub fn migrate_to_current(
     destination: impl AsRef<Path>,
     from_schema: u32,
 ) -> Result<MigrationOutcome> {
-    if !matches!(from_schema, 1..=4) || from_schema >= SCHEMA_VERSION {
+    if !matches!(from_schema, 1..=5) || from_schema >= SCHEMA_VERSION {
         return Err(Error::Invariant(format!(
-            "migration supports schema versions 1, 2, 3, or 4 below current version {SCHEMA_VERSION}"
+            "migration supports schema versions 1 through 5 below current version {SCHEMA_VERSION}"
         )));
     }
     let source = source.as_ref();
@@ -3271,10 +3481,21 @@ pub fn migrate_to_current(
                         | "decision_review_recorded"
                 )
             );
+        let v5_event = v4_event
+            || matches!(
+                event_type,
+                Some(
+                    "intent_envelope_recorded"
+                        | "intent_envelope_superseded"
+                        | "effect_receipt_recorded"
+                        | "effect_verification_recorded"
+                )
+            );
         if (from_schema == 1 && !v1_event)
             || (from_schema == 2 && !v2_event)
             || (from_schema == 3 && !v3_event)
             || (from_schema == 4 && !v4_event)
+            || (from_schema == 5 && !v5_event)
         {
             return Err(Error::CorruptLog {
                 line: index + 1,
@@ -3322,80 +3543,119 @@ pub fn migrate_to_current(
     })
 }
 
-pub fn migrate_v1_to_v5(
+pub fn migrate_v1_to_v6(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
     migrate_to_current(source, destination, 1)
 }
 
-#[deprecated(note = "use migrate_v1_to_v5; the destination schema is now version 5")]
+#[deprecated(note = "use migrate_v1_to_v6; the destination schema is now version 6")]
+pub fn migrate_v1_to_v5(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<MigrationOutcome> {
+    migrate_v1_to_v6(source, destination)
+}
+
+#[deprecated(note = "use migrate_v1_to_v6; the destination schema is now version 6")]
 pub fn migrate_v1_to_v4(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
-    migrate_v1_to_v5(source, destination)
+    migrate_v1_to_v6(source, destination)
 }
 
-#[deprecated(note = "use migrate_v1_to_v5; the destination schema is now version 5")]
+#[deprecated(note = "use migrate_v1_to_v6; the destination schema is now version 6")]
 pub fn migrate_v1_to_v2(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
-    migrate_v1_to_v5(source, destination)
+    migrate_v1_to_v6(source, destination)
 }
 
-#[deprecated(note = "use migrate_v1_to_v5; the destination schema is now version 5")]
+#[deprecated(note = "use migrate_v1_to_v6; the destination schema is now version 6")]
 pub fn migrate_v1_to_v3(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
-    migrate_v1_to_v5(source, destination)
+    migrate_v1_to_v6(source, destination)
 }
 
-pub fn migrate_v2_to_v5(
+pub fn migrate_v2_to_v6(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
     migrate_to_current(source, destination, 2)
 }
 
-#[deprecated(note = "use migrate_v2_to_v5; the destination schema is now version 5")]
+#[deprecated(note = "use migrate_v2_to_v6; the destination schema is now version 6")]
+pub fn migrate_v2_to_v5(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<MigrationOutcome> {
+    migrate_v2_to_v6(source, destination)
+}
+
+#[deprecated(note = "use migrate_v2_to_v6; the destination schema is now version 6")]
 pub fn migrate_v2_to_v4(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
-    migrate_v2_to_v5(source, destination)
+    migrate_v2_to_v6(source, destination)
 }
 
-#[deprecated(note = "use migrate_v2_to_v5; the destination schema is now version 5")]
+#[deprecated(note = "use migrate_v2_to_v6; the destination schema is now version 6")]
 pub fn migrate_v2_to_v3(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
-    migrate_v2_to_v5(source, destination)
+    migrate_v2_to_v6(source, destination)
 }
 
-pub fn migrate_v3_to_v5(
+pub fn migrate_v3_to_v6(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
     migrate_to_current(source, destination, 3)
 }
 
-#[deprecated(note = "use migrate_v3_to_v5; the destination schema is now version 5")]
+#[deprecated(note = "use migrate_v3_to_v6; the destination schema is now version 6")]
+pub fn migrate_v3_to_v5(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<MigrationOutcome> {
+    migrate_v3_to_v6(source, destination)
+}
+
+#[deprecated(note = "use migrate_v3_to_v6; the destination schema is now version 6")]
 pub fn migrate_v3_to_v4(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
-    migrate_v3_to_v5(source, destination)
+    migrate_v3_to_v6(source, destination)
 }
 
-pub fn migrate_v4_to_v5(
+pub fn migrate_v4_to_v6(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
     migrate_to_current(source, destination, 4)
+}
+
+#[deprecated(note = "use migrate_v4_to_v6; the destination schema is now version 6")]
+pub fn migrate_v4_to_v5(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<MigrationOutcome> {
+    migrate_v4_to_v6(source, destination)
+}
+
+pub fn migrate_v5_to_v6(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<MigrationOutcome> {
+    migrate_to_current(source, destination, 5)
 }
 
 pub fn commit(path: impl AsRef<Path>, request: CommitRequest) -> Result<CommitOutcome> {
@@ -3420,6 +3680,50 @@ pub fn commit(path: impl AsRef<Path>, request: CommitRequest) -> Result<CommitOu
         (Err(error), _) => Err(error),
         (Ok(_), Err(error)) => Err(Error::Io(error)),
     }
+}
+
+/// Records an intent envelope, its bound plan, and a session/tool authorization as one event.
+pub fn approve_plan(
+    path: impl AsRef<Path>,
+    request: PlanApprovalRequest,
+) -> Result<PlanApprovalOutcome> {
+    let intent_id = format!("intent:{}", request.approval_id);
+    let plan_id = format!("plan:{}", request.approval_id);
+    let authorization_id = format!("authorization:{}", request.approval_id);
+    let event_id = format!("approval:{}", request.approval_id);
+    let outcome = commit(
+        path,
+        CommitRequest {
+            schema_version: request.schema_version,
+            idempotency_key: event_id.clone(),
+            event_id,
+            expected_revision: request.expected_revision,
+            actor: request.actor.clone(),
+            scope: request.scope.clone(),
+            event: Event::PlanApprovalRecorded {
+                approval_id: request.approval_id,
+                source_ref: request.intent.source_ref,
+                goal: request.intent.goal,
+                explicit_items: request.intent.explicit_items,
+                inferred_items: request.intent.inferred_items,
+                unknown_items: request.intent.unknown_items,
+                objective: request.plan.objective,
+                acceptance_checks: request.plan.acceptance_checks,
+                unresolved_questions: request.plan.unresolved_questions,
+                session_id: request.session_id,
+                tool_name: request.tool_name,
+                authority_ref: request.authority_ref,
+            },
+        },
+    )?;
+    Ok(PlanApprovalOutcome {
+        status: outcome.status,
+        revision: outcome.revision,
+        intent_id,
+        plan_id,
+        authorization_id,
+        evaluation: outcome.evaluation,
+    })
 }
 
 fn commit_locked(file: &mut File, request: CommitRequest) -> Result<CommitOutcome> {

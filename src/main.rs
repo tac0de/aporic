@@ -15,8 +15,8 @@ use aporic::project::{
 };
 use aporic::verifier::{MAX_VERIFIER_REPORT_BYTES, VerifierReportInput, ingest_verifier_report};
 use aporic::{
-    CommitRequest, CommitStatus, SCHEMA_VERSION, commit, initialize, load, load_nonblocking,
-    migrate_to_current,
+    CommitRequest, CommitStatus, PlanApprovalRequest, SCHEMA_VERSION, approve_plan, commit,
+    initialize, load, load_nonblocking, migrate_to_current,
 };
 use serde::Serialize;
 use std::env;
@@ -166,7 +166,7 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().skip(1).collect();
     let Some(command) = args.first().map(String::as_str) else {
         return Err(
-            "usage: aporic <mcp-serve|project-init|project-paths|init|status|commit|ingest-verifier-report|analyze-wasm|analyze-structural|explain|doctor|migrate|codex-session-start|codex-pre-tool-use|codex-post-tool-use|codex-session-end|codex-global-session-start|codex-global-user-prompt-submit|codex-global-pre-tool-use|codex-global-post-tool-use|codex-global-session-end>".into(),
+            "usage: aporic <mcp-serve|project-init|project-paths|init|status|commit|approve-plan|ingest-verifier-report|analyze-wasm|analyze-structural|explain|doctor|migrate|codex-session-start|codex-pre-tool-use|codex-post-tool-use|codex-session-end|codex-global-session-start|codex-global-user-prompt-submit|codex-global-pre-tool-use|codex-global-post-tool-use|codex-global-session-end>".into(),
         );
     };
 
@@ -238,6 +238,19 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
             io::stdin().read_to_string(&mut input)?;
             let request: CommitRequest = serde_json::from_str(&input)?;
             let outcome = commit(path, request)?;
+            print_json(&outcome)?;
+            Ok(if outcome.status == CommitStatus::Rejected {
+                2
+            } else {
+                0
+            })
+        }
+        "approve-plan" => {
+            let path = store_path(&args)?;
+            let mut input = String::new();
+            io::stdin().read_to_string(&mut input)?;
+            let request: PlanApprovalRequest = serde_json::from_str(&input)?;
+            let outcome = approve_plan(path, request)?;
             print_json(&outcome)?;
             Ok(if outcome.status == CommitStatus::Rejected {
                 2
