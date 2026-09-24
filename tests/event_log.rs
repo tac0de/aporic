@@ -1,7 +1,7 @@
 use aporic::{
-    Actor, ActorKind, CommitRequest, CommitStatus, Delegation, Error, Event, Plan, SCHEMA_VERSION,
-    State, StoredEvent, TransitionKind, Verdict, commit, evaluate, initialize, load,
-    load_nonblocking,
+    Actor, ActorKind, CommitRequest, CommitStatus, Delegation, Error, Event, EvidenceKind,
+    InformationRequest, Plan, SCHEMA_VERSION, State, StoredEvent, TransitionKind, Verdict, commit,
+    evaluate, initialize, load, load_nonblocking,
 };
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Barrier};
@@ -373,6 +373,7 @@ fn delegated_agent_plan_authorization_requires_exact_capability() {
                     aporia_id: "aporia-after-authorization".into(),
                     question: "Should the already authorized plan be reconsidered?".into(),
                     blocks: vec![TransitionKind::PlanAuthorize],
+                    information_request: None,
                 },
             ),
         )
@@ -496,6 +497,7 @@ fn material_aporia_blocks_plan_authorization() {
                 aporia_id: "aporia-1".into(),
                 question: "Is the plan direction settled?".into(),
                 blocks: vec![TransitionKind::PlanAuthorize],
+                information_request: None,
             },
         ),
     )
@@ -517,6 +519,126 @@ fn material_aporia_blocks_plan_authorization() {
     )
     .unwrap();
     assert_eq!(outcome.evaluation.reason_code, "OPEN_MATERIAL_APORIA");
+}
+
+#[test]
+fn agent_unknowns_require_a_bounded_information_plan_and_direct_resolution_evidence() {
+    let path = temp_log("agent-information-request");
+    let agent_request = |id: &str, key: &str, expected_revision: u64, event: Event| CommitRequest {
+        schema_version: SCHEMA_VERSION,
+        event_id: id.into(),
+        idempotency_key: key.into(),
+        expected_revision,
+        actor: Actor {
+            kind: ActorKind::Agent,
+            id: "researcher".into(),
+            provenance: "codex-session".into(),
+        },
+        scope: "repo".into(),
+        event,
+    };
+
+    let without_plan = commit(
+        &path,
+        agent_request(
+            "missing-plan",
+            "missing-plan-key",
+            0,
+            Event::AporiaOpened {
+                aporia_id: "unknown-api".into(),
+                question: "Which API behavior is authoritative?".into(),
+                blocks: vec![TransitionKind::DecisionCommit],
+                information_request: None,
+            },
+        ),
+    )
+    .unwrap();
+    assert_eq!(
+        without_plan.evaluation.reason_code,
+        "AGENT_INFORMATION_REQUEST_REQUIRED"
+    );
+
+    let opened = commit(
+        &path,
+        agent_request(
+            "open-request",
+            "open-request-key",
+            0,
+            Event::AporiaOpened {
+                aporia_id: "unknown-api".into(),
+                question: "Which API behavior is authoritative?".into(),
+                blocks: vec![TransitionKind::DecisionCommit],
+                information_request: Some(InformationRequest {
+                    requested_materials: vec![],
+                    collection_method: Some(
+                        "inspect the pinned official API reference and executable tests".into(),
+                    ),
+                    selection_criteria: vec![
+                        "primary source".into(),
+                        "matches the pinned version".into(),
+                    ],
+                    intended_use: "choose the compatible implementation path".into(),
+                }),
+            },
+        ),
+    )
+    .unwrap();
+    assert_eq!(opened.status, CommitStatus::Committed);
+
+    let unresolved = commit(
+        &path,
+        human_request(
+            "resolve-without-evidence",
+            "resolve-without-evidence-key",
+            1,
+            Event::AporiaResolved {
+                aporia_id: "unknown-api".into(),
+                resolution_ref: "missing-evidence".into(),
+            },
+        ),
+    )
+    .unwrap();
+    assert_eq!(
+        unresolved.evaluation.reason_code,
+        "UNKNOWN_RESOLUTION_EVIDENCE"
+    );
+
+    assert_eq!(
+        commit(
+            &path,
+            agent_request(
+                "record-source",
+                "record-source-key",
+                1,
+                Event::EvidenceRecorded {
+                    evidence_id: "official-reference".into(),
+                    kind: EvidenceKind::ExternalSource,
+                    locator: "official-docs:pinned-version".into(),
+                    digest: None,
+                },
+            ),
+        )
+        .unwrap()
+        .status,
+        CommitStatus::Committed
+    );
+    assert_eq!(
+        commit(
+            &path,
+            human_request(
+                "resolve-with-evidence",
+                "resolve-with-evidence-key",
+                2,
+                Event::AporiaResolved {
+                    aporia_id: "unknown-api".into(),
+                    resolution_ref: "official-reference".into(),
+                },
+            ),
+        )
+        .unwrap()
+        .status,
+        CommitStatus::Committed
+    );
 }
 
 fn human_request(id: &str, key: &str, expected_revision: u64, event: Event) -> CommitRequest {
@@ -544,6 +666,7 @@ fn open_aporia(id: &str, key: &str, expected_revision: u64) -> CommitRequest {
             aporia_id: id.into(),
             question: "Which persistence format?".into(),
             blocks: vec![TransitionKind::DecisionCommit],
+            information_request: None,
         },
     )
 }

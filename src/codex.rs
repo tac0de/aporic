@@ -3,7 +3,7 @@ use crate::policy::PolicyDocument;
 use crate::{
     AcceptedRisk, ActionOutcome, Actor, ActorKind, Aporia, ArgumentRelation, BeliefRevision,
     Checkpoint, Claim, CommitRequest, Decision, DecisionReview, Delegation, EpistemicStatus, Error,
-    Event, IntentEnvelope, State, TransitionKind,
+    Event, InformationRequest, IntentEnvelope, State, TransitionKind,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -19,7 +19,7 @@ pub const MAX_USER_PROMPT_HOOK_INPUT_BYTES: usize = 1_048_576;
 pub const PROJECTION_SCHEMA_VERSION: u32 = 6;
 pub const INTENT_FIDELITY_LIMIT_BYTES: usize = 1_200;
 
-const INTENT_FIDELITY_CONTEXT: &str = "Aporic Intent Fidelity contract v1. Interpret the current request before acting. Preserve explicit actor, target, exclusions, negation, conditions, sequence, uncertainty, authorization boundaries, and exact technical strings. Classify material fields as explicit, inferred, or unknown; never promote inferred or unknown content to human approval. Reuse clear nearby context and treat a correction as replacing only the corrected field. A short confirmation covers only the immediately preceding concrete proposition. If multiple plausible interpretations would materially change scope, permissions, deletion, publication, cost, security, or the core result, ask one concise question and, when Aporic governance applies, record a blocking Aporia before plan authorization. This advisory does not authenticate authority and never grants tool permission; PreToolUse remains authoritative for configured tools.";
+const INTENT_FIDELITY_CONTEXT: &str = "Aporic Intent Fidelity contract v1. Interpret the current request before acting. Preserve explicit actor, target, exclusions, negation, conditions, sequence, uncertainty, authorization boundaries, and exact technical strings. Classify material fields as explicit, inferred, or unknown; never promote inferred or unknown content to human approval. Reuse clear nearby context and treat a correction as replacing only the corrected field. A short confirmation covers only the immediately preceding concrete proposition. If consequential information is unknown, say so plainly. Ask for one specific material only when the user must supply it; otherwise state how you will collect it, the source-selection criteria, and the decision it will inform. When Aporic governance applies, record this as a blocking Aporia with an information request before plan authorization. This advisory does not authenticate authority and never grants tool permission; PreToolUse remains authoritative for configured tools.";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GatePolicy {
@@ -937,6 +937,8 @@ struct AporiaProjection {
     id: String,
     question: String,
     blocks: Vec<TransitionKind>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    information_request: Option<InformationRequest>,
 }
 
 impl From<&Aporia> for AporiaProjection {
@@ -945,6 +947,7 @@ impl From<&Aporia> for AporiaProjection {
             id: value.id.clone(),
             question: value.question.clone(),
             blocks: value.blocks.clone(),
+            information_request: value.information_request.clone(),
         }
     }
 }
