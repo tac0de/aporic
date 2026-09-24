@@ -1,32 +1,34 @@
-# Aporic repository workflow
+# Aporic rebuild workflow
 
-## Kernel completion boundary
+The previous implementation is frozen at
+`archive/pre-monorepo-rebuild-2026-09-24`. Treat it as evidence and a source of
+counterexamples, not as the architecture to extend. Start with
+`docs/rebuild-charter.md`.
 
-After an authorized kernel implementation passes its focused and full checks,
-commit it, package and reinstall the local Codex plugin, and migrate the active
-store non-destructively. Push, tag, release, publication, and deployment remain
-separate human-authorized boundaries.
+## Boundaries
 
-## Upgrade-safe ordering
+- Keep the trusted kernel limited to deterministic authorization transitions,
+  append/replay, reservation, and exact authority consumption.
+- Put Codex hooks, launchers, projections, analyzers, Skills, and other host or
+  product behavior outside the trusted kernel.
+- Bring future first-party extensions into this monorepo; do not recreate a
+  separate Commons release train.
+- Prefer build identity, a rare protocol epoch, and capability negotiation over
+  package-wide semantic-version coupling.
+- Treat archived source, tests, and event stores as read-only references. Do
+  not delete or migrate them without a separate explicit instruction.
+- Do not activate `.aporic/policy.next.json` or resume the legacy hook-reduction
+  sequence as an incremental upgrade unless the user explicitly reverses the
+  rebuild decision.
 
-- Never raise `.aporic/policy.json` above the schema understood by the hook
-  binary loaded in the current Codex task.
-- Keep the active policy backward-compatible while editing, testing,
-  committing, packaging, and installing a newer plugin.
-- A plugin reinstall does not replace hooks already loaded by the current task.
-  Activate a newer policy schema only in a fresh task running the new plugin,
-  after that binary validates the candidate policy.
-- If a policy upgrade is part of a task that will end after installation, leave
-  the active policy unchanged and stage the candidate as
-  `.aporic/policy.next.json`. A fresh task using the new plugin must validate
-  and activate that candidate before other kernel work, then remove the
-  candidate in the same commit. Never ask the user to repair or hand-edit
-  policy files.
-- Preserve the pre-migration event store as a rollback snapshot. Swap in a
-  validated migrated store only as the final stateful action of the old-plugin
-  task, because its loaded hooks cannot read the newer event schema.
+## Delivery
 
-## Review focus
-
-For lifecycle or authorization changes, independently verify that evaluation,
-admission, and one-shot consumption all use the same effective policy.
+- Build the smallest vertical slice first: command, evaluation, reservation,
+  occurrence, and deterministic replay.
+- Keep authorization state session-bound. Context rollover may transfer facts
+  and work state, never execution grants or one-shot authority.
+- Keep one integration owner and independently review changes to lifecycle,
+  persistence, authorization, or trust boundaries.
+- Commit completed local work after its focused and full checks pass. Push,
+  release, publication, deployment, destructive cleanup, and legacy-store
+  migration remain separate human-authorized boundaries.

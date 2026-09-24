@@ -1,5 +1,10 @@
 # Aporic
 
+> The implementation described below is frozen as a legacy reference at
+> `archive/pre-monorepo-rebuild-2026-09-24`. New development starts from the
+> [rebuild charter](docs/rebuild-charter.md); do not continue the staged policy
+> or hook rollout as an incremental upgrade.
+
 Aporic is an experimental local commitment-state kernel for coding agents. Version `0.7.0` closes the intent-to-effect loop with persistent intent lineage, stale-intent execution prevention, effect verification, and a bounded MCP capability surface.
 
 Repository: [github.com/tac0de/aporic](https://github.com/tac0de/aporic)
