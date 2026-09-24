@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <meta name="theme-color" content="#101c27">
+    <meta name="description" content="Aporic의 읽기 전용 실시간 작업 관제도">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%239a3428'/%3E%3Ccircle cx='32' cy='32' r='19' fill='none' stroke='%23f2d58a' stroke-width='3'/%3E%3Cpath d='M21 32h22M32 21v22' stroke='%23f2d58a' stroke-width='3'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="/style.css">
+    <title>Aporic · 어전 관제도</title>
+  </head>
+  <body>
+    <div class="paper-grain" aria-hidden="true"></div>
+    <header class="topbar">
+      <div class="brand">
+        <div class="royal-seal" aria-hidden="true">御</div>
+        <div>
+          <p class="eyebrow">APORIC LIVE OBSERVATORY</p>
+          <h1>어전 관제도</h1>
+        </div>
+      </div>
+      <div class="connection" id="connectionState" role="status" aria-live="polite">
+        <span class="signal"></span>
+        <span id="connectionLabel">봉화 연결 중</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="project-strip" aria-label="프로젝트 상태">
+        <div>
+          <p class="label">관할 프로젝트</p>
+          <p class="project-name" id="projectName">—</p>
+        </div>
+        <dl class="project-facts">
+          <div><dt>역할</dt><dd id="roleId">—</dd></div>
+          <div><dt>HEAD</dt><dd id="head">—</dd></div>
+          <div><dt>장부</dt><dd id="revision">—</dd></div>
+          <div><dt>작업실</dt><dd id="worktree">—</dd></div>
+        </dl>
+        <p class="updated" id="updatedAt">아직 소식 없음</p>
+      </section>
+
+      <section class="summary-grid" aria-label="핵심 현황">
+        <article class="summary-card vermilion"><span>집행 중</span><strong id="activeCount">0</strong><small>active</small></article>
+        <article class="summary-card amber"><span>검증 대기</span><strong id="verifyCount">0</strong><small>awaiting verification</small></article>
+        <article class="summary-card jade"><span>완료</span><strong id="completeCount">0</strong><small>completed</small></article>
+        <article class="summary-card ink"><span>실패</span><strong id="failedCount">0</strong><small>failed</small></article>
+      </section>
+
+      <section class="court" aria-label="실시간 궁정 작업 배치">
+        <div class="court-axis" aria-hidden="true"><span></span><i></i><span></span></div>
+
+        <article class="hall throne-hall">
+          <header><span class="hall-mark">正</span><div><p>근정전 · 판단석</p><h2>지금 보아야 할 것</h2></div></header>
+          <div class="throne-content" id="decisionBoard">
+            <p class="empty">열린 하루가 생기면 다음 판단이 이곳에 나타납니다.</p>
+          </div>
+        </article>
+
+        <article class="hall agents-hall">
+          <header><span class="hall-mark">議</span><div><p>의정부 · 실행</p><h2>에이전트 행렬</h2></div><b id="agentCount">0명</b></header>
+          <div class="agent-grid" id="agentGrid">
+            <p class="empty">예약된 작업이 없습니다.</p>
+          </div>
+        </article>
+
+        <article class="hall sessions-hall">
+          <header><span class="hall-mark">承</span><div><p>승정원 · 연속성</p><h2>하루와 인계</h2></div><b id="sessionCount">0일</b></header>
+          <div class="session-list" id="sessionList"><p class="empty">열린 세션이 없습니다.</p></div>
+        </article>
+
+        <article class="hall model-hall">
+          <header><span class="hall-mark">戶</span><div><p>호조 · 자원</p><h2>모델과 추론도</h2></div></header>
+          <div class="model-list" id="modelList"><p class="empty">모델 실행 기록이 없습니다.</p></div>
+        </article>
+      </section>
+
+      <section class="chronicle" aria-label="분리된 원장 흐름">
+        <header>
+          <div><p class="eyebrow">APPEND-ONLY RECORDS</p><h2>조보 · 세 장부의 최신 기록</h2></div>
+          <p>장부 사이의 사건 순서는 추정하지 않습니다.</p>
+        </header>
+        <div class="stream-grid">
+          <article><h3>권한·집행 장부</h3><ol id="authorityStream"></ol></article>
+          <article><h3>하루·인계 장부</h3><ol id="continuityStream"></ol></article>
+          <article><h3>모델 통제 장부</h3><ol id="modelStream"></ol></article>
+        </div>
+      </section>
+    </main>
+
+    <aside class="auth-panel" id="authPanel" hidden>
+      <form id="authForm">
+        <span class="hall-mark">符</span>
+        <h2>외부 열람패가 필요합니다</h2>
+        <p>서버를 외부 주소에 연 경우 설정한 토큰을 입력하세요. 브라우저 세션에만 보관합니다.</p>
+        <label for="tokenInput">열람 토큰</label>
+        <input id="tokenInput" type="password" autocomplete="off" minlength="24" required>
+        <button type="submit">관제도 열기</button>
+      </form>
+    </aside>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>

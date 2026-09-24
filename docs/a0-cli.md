@@ -89,6 +89,7 @@ available; Aporic does not guess or silently substitute either value.
 | `catalog-register` | connection-file reference | Registers a project for C0 discovery |
 | `codex-hook` | Codex hook JSON | Runs the C0 lifecycle adapter |
 | `codex-launch` | none; takes an absolute routing-signals file as its next argument | Launches a new Codex session with required M1 overrides |
+| `observe` | none; optional `IP:PORT` argument | Serves the read-only V0 live observatory |
 
 Launch syntax is:
 
@@ -104,6 +105,17 @@ both the plan and process outcome in `model-control.jsonl`. A required mapping
 fails closed when its application capability is unavailable. This is
 launch-bound enforcement: a human can still use Codex's own `/model` command
 later, and Codex may reject a model or effort unavailable to that account.
+
+Start the local observatory with:
+
+```console
+aporicctl observe /absolute/state/connection.json
+```
+
+The default address is `127.0.0.1:4242`. A non-loopback address is accepted
+only when `APORIC_OBSERVATORY_TOKEN` contains at least 24 bytes; API and event
+stream requests must then present it as a bearer token. The browser asks for
+the token and retains it only for that browser session.
 
 The request names above are the strict serialized Rust types exported by
 `aporic-host`. Unknown JSON fields are rejected. Revisions for the kernel and

@@ -17,7 +17,8 @@
       "Exact local-tool gating",
       "Effect recording",
       "Deterministic routing recommendations",
-      "Launch-bound model control"
+      "Launch-bound model control",
+      "Read-only live observatory"
     ],
     "defaultPrompt": "Show the active Aporic connection and routing recommendation."
   }

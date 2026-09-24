@@ -25,6 +25,7 @@ members = [
     "crates/aporic-host",
     "crates/aporic-kernel",
     "crates/aporic-model-control",
+    "crates/aporic-observatory",
     "crates/aporic-projects",
     "crates/aporic-routing",
     "crates/aporic-roles",
