@@ -59,17 +59,18 @@ aporicctl bind /absolute/external/aporic-demo/connection.json < bind.json
     "enforcement": "required",
     "codex_executable": "/absolute/path/to/codex",
     "tiers": {
-      "economy": {"model": "model-for-economy", "reasoning_effort": "low"},
-      "balanced": {"model": "model-for-balanced", "reasoning_effort": "medium"},
-      "deep": {"model": "model-for-deep", "reasoning_effort": "high"}
+      "economy": {"model": "gpt-6-luna", "reasoning_effort": "low"},
+      "balanced": {"model": "gpt-6-sol", "reasoning_effort": "medium"},
+      "deep": {"model": "gpt-6-astra", "reasoning_effort": "high"}
     }
   }
 }
 ```
 
-Model identifiers are host and account dependent. Resolve the Codex executable
-to an absolute path and choose identifiers that the target host actually makes
-available; Aporic does not guess or silently substitute either value.
+This is Aporic's current recommended mapping. Model identifiers remain host and
+account dependent: resolve the Codex executable to an absolute path and verify
+that the target host makes each identifier available. Aporic does not guess or
+silently substitute either value.
 
 ## Commands
 

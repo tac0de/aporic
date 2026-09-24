@@ -149,9 +149,9 @@ fn bind_input(area: &TestArea) -> Value {
             "enforcement": "required",
             "codex_executable": "/usr/bin/true",
             "tiers": {
-                "economy": {"model": "economy-model", "reasoning_effort": "low"},
-                "balanced": {"model": "balanced-model", "reasoning_effort": "medium"},
-                "deep": {"model": "deep-model", "reasoning_effort": "high"}
+                "economy": {"model": "gpt-6-luna", "reasoning_effort": "low"},
+                "balanced": {"model": "gpt-6-sol", "reasoning_effort": "medium"},
+                "deep": {"model": "gpt-6-astra", "reasoning_effort": "high"}
             }
         }
     })
@@ -167,7 +167,7 @@ fn plans_and_applies_a_forced_codex_launch_with_an_append_only_audit() {
     let signals = area.state().join("routing-signals.json");
     std::fs::write(
         &signals,
-        b"{\"requested\":null,\"multi_step\":false,\"uncertainty\":false,\"verification_failed\":true,\"retry_count\":0,\"burn_budget\":false}\n",
+        b"{\"requested\":null,\"high_impact\":true,\"difficult\":false,\"multi_step\":false,\"uncertainty\":false,\"verification_failed\":false,\"retry_count\":0,\"burn_budget\":false}\n",
     )
     .unwrap();
     let planned = success(invoke(
@@ -175,14 +175,16 @@ fn plans_and_applies_a_forced_codex_launch_with_an_append_only_audit() {
         &connection,
         Some(json!({
             "requested": null,
+            "high_impact": false,
+            "difficult": true,
             "multi_step": false,
             "uncertainty": false,
-            "verification_failed": true,
+            "verification_failed": false,
             "retry_count": 0,
             "burn_budget": false
         })),
     ));
-    assert_eq!(planned["result"]["model"], "deep-model");
+    assert_eq!(planned["result"]["model"], "gpt-6-astra");
     assert_eq!(planned["result"]["reasoning_effort"], "high");
 
     let launched = success(invoke_with_args(
@@ -462,21 +464,6 @@ fn codex_hooks_open_gate_record_compact_and_close_automatically() {
     assert!(start_context.contains("The user does not need to phrase a request precisely"));
     assert!(start_context.contains("Do not ask the human to collect or provide research material"));
     assert!(start_context.contains("behavioral defaults, not authority"));
-
-    let prompt = success(invoke(
-        "codex-hook",
-        &catalog,
-        Some(json!({
-            "session_id": session_id,
-            "cwd": area.repo(),
-            "hook_event_name": "UserPromptSubmit"
-        })),
-    ));
-    let prompt_context = prompt["hookSpecificOutput"]["additionalContext"]
-        .as_str()
-        .unwrap();
-    assert!(prompt_context.contains("Resolve ordinary ambiguity autonomously"));
-    assert!(prompt_context.contains("Do not ask the human to gather information"));
 
     let tool_input = json!({"command": "*** Begin Patch\n*** End Patch"});
     let denied = success(invoke(

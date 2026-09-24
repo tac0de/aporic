@@ -11,6 +11,10 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 pub struct RoutingSignals {
     pub requested: Option<RoutingTier>,
+    #[serde(default)]
+    pub high_impact: bool,
+    #[serde(default)]
+    pub difficult: bool,
     pub multi_step: bool,
     pub uncertainty: bool,
     pub verification_failed: bool,
@@ -48,12 +52,20 @@ pub fn select(
             "first_retry".into()
         });
     }
-    if signals.uncertainty
+    if signals.high_impact
+        || signals.difficult
+        || signals.uncertainty
         || signals.verification_failed
         || signals.retry_count >= 2
         || signals.burn_budget
     {
         selected = RoutingTier::Deep;
+        if signals.high_impact {
+            reasons.push("high_impact".into());
+        }
+        if signals.difficult {
+            reasons.push("difficult".into());
+        }
         if signals.uncertainty {
             reasons.push("material_uncertainty".into());
         }
@@ -117,5 +129,29 @@ mod tests {
         );
         assert_eq!(decision.tier, RoutingTier::Balanced);
         assert!(decision.capped);
+    }
+
+    #[test]
+    fn important_or_difficult_work_escalates_directly_to_deep() {
+        for (signals, reason) in [
+            (
+                RoutingSignals {
+                    high_impact: true,
+                    ..RoutingSignals::default()
+                },
+                "high_impact",
+            ),
+            (
+                RoutingSignals {
+                    difficult: true,
+                    ..RoutingSignals::default()
+                },
+                "difficult",
+            ),
+        ] {
+            let decision = select(RoutingTier::Economy, RoutingTier::Deep, &signals);
+            assert_eq!(decision.tier, RoutingTier::Deep);
+            assert!(decision.reasons.contains(&reason.into()));
+        }
     }
 }

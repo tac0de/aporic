@@ -8,9 +8,6 @@ as `aporicctl`.
 
 - `SessionStart` opens or resumes one Aporic day and injects the bounded role
   instructions plus handoff. Role text is behavior, never kernel authority.
-- `UserPromptSubmit` restates compact operating defaults: recover rough intent
-  from context, gather evidence autonomously, and prefer secure, operable,
-  reversible interpretations without inventing authority.
 - `PreToolUse` requires and consumes one exact grant before a local tool runs.
 - `PostToolUse` records an `unknown` effect; it never infers success from output.
 - `PreCompact` projects a bounded, transcript-independent handoff.
@@ -24,9 +21,9 @@ so it does not bypass Codex's own permission flow.
 
 M0-lite selects `economy`, `balanced`, or `deep` from explicit structured
 signals. The default generalist route is `economy`. Multi-step work or a first
-retry raises it to `balanced`; material uncertainty, failed verification,
-repeated failure, or an explicit burn-budget signal raises it to `deep`. The
-effective role ceiling always wins.
+retry raises it to `balanced`; high-impact or difficult work, material
+uncertainty, failed verification, repeated failure, or an explicit burn-budget
+signal raises it to `deep`. The effective role ceiling always wins.
 
 Every reservation stores the chosen tier and reason codes in the append-only
 kernel record. The `route` command can be used by another host before it creates
@@ -45,6 +42,10 @@ provide that control.
 M1 keeps host application outside the deterministic authorization kernel. An
 external connection maps each routing tier to an explicit model and reasoning
 effort. `model-plan` exposes the exact result without side effects.
+
+For current Codex projects, the intended mapping is Luna for `economy`, Sol for
+`balanced`, and Astra for `deep`. Model names remain connection data rather than
+kernel policy so a host can validate and update its available identifiers.
 
 `codex-launch` applies that result at the supported boundary: before a new
 Codex process starts. It supplies explicit CLI overrides, pins the process to
