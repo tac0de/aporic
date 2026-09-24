@@ -11,12 +11,16 @@ pub const PROJECT_CONFIG_FILE: &str = "config.json";
 pub const PROJECT_POLICY_FILE: &str = "policy.json";
 
 const DEFAULT_POLICY: &str = r#"{
-  "schema_version": 2,
+  "schema_version": 4,
+  "lifecycle_mode": "development",
   "tools": {
     "apply_patch": {
       "require_plan": true,
       "require_grant": false,
-      "require_intent": true
+      "require_intent": true,
+      "auto_allow_low_risk_profiles": [
+        { "profile_id": "local-code", "profile_version": "1" }
+      ]
     }
   }
 }

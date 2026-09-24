@@ -2,7 +2,7 @@ use aporic::codex::{GatePolicy, PreToolUseInput, explain_action, pre_tool_use_tr
 use aporic::policy::{PolicyDocument, ToolPolicy};
 use aporic::{
     Actor, ActorKind, CommitRequest, CommitStatus, Event, SCHEMA_VERSION, commit, initialize, load,
-    migrate_v1_to_v6,
+    migrate_v1_to_v7,
 };
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -42,6 +42,7 @@ fn request(expected_revision: u64, event_id: &str, event: Event) -> CommitReques
 fn grant_policy() -> GatePolicy {
     GatePolicy::from_document(PolicyDocument {
         schema_version: 1,
+        lifecycle_mode: None,
         tools: BTreeMap::from([
             (
                 "apply_patch".into(),
@@ -49,6 +50,7 @@ fn grant_policy() -> GatePolicy {
                     require_plan: true,
                     require_grant: true,
                     require_intent: None,
+                    auto_allow_low_risk_profiles: None,
                 },
             ),
             (
@@ -57,6 +59,7 @@ fn grant_policy() -> GatePolicy {
                     require_plan: false,
                     require_grant: false,
                     require_intent: None,
+                    auto_allow_low_risk_profiles: None,
                 },
             ),
         ]),
@@ -69,12 +72,14 @@ fn policy_tool_names_are_bounded_visible_ascii() {
     for invalid in ["", " ", "tool name", "도구"] {
         let document = PolicyDocument {
             schema_version: 1,
+            lifecycle_mode: None,
             tools: BTreeMap::from([(
                 invalid.into(),
                 ToolPolicy {
                     require_plan: true,
                     require_grant: true,
                     require_intent: None,
+                    auto_allow_low_risk_profiles: None,
                 },
             )]),
         };
@@ -83,12 +88,14 @@ fn policy_tool_names_are_bounded_visible_ascii() {
     let too_long = "x".repeat(257);
     let document = PolicyDocument {
         schema_version: 1,
+        lifecycle_mode: None,
         tools: BTreeMap::from([(
             too_long,
             ToolPolicy {
                 require_plan: true,
                 require_grant: true,
                 require_intent: None,
+                auto_allow_low_risk_profiles: None,
             },
         )]),
     };
@@ -601,12 +608,12 @@ fn migration_preserves_v1_source_and_refuses_destination_overwrite() {
     std::fs::write(&source, &source_bytes).unwrap();
     let destination = source.parent().unwrap().join("events-v2.jsonl");
 
-    let outcome = migrate_v1_to_v6(&source, &destination).unwrap();
+    let outcome = migrate_v1_to_v7(&source, &destination).unwrap();
     assert_eq!(outcome.revision, 1);
     assert_eq!(outcome.records, 1);
     assert_eq!(std::fs::read(&source).unwrap(), source_bytes);
     assert_eq!(load(&destination).unwrap().state().revision, 1);
-    assert!(migrate_v1_to_v6(&source, &destination).is_err());
+    assert!(migrate_v1_to_v7(&source, &destination).is_err());
 }
 
 #[test]
@@ -634,7 +641,7 @@ fn migration_rejects_v2_grant_events_mislabeled_as_v1() {
     });
     std::fs::write(&source, format!("{record}\n")).unwrap();
     let destination = source.parent().unwrap().join("events-v2.jsonl");
-    let error = migrate_v1_to_v6(&source, &destination).unwrap_err();
+    let error = migrate_v1_to_v7(&source, &destination).unwrap_err();
     assert!(
         error
             .to_string()

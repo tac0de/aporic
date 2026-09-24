@@ -9,7 +9,7 @@ use aporic::codex::{
     user_prompt_submit_output,
 };
 use aporic::mcp::serve_stdio;
-use aporic::policy::PolicyDocument;
+use aporic::policy::read_policy_document;
 use aporic::project::{
     default_data_root, discover_project, initialize_project, store_path as project_store_path,
 };
@@ -21,7 +21,7 @@ use aporic::{
 use serde::Serialize;
 use std::env;
 use std::io::{self, Read};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 fn print_json(value: &impl Serialize) -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", serde_json::to_string_pretty(value)?);
@@ -138,8 +138,7 @@ fn gate_policy(args: &[String]) -> Result<GatePolicy, Box<dyn std::error::Error>
         if args.iter().any(|argument| argument == "--require-plan") {
             return Err("--require-plan is only valid with legacy --protected-tool".into());
         }
-        let bytes = std::fs::read(path)?;
-        let document: PolicyDocument = serde_json::from_slice(&bytes)?;
+        let document = read_policy_document(Path::new(&path))?;
         return GatePolicy::from_document(document).map_err(Into::into);
     }
     let protected_tool =
@@ -151,7 +150,7 @@ fn gate_policy(args: &[String]) -> Result<GatePolicy, Box<dyn std::error::Error>
 }
 
 fn gate_policy_from_path(path: &std::path::Path) -> Result<GatePolicy, Box<dyn std::error::Error>> {
-    let document: PolicyDocument = serde_json::from_slice(&std::fs::read(path)?)?;
+    let document = read_policy_document(path)?;
     GatePolicy::from_document(document).map_err(Into::into)
 }
 
@@ -234,8 +233,7 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
         }
         "commit" => {
             let path = store_path(&args)?;
-            let mut input = String::new();
-            io::stdin().read_to_string(&mut input)?;
+            let input = read_bounded_stdin(MAX_USER_PROMPT_HOOK_INPUT_BYTES, "commit request")?;
             let request: CommitRequest = serde_json::from_str(&input)?;
             let outcome = commit(path, request)?;
             print_json(&outcome)?;
@@ -247,8 +245,8 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
         }
         "approve-plan" => {
             let path = store_path(&args)?;
-            let mut input = String::new();
-            io::stdin().read_to_string(&mut input)?;
+            let input =
+                read_bounded_stdin(MAX_USER_PROMPT_HOOK_INPUT_BYTES, "plan approval request")?;
             let request: PlanApprovalRequest = serde_json::from_str(&input)?;
             let outcome = approve_plan(path, request)?;
             print_json(&outcome)?;
@@ -290,8 +288,7 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
             if scope.trim().is_empty() || scope.len() > MAX_SCOPE_BYTES {
                 return Err(format!("scope must be 1..={MAX_SCOPE_BYTES} UTF-8 bytes").into());
             }
-            let mut input = String::new();
-            io::stdin().read_to_string(&mut input)?;
+            let input = read_bounded_stdin(MAX_USER_PROMPT_HOOK_INPUT_BYTES, "hook input")?;
             let input: SessionStartInput = serde_json::from_str(&input)?;
             input.validate().map_err(String::from)?;
             if !workspace_matches(&input.cwd, &workspace) {
@@ -347,8 +344,7 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
             if scope.trim().is_empty() || scope.len() > MAX_SCOPE_BYTES {
                 return Err(format!("scope must be 1..={MAX_SCOPE_BYTES} UTF-8 bytes").into());
             }
-            let mut input = String::new();
-            io::stdin().read_to_string(&mut input)?;
+            let input = read_bounded_stdin(MAX_USER_PROMPT_HOOK_INPUT_BYTES, "hook input")?;
             let input: PreToolUseInput = serde_json::from_str(&input)?;
             input.validate().map_err(String::from)?;
             if !workspace_matches(&input.cwd, &workspace) {
@@ -374,8 +370,7 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
             Ok(0)
         }
         "codex-global-session-start" => {
-            let mut input = String::new();
-            io::stdin().read_to_string(&mut input)?;
+            let input = read_bounded_stdin(MAX_USER_PROMPT_HOOK_INPUT_BYTES, "hook input")?;
             let input: SessionStartInput = serde_json::from_str(&input)?;
             input.validate().map_err(String::from)?;
             let data_root = match data_root(&args) {
@@ -526,8 +521,7 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
             let path = store_path(&args)?;
             let scope = argument(&args, "--scope")?;
             let policy = gate_policy(&args)?;
-            let mut input = String::new();
-            io::stdin().read_to_string(&mut input)?;
+            let input = read_bounded_stdin(MAX_USER_PROMPT_HOOK_INPUT_BYTES, "explain input")?;
             let input: PreToolUseInput = serde_json::from_str(&input)?;
             let log = load(path)?;
             print_json(
@@ -554,6 +548,7 @@ fn run() -> Result<i32, Box<dyn std::error::Error>> {
                     print_json(&serde_json::json!({
                         "healthy": true,
                         "event_schema": SCHEMA_VERSION,
+                        "lifecycle_mode": policy.document().lifecycle_mode(),
                         "revision": log.state().revision,
                         "protected_tools": policy.document().tools.keys().collect::<Vec<_>>(),
                         "checks": ["policy_valid", "store_readable", "log_replay_valid"]

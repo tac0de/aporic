@@ -506,10 +506,15 @@ fn one_global_adapter_discovers_only_explicitly_bound_projects() {
     let generated_policy: Value =
         serde_json::from_slice(&std::fs::read(workspace.join(".aporic/policy.json")).unwrap())
             .unwrap();
-    assert_eq!(generated_policy["schema_version"], 2);
+    assert_eq!(generated_policy["schema_version"], 4);
+    assert_eq!(generated_policy["lifecycle_mode"], "development");
     assert_eq!(
         generated_policy["tools"]["apply_patch"]["require_intent"],
         true
+    );
+    assert_eq!(
+        generated_policy["tools"]["apply_patch"]["auto_allow_low_risk_profiles"][0],
+        serde_json::json!({"profile_id": "local-code", "profile_version": "1"})
     );
 
     let unrelated = temp_path("global-unrelated");
@@ -675,6 +680,16 @@ fn oversized_global_user_prompt_input_skips_without_blocking_or_echoing() {
 fn oversized_global_post_tool_input_fails_with_a_bounded_diagnostic() {
     let oversized = "x".repeat(1_048_577);
     let output = run(&["codex-global-post-tool-use"], Some(&oversized));
+    assert_eq!(output.status.code(), Some(1));
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("hook input exceeds 1048576 UTF-8 bytes")
+    );
+}
+
+#[test]
+fn oversized_global_session_start_input_fails_before_parsing() {
+    let oversized = "x".repeat(1_048_577);
+    let output = run(&["codex-global-session-start"], Some(&oversized));
     assert_eq!(output.status.code(), Some(1));
     assert!(
         String::from_utf8_lossy(&output.stderr).contains("hook input exceeds 1048576 UTF-8 bytes")
@@ -903,7 +918,7 @@ fn project_init_can_migrate_a_v1_store_without_changing_the_source() {
     let setup: Value = serde_json::from_slice(&setup.stdout).unwrap();
     assert_eq!(setup["status"], "migrated");
     assert_eq!(setup["migration"]["from_schema"], 1);
-    assert_eq!(setup["migration"]["to_schema"], 6);
+    assert_eq!(setup["migration"]["to_schema"], SCHEMA_VERSION);
     assert_eq!(std::fs::read_to_string(&source).unwrap(), source_bytes);
 
     let status = run(
@@ -1348,6 +1363,31 @@ fn invalid_policy_fails_closed_for_pre_tool_use_and_is_structured_in_doctor() {
     assert_eq!(
         serde_json::from_slice::<Value>(&doctor.stdout).unwrap()["healthy"],
         false
+    );
+
+    let oversized_policy = workspace.join("oversized-policy.json");
+    std::fs::write(&oversized_policy, "x".repeat(1_048_577)).unwrap();
+    let gated = run(
+        &[
+            "codex-pre-tool-use",
+            "--store",
+            store.to_str().unwrap(),
+            "--scope",
+            "repo",
+            "--workspace",
+            workspace.to_str().unwrap(),
+            "--policy",
+            oversized_policy.to_str().unwrap(),
+        ],
+        Some(&serde_json::to_string(&input).unwrap()),
+    );
+    assert!(gated.status.success());
+    let gate: Value = serde_json::from_slice(&gated.stdout).unwrap();
+    assert!(
+        gate["hookSpecificOutput"]["permissionDecisionReason"]
+            .as_str()
+            .unwrap()
+            .starts_with("APORIC_POLICY_INVALID")
     );
 }
 

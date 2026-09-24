@@ -686,12 +686,14 @@ fn unavailable_projection_bounds_large_multi_tool_policy() {
                     require_plan: true,
                     require_grant: index % 2 == 0,
                     require_intent: None,
+                    auto_allow_low_risk_profiles: None,
                 },
             )
         })
         .collect();
     let policy = GatePolicy::from_document(aporic::policy::PolicyDocument {
         schema_version: 1,
+        lifecycle_mode: None,
         tools,
     })
     .unwrap();
@@ -722,12 +724,14 @@ fn observed_projection_bounds_large_multi_tool_policy() {
                     require_plan: true,
                     require_grant: index % 2 == 0,
                     require_intent: None,
+                    auto_allow_low_risk_profiles: None,
                 },
             )
         })
         .collect();
     let policy = GatePolicy::from_document(aporic::policy::PolicyDocument {
         schema_version: 1,
+        lifecycle_mode: None,
         tools,
     })
     .unwrap();

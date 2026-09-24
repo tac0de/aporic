@@ -6,7 +6,7 @@ use aporic::governance::GateStatus;
 use aporic::policy::{PolicyDocument, ToolPolicy};
 use aporic::{
     Actor, ActorKind, CommitRequest, CommitStatus, Event, SCHEMA_VERSION, commit, initialize, load,
-    migrate_v4_to_v6, migrate_v5_to_v6,
+    migrate_v4_to_v7, migrate_v5_to_v7,
 };
 use serde_json::{Value, json};
 use std::path::PathBuf;
@@ -127,12 +127,14 @@ fn superseded_intent_invalidates_bound_plan_authority() {
 
     let grant_policy = GatePolicy::from_document(aporic::policy::PolicyDocument {
         schema_version: 1,
+        lifecycle_mode: None,
         tools: [(
             "apply_patch".into(),
             aporic::policy::ToolPolicy {
                 require_plan: true,
                 require_grant: true,
                 require_intent: None,
+                auto_allow_low_risk_profiles: None,
             },
         )]
         .into_iter()
@@ -372,9 +374,9 @@ fn schema_four_migration_preserves_legacy_unbound_plans() {
     std::fs::write(&source, &source_bytes).unwrap();
     let destination = path("migration-destination").join("events-v6.jsonl");
 
-    let outcome = migrate_v4_to_v6(&source, &destination).unwrap();
+    let outcome = migrate_v4_to_v7(&source, &destination).unwrap();
     assert_eq!(outcome.from_schema, 4);
-    assert_eq!(outcome.to_schema, 6);
+    assert_eq!(outcome.to_schema, SCHEMA_VERSION);
     assert_eq!(std::fs::read_to_string(&source).unwrap(), source_bytes);
     assert_eq!(
         load(&destination).unwrap().state().plans["legacy"].intent_id,
@@ -408,15 +410,15 @@ fn schema_five_logs_migrate_to_schema_six_without_mutating_source() {
     std::fs::write(&source, &source_bytes).unwrap();
     let destination = path("migration-destination-v6").join("events-v6.jsonl");
 
-    let outcome = migrate_v5_to_v6(&source, &destination).unwrap();
+    let outcome = migrate_v5_to_v7(&source, &destination).unwrap();
     assert_eq!(outcome.from_schema, 5);
-    assert_eq!(outcome.to_schema, 6);
+    assert_eq!(outcome.to_schema, SCHEMA_VERSION);
     assert_eq!(outcome.records, 1);
     assert_eq!(std::fs::read_to_string(&source).unwrap(), source_bytes);
     assert_eq!(load(&destination).unwrap().state().intents.len(), 1);
     let migrated: Value =
         serde_json::from_str(std::fs::read_to_string(&destination).unwrap().trim_end()).unwrap();
-    assert_eq!(migrated["schema_version"], 6);
+    assert_eq!(migrated["schema_version"], SCHEMA_VERSION);
 }
 
 #[test]
@@ -450,7 +452,7 @@ fn schema_five_migration_rejects_schema_six_approval_events() {
     std::fs::write(&source, format!("{record}\n")).unwrap();
     let destination = path("migration-invalid-v5-destination").join("events-v6.jsonl");
 
-    let error = migrate_v5_to_v6(&source, &destination).unwrap_err();
+    let error = migrate_v5_to_v7(&source, &destination).unwrap_err();
     assert!(
         error
             .to_string()
@@ -498,12 +500,14 @@ fn projection_exposes_only_active_intent_envelopes() {
     };
     let intent_policy = GatePolicy::from_document(PolicyDocument {
         schema_version: 2,
+        lifecycle_mode: None,
         tools: [(
             "apply_patch".into(),
             ToolPolicy {
                 require_plan: true,
                 require_grant: false,
                 require_intent: Some(true),
+                auto_allow_low_risk_profiles: None,
             },
         )]
         .into_iter()
@@ -544,12 +548,14 @@ fn policy_v2_requires_intent_without_breaking_v1_documents() {
 
     let invalid_v1 = PolicyDocument {
         schema_version: 1,
+        lifecycle_mode: None,
         tools: [(
             "apply_patch".into(),
             ToolPolicy {
                 require_plan: true,
                 require_grant: false,
                 require_intent: Some(true),
+                auto_allow_low_risk_profiles: None,
             },
         )]
         .into_iter()
@@ -559,12 +565,14 @@ fn policy_v2_requires_intent_without_breaking_v1_documents() {
 
     let missing_v2 = PolicyDocument {
         schema_version: 2,
+        lifecycle_mode: None,
         tools: [(
             "apply_patch".into(),
             ToolPolicy {
                 require_plan: true,
                 require_grant: false,
                 require_intent: None,
+                auto_allow_low_risk_profiles: None,
             },
         )]
         .into_iter()
@@ -574,12 +582,14 @@ fn policy_v2_requires_intent_without_breaking_v1_documents() {
 
     let ineffective_v2 = PolicyDocument {
         schema_version: 2,
+        lifecycle_mode: None,
         tools: [(
             "apply_patch".into(),
             ToolPolicy {
                 require_plan: false,
                 require_grant: false,
                 require_intent: Some(true),
+                auto_allow_low_risk_profiles: None,
             },
         )]
         .into_iter()
@@ -700,12 +710,14 @@ fn require_intent_excludes_unbound_plan_authorizations_and_grants() {
 
     let required = GatePolicy::from_document(PolicyDocument {
         schema_version: 2,
+        lifecycle_mode: None,
         tools: [(
             "apply_patch".into(),
             ToolPolicy {
                 require_plan: true,
                 require_grant: false,
                 require_intent: Some(true),
+                auto_allow_low_risk_profiles: None,
             },
         )]
         .into_iter()
@@ -742,12 +754,14 @@ fn require_intent_excludes_unbound_plan_authorizations_and_grants() {
 
     let grant_required = GatePolicy::from_document(PolicyDocument {
         schema_version: 2,
+        lifecycle_mode: None,
         tools: [(
             "apply_patch".into(),
             ToolPolicy {
                 require_plan: false,
                 require_grant: true,
                 require_intent: Some(true),
+                auto_allow_low_risk_profiles: None,
             },
         )]
         .into_iter()

@@ -6,7 +6,7 @@ use aporic::codex::{GatePolicy, SessionSource, SessionStartInput, session_start_
 use aporic::{
     Actor, ActorKind, ArgumentRelationKind, BeliefRevision, CommitRequest, CommitStatus,
     DecisionReview, DecisionReviewOutcome, EpistemicStatus, Event, EvidenceKind, SCHEMA_VERSION,
-    State, commit, initialize, load, migrate_v3_to_v6,
+    State, commit, initialize, load, migrate_v3_to_v7,
 };
 use serde_json::json;
 use std::path::PathBuf;
@@ -678,9 +678,9 @@ fn schema_three_logs_migrate_to_schema_six_without_mutating_source() {
     let bytes = format!("{record}\n");
     std::fs::write(&source, &bytes).unwrap();
     let destination = path("migration-destination").join("events-v6.jsonl");
-    let outcome = migrate_v3_to_v6(&source, &destination).unwrap();
+    let outcome = migrate_v3_to_v7(&source, &destination).unwrap();
     assert_eq!(outcome.from_schema, 3);
-    assert_eq!(outcome.to_schema, 6);
+    assert_eq!(outcome.to_schema, SCHEMA_VERSION);
     assert_eq!(std::fs::read_to_string(&source).unwrap(), bytes);
     assert_eq!(load(&destination).unwrap().state().claims.len(), 1);
 }

@@ -1,7 +1,8 @@
-use crate::State;
-use crate::policy::{PolicyDocument, ToolPolicy};
+use crate::policy::{EffectiveToolPolicy, PolicyDocument};
+use crate::{RiskLevel, State};
 use serde::Serialize;
 use serde_json::Value;
+use std::collections::BTreeSet;
 
 #[derive(Debug, Clone, Copy)]
 pub struct Action<'a> {
@@ -18,6 +19,7 @@ pub enum GateStatus {
     Allowed,
     Held,
     IntentBoundPlanRequired,
+    PlanNotExecutionEligible,
     PlanAuthorizationRequired,
     ExecutionGrantRequired,
     ToolUseAlreadyConsumed,
@@ -34,22 +36,18 @@ pub struct ActionEvaluation {
     pub selected_execution_grant_id: Option<String>,
 }
 
-fn plan_intent_is_eligible(
-    state: &State,
-    plan_id: &str,
-    scope: &str,
-    require_intent: bool,
-) -> bool {
-    state.plans.get(plan_id).map_or(!require_intent, |plan| {
-        plan.intent_id
-            .as_ref()
-            .map_or(!require_intent, |intent_id| {
-                state
-                    .intents
-                    .get(intent_id)
-                    .is_some_and(|intent| intent.scope == scope && intent.superseded_by.is_none())
-            })
-    })
+#[derive(Debug, Clone, Copy)]
+struct AuthorityMatches {
+    plan_authorizations: usize,
+    grants: usize,
+    auto_allowed_plans: usize,
+    raw_plan_authorizations: usize,
+    raw_grants: usize,
+    has_unready_governed_authority: bool,
+}
+
+fn plan_is_eligible(state: &State, plan_id: &str, scope: &str, require_intent: bool) -> bool {
+    state.plan_is_execution_eligible(plan_id, scope, require_intent)
 }
 
 pub fn evaluate_action(
@@ -65,7 +63,7 @@ pub fn evaluate_action(
     {
         return Err("session id must fit the byte limit");
     }
-    let Some(tool_policy) = policy.tool(action.tool_name) else {
+    let Some(tool_policy) = policy.effective_tool(action.tool_name) else {
         return Ok(None);
     };
 
@@ -87,14 +85,19 @@ pub fn evaluate_action(
         })
         .collect::<Vec<_>>();
     let raw_matching_plan_authorization_count = matching_plan_authorizations.len();
+    let has_unready_governed_plan_authorization =
+        matching_plan_authorizations.iter().any(|authorization| {
+            state.governed_plans.contains_key(&authorization.plan_id)
+                && !state.governed_plan_is_ready(&authorization.plan_id)
+        });
     let matching_plan_authorization_count = matching_plan_authorizations
         .iter()
         .filter(|authorization| {
-            plan_intent_is_eligible(
+            plan_is_eligible(
                 state,
                 &authorization.plan_id,
                 action.scope,
-                tool_policy.requires_intent(),
+                tool_policy.require_intent,
             )
         })
         .count();
@@ -113,30 +116,71 @@ pub fn evaluate_action(
         })
         .collect();
     let raw_matching_execution_grant_count = raw_matching_grants.len();
+    let has_unready_governed_grant = raw_matching_grants.iter().any(|grant| {
+        state.governed_plans.contains_key(&grant.plan_id)
+            && !state.governed_plan_is_ready(&grant.plan_id)
+    });
     let matching_grants = raw_matching_grants
         .into_iter()
         .filter(|grant| {
-            plan_intent_is_eligible(
+            plan_is_eligible(
                 state,
                 &grant.plan_id,
                 action.scope,
-                tool_policy.requires_intent(),
+                tool_policy.require_intent,
             )
         })
         .collect::<Vec<_>>();
     let matching_execution_grant_count = matching_grants.len();
     let selected_execution_grant_id = matching_grants.first().map(|grant| grant.id.clone());
+    let auto_allowed_profiles = tool_policy
+        .auto_allow_low_risk_profiles
+        .iter()
+        .map(|profile| {
+            (
+                profile.profile_id.as_str(),
+                profile.profile_version.as_str(),
+            )
+        })
+        .collect::<BTreeSet<_>>();
+    let auto_allow_candidates = state
+        .governed_plans
+        .values()
+        .filter(|governed| {
+            governed.risk_snapshot.risk_level == RiskLevel::Low
+                && auto_allowed_profiles.contains(&(
+                    governed.risk_snapshot.profile_id.as_str(),
+                    governed.risk_snapshot.profile_version.as_str(),
+                ))
+                && state
+                    .plans
+                    .get(&governed.id)
+                    .is_some_and(|plan| plan.scope == action.scope)
+        })
+        .collect::<Vec<_>>();
+    let matching_auto_allowed_plan_count = auto_allow_candidates
+        .iter()
+        .filter(|governed| state.governed_plan_is_ready(&governed.id))
+        .count();
+    let has_unready_auto_allow_candidate =
+        auto_allow_candidates.len() > matching_auto_allowed_plan_count;
     let tool_use_already_consumed = action
         .tool_use_id
         .is_some_and(|id| state.consumed_tool_uses.contains_key(id));
 
     let (status, reason_code) = decide(
-        tool_policy,
+        &tool_policy,
         active_hold_count,
-        matching_plan_authorization_count,
-        matching_execution_grant_count,
-        raw_matching_plan_authorization_count,
-        raw_matching_execution_grant_count,
+        AuthorityMatches {
+            plan_authorizations: matching_plan_authorization_count,
+            grants: matching_execution_grant_count,
+            auto_allowed_plans: matching_auto_allowed_plan_count,
+            raw_plan_authorizations: raw_matching_plan_authorization_count,
+            raw_grants: raw_matching_execution_grant_count,
+            has_unready_governed_authority: has_unready_governed_plan_authorization
+                || has_unready_governed_grant
+                || has_unready_auto_allow_candidate,
+        },
         tool_use_already_consumed,
     );
 
@@ -152,12 +196,9 @@ pub fn evaluate_action(
 }
 
 fn decide(
-    policy: &ToolPolicy,
+    policy: &EffectiveToolPolicy<'_>,
     holds: usize,
-    plan_authorizations: usize,
-    grants: usize,
-    raw_plan_authorizations: usize,
-    raw_grants: usize,
+    matches: AuthorityMatches,
     tool_use_already_consumed: bool,
 ) -> (GateStatus, &'static str) {
     if holds > 0 {
@@ -168,11 +209,18 @@ fn decide(
             "TOOL_USE_ALREADY_CONSUMED",
         )
     } else if policy.require_plan
-        && plan_authorizations == 0
-        && !(policy.require_grant && grants > 0)
+        && matches.plan_authorizations == 0
+        && matches.auto_allowed_plans == 0
+        && !(policy.require_grant && matches.grants > 0)
     {
-        if policy.requires_intent()
-            && (raw_plan_authorizations > 0 || (policy.require_grant && raw_grants > 0))
+        if matches.has_unready_governed_authority {
+            (
+                GateStatus::PlanNotExecutionEligible,
+                "PLAN_NOT_EXECUTION_ELIGIBLE",
+            )
+        } else if policy.require_intent
+            && (matches.raw_plan_authorizations > 0
+                || (policy.require_grant && matches.raw_grants > 0))
         {
             (
                 GateStatus::IntentBoundPlanRequired,
@@ -184,8 +232,13 @@ fn decide(
                 "PLAN_AUTHORIZATION_REQUIRED",
             )
         }
-    } else if policy.require_grant && grants == 0 {
-        if policy.requires_intent() && raw_grants > 0 {
+    } else if policy.require_grant && matches.grants == 0 {
+        if matches.has_unready_governed_authority {
+            (
+                GateStatus::PlanNotExecutionEligible,
+                "PLAN_NOT_EXECUTION_ELIGIBLE",
+            )
+        } else if policy.require_intent && matches.raw_grants > 0 {
             (
                 GateStatus::IntentBoundPlanRequired,
                 "INTENT_BOUND_PLAN_REQUIRED",

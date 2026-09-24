@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fmt;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
@@ -14,7 +14,9 @@ pub mod policy;
 pub mod project;
 pub mod verifier;
 
-pub const SCHEMA_VERSION: u32 = 6;
+pub const SCHEMA_VERSION: u32 = 7;
+pub const MAX_GOVERNED_PLAN_REQUIREMENTS: usize = 256;
+pub const MAX_REQUIREMENT_DEPENDENCIES: usize = 32;
 
 #[derive(Debug)]
 pub enum Error {
@@ -75,6 +77,7 @@ pub struct Actor {
 pub enum TransitionKind {
     DecisionCommit,
     PlanAuthorize,
+    PlanGovernance,
     ScopeChange,
     DirectionSupersede,
     RiskAccept,
@@ -144,6 +147,32 @@ pub enum DecisionReviewOutcome {
     Revised,
     Reversed,
     Inconclusive,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RiskLevel {
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RequirementDispositionKind {
+    Satisfied,
+    NotApplicable,
+    Tailored,
+    Waived,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RequirementState {
+    Pending,
+    Resolved,
+    Stale,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -221,6 +250,40 @@ pub enum Event {
         unresolved_questions: Vec<String>,
         #[serde(default)]
         intent_id: Option<String>,
+    },
+    GovernedPlanRegistered {
+        plan_id: String,
+        predecessor_plan_id: Option<String>,
+        intent_id: String,
+        objective: String,
+        acceptance_checks: Vec<String>,
+        unresolved_questions: Vec<String>,
+        risk_snapshot: RiskSnapshot,
+        requirements: Vec<PlanRequirement>,
+    },
+    RequirementDispositionRecorded {
+        resolution_id: String,
+        plan_id: String,
+        requirement_id: String,
+        disposition: RequirementDispositionKind,
+        rationale: String,
+        evidence_refs: Vec<String>,
+        compensating_control_ids: Vec<String>,
+        accepted_risk_id: Option<String>,
+        supersedes_resolution_id: Option<String>,
+        authority_ref: Option<String>,
+    },
+    RequirementDispositionInvalidated {
+        resolution_id: String,
+        plan_id: String,
+        requirement_id: String,
+        reason: String,
+        trigger_ref: String,
+    },
+    GovernedPlanSuperseded {
+        plan_id: String,
+        successor_plan_id: String,
+        reason: String,
     },
     PlanAuthorized {
         authorization_id: String,
@@ -381,15 +444,19 @@ impl Event {
             Self::IntentEnvelopeSuperseded { .. } => Some(TransitionKind::DirectionSupersede),
             Self::DecisionCommitted { .. } => Some(TransitionKind::DecisionCommit),
             Self::DecisionSuperseded { .. } => Some(TransitionKind::DirectionSupersede),
+            Self::GovernedPlanSuperseded { .. } => Some(TransitionKind::DirectionSupersede),
             Self::RiskAccepted { .. } => Some(TransitionKind::RiskAccept),
             Self::PlanAuthorized { .. } | Self::PlanApprovalRecorded { .. } => {
                 Some(TransitionKind::PlanAuthorize)
             }
             Self::PlanCompleted { .. } => Some(TransitionKind::CompletionClaim),
+            Self::RequirementDispositionRecorded { .. } => Some(TransitionKind::PlanGovernance),
             Self::IntentEnvelopeRecorded { .. }
             | Self::ToolHoldPlaced { .. }
             | Self::ToolHoldReleased { .. }
             | Self::PlanRegistered { .. }
+            | Self::GovernedPlanRegistered { .. }
+            | Self::RequirementDispositionInvalidated { .. }
             | Self::PlanAuthorizationRevoked { .. }
             | Self::ExecutionGrantRevoked { .. }
             | Self::ExecutionGrantConsumed { .. }
@@ -488,6 +555,55 @@ pub struct Plan {
     pub evidence_refs: Vec<String>,
     pub assumption_claim_ids: Vec<String>,
     pub completed: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RiskSnapshot {
+    pub profile_id: String,
+    pub profile_version: String,
+    pub risk_level: RiskLevel,
+    pub basis_refs: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PlanRequirement {
+    pub requirement_id: String,
+    pub control_id: String,
+    pub depends_on: Vec<String>,
+    pub non_waivable: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GovernedPlan {
+    pub id: String,
+    pub predecessor_plan_id: Option<String>,
+    pub risk_snapshot: RiskSnapshot,
+    pub requirements: Vec<PlanRequirement>,
+    pub superseded_by: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct RequirementResolution {
+    pub id: String,
+    pub plan_id: String,
+    pub requirement_id: String,
+    pub disposition: RequirementDispositionKind,
+    pub rationale: String,
+    pub evidence_refs: Vec<String>,
+    pub compensating_control_ids: Vec<String>,
+    pub accepted_risk_id: Option<String>,
+    pub supersedes_resolution_id: Option<String>,
+    pub authority_ref: Option<String>,
+    pub scope: String,
+    pub actor: Actor,
+    pub invalidated: bool,
+    pub invalidation_reason: Option<String>,
+    pub invalidation_trigger_ref: Option<String>,
+    pub sequence: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -679,6 +795,9 @@ pub struct State {
     pub accepted_risks: BTreeMap<String, AcceptedRisk>,
     pub tool_holds: BTreeMap<String, ToolHold>,
     pub plans: BTreeMap<String, Plan>,
+    pub governed_plans: BTreeMap<String, GovernedPlan>,
+    pub requirement_resolutions: BTreeMap<String, RequirementResolution>,
+    pub latest_requirement_resolutions: BTreeMap<String, String>,
     pub plan_authorizations: BTreeMap<String, PlanAuthorization>,
     pub execution_grants: BTreeMap<String, ExecutionGrant>,
     pub consumed_tool_uses: BTreeMap<String, String>,
@@ -694,7 +813,151 @@ pub struct State {
     pub checkpoints: BTreeMap<String, Checkpoint>,
 }
 
+fn requirement_key(plan_id: &str, requirement_id: &str) -> String {
+    serde_json::to_string(&(plan_id, requirement_id))
+        .expect("string-pair serialization is infallible")
+}
+
+fn requirements_are_acyclic(requirements: &[PlanRequirement]) -> bool {
+    let mut remaining_dependencies = requirements
+        .iter()
+        .map(|requirement| {
+            (
+                requirement.requirement_id.as_str(),
+                requirement.depends_on.len(),
+            )
+        })
+        .collect::<BTreeMap<_, _>>();
+    let mut dependents = BTreeMap::<&str, Vec<&str>>::new();
+    for requirement in requirements {
+        for dependency in &requirement.depends_on {
+            dependents
+                .entry(dependency)
+                .or_default()
+                .push(&requirement.requirement_id);
+        }
+    }
+    let mut ready = remaining_dependencies
+        .iter()
+        .filter_map(|(id, count)| (*count == 0).then_some(*id))
+        .collect::<VecDeque<_>>();
+    let mut visited = 0;
+    while let Some(id) = ready.pop_front() {
+        visited += 1;
+        for dependent in dependents.get(id).into_iter().flatten() {
+            let Some(count) = remaining_dependencies.get_mut(dependent) else {
+                return false;
+            };
+            *count -= 1;
+            if *count == 0 {
+                ready.push_back(dependent);
+            }
+        }
+    }
+    visited == requirements.len()
+}
+
 impl State {
+    pub fn governed_requirement_state(
+        &self,
+        plan_id: &str,
+        requirement_id: &str,
+    ) -> Option<RequirementState> {
+        let plan = self.governed_plans.get(plan_id)?;
+        let target = plan
+            .requirements
+            .iter()
+            .find(|item| item.requirement_id == requirement_id)?;
+        let target_key = requirement_key(&plan.id, requirement_id);
+        let Some(target_resolution_id) = self.latest_requirement_resolutions.get(&target_key)
+        else {
+            return Some(RequirementState::Pending);
+        };
+        if self
+            .requirement_resolutions
+            .get(target_resolution_id)
+            .is_none_or(|resolution| resolution.invalidated)
+        {
+            return Some(RequirementState::Stale);
+        }
+
+        let by_id = plan
+            .requirements
+            .iter()
+            .map(|requirement| (requirement.requirement_id.as_str(), requirement))
+            .collect::<BTreeMap<_, _>>();
+        let mut pending = target
+            .depends_on
+            .iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>();
+        let mut visited = BTreeSet::new();
+        while let Some(id) = pending.pop() {
+            if !visited.insert(id) {
+                continue;
+            }
+            let Some(requirement) = by_id.get(id) else {
+                return Some(RequirementState::Stale);
+            };
+            let key = requirement_key(&plan.id, id);
+            let Some(resolution_id) = self.latest_requirement_resolutions.get(&key) else {
+                return Some(RequirementState::Stale);
+            };
+            if self
+                .requirement_resolutions
+                .get(resolution_id)
+                .is_none_or(|resolution| resolution.invalidated)
+            {
+                return Some(RequirementState::Stale);
+            }
+            pending.extend(requirement.depends_on.iter().map(String::as_str));
+        }
+        Some(RequirementState::Resolved)
+    }
+
+    pub fn governed_plan_is_ready(&self, plan_id: &str) -> bool {
+        let Some(governed) = self.governed_plans.get(plan_id) else {
+            return false;
+        };
+        let Some(plan) = self.plans.get(plan_id) else {
+            return false;
+        };
+        governed.superseded_by.is_none()
+            && !plan.completed
+            && !plan_intent_is_stale(self, plan)
+            && governed.requirements.iter().all(|requirement| {
+                self.governed_requirement_state(plan_id, &requirement.requirement_id)
+                    == Some(RequirementState::Resolved)
+            })
+    }
+
+    pub fn plan_is_execution_eligible(
+        &self,
+        plan_id: &str,
+        scope: &str,
+        require_intent: bool,
+    ) -> bool {
+        let Some(plan) = self.plans.get(plan_id) else {
+            return !require_intent;
+        };
+        let intent_is_eligible = plan
+            .intent_id
+            .as_ref()
+            .map_or(!require_intent, |intent_id| {
+                self.intents
+                    .get(intent_id)
+                    .is_some_and(|intent| intent.scope == scope && intent.superseded_by.is_none())
+            });
+        if plan.scope != scope || !intent_is_eligible {
+            return false;
+        }
+        if self.governed_plans.contains_key(plan_id) {
+            self.governed_plan_is_ready(plan_id)
+        } else {
+            true
+        }
+    }
+
     fn apply(&mut self, stored: &StoredEvent) -> Result<()> {
         if stored.sequence != self.revision + 1 {
             return Err(Error::Invariant(format!(
@@ -702,6 +965,26 @@ impl State {
                 self.revision + 1,
                 stored.sequence
             )));
+        }
+
+        let requires_governed_revalidation = match &stored.request.event {
+            Event::GovernedPlanRegistered { .. }
+            | Event::RequirementDispositionRecorded { .. }
+            | Event::RequirementDispositionInvalidated { .. }
+            | Event::GovernedPlanSuperseded { .. } => true,
+            Event::PlanAuthorized { plan_id, .. }
+            | Event::ExecutionGrantIssued { plan_id, .. }
+            | Event::PlanCompleted { plan_id, .. } => self.governed_plans.contains_key(plan_id),
+            _ => false,
+        };
+        if requires_governed_revalidation {
+            let evaluation = evaluate(self, &stored.request);
+            if evaluation.verdict != Verdict::Allow {
+                return Err(Error::Invariant(format!(
+                    "{}: {}",
+                    evaluation.reason_code, evaluation.message
+                )));
+            }
         }
 
         let scope = stored.request.scope.clone();
@@ -943,6 +1226,138 @@ impl State {
                         completed: false,
                     },
                 );
+            }
+            Event::GovernedPlanRegistered {
+                plan_id,
+                predecessor_plan_id,
+                intent_id,
+                objective,
+                acceptance_checks,
+                unresolved_questions,
+                risk_snapshot,
+                requirements,
+            } => {
+                self.plans.insert(
+                    plan_id.clone(),
+                    Plan {
+                        id: plan_id.clone(),
+                        objective: objective.clone(),
+                        scope,
+                        acceptance_checks: acceptance_checks.clone(),
+                        unresolved_questions: unresolved_questions.clone(),
+                        intent_id: Some(intent_id.clone()),
+                        evidence_refs: Vec::new(),
+                        assumption_claim_ids: Vec::new(),
+                        completed: false,
+                    },
+                );
+                self.governed_plans.insert(
+                    plan_id.clone(),
+                    GovernedPlan {
+                        id: plan_id.clone(),
+                        predecessor_plan_id: predecessor_plan_id.clone(),
+                        risk_snapshot: risk_snapshot.clone(),
+                        requirements: requirements.clone(),
+                        superseded_by: None,
+                    },
+                );
+            }
+            Event::RequirementDispositionRecorded {
+                resolution_id,
+                plan_id,
+                requirement_id,
+                disposition,
+                rationale,
+                evidence_refs,
+                compensating_control_ids,
+                accepted_risk_id,
+                supersedes_resolution_id,
+                authority_ref,
+            } => {
+                self.requirement_resolutions.insert(
+                    resolution_id.clone(),
+                    RequirementResolution {
+                        id: resolution_id.clone(),
+                        plan_id: plan_id.clone(),
+                        requirement_id: requirement_id.clone(),
+                        disposition: *disposition,
+                        rationale: rationale.clone(),
+                        evidence_refs: evidence_refs.clone(),
+                        compensating_control_ids: compensating_control_ids.clone(),
+                        accepted_risk_id: accepted_risk_id.clone(),
+                        supersedes_resolution_id: supersedes_resolution_id.clone(),
+                        authority_ref: authority_ref.clone(),
+                        scope,
+                        actor: stored.request.actor.clone(),
+                        invalidated: false,
+                        invalidation_reason: None,
+                        invalidation_trigger_ref: None,
+                        sequence: stored.sequence,
+                    },
+                );
+                self.latest_requirement_resolutions.insert(
+                    requirement_key(plan_id, requirement_id),
+                    resolution_id.clone(),
+                );
+            }
+            Event::RequirementDispositionInvalidated {
+                resolution_id,
+                plan_id,
+                requirement_id,
+                reason,
+                trigger_ref,
+            } => {
+                let plan = self
+                    .governed_plans
+                    .get(plan_id)
+                    .ok_or_else(|| Error::Invariant(format!("unknown governed plan {plan_id}")))?;
+                let mut affected = BTreeSet::from([requirement_id.clone()]);
+                let mut pending = VecDeque::from([requirement_id.clone()]);
+                while let Some(invalidated_requirement_id) = pending.pop_front() {
+                    for requirement in &plan.requirements {
+                        if requirement.depends_on.contains(&invalidated_requirement_id)
+                            && affected.insert(requirement.requirement_id.clone())
+                        {
+                            pending.push_back(requirement.requirement_id.clone());
+                        }
+                    }
+                }
+
+                for affected_requirement_id in affected {
+                    let key = requirement_key(plan_id, &affected_requirement_id);
+                    let Some(affected_resolution_id) =
+                        self.latest_requirement_resolutions.get(&key).cloned()
+                    else {
+                        continue;
+                    };
+                    let resolution = self
+                        .requirement_resolutions
+                        .get_mut(&affected_resolution_id)
+                        .ok_or_else(|| {
+                            Error::Invariant(format!(
+                                "unknown requirement resolution {affected_resolution_id}"
+                            ))
+                        })?;
+                    resolution.invalidated = true;
+                    resolution.invalidation_reason = Some(reason.clone());
+                    resolution.invalidation_trigger_ref = Some(trigger_ref.clone());
+                }
+                debug_assert!(
+                    self.requirement_resolutions
+                        .get(resolution_id)
+                        .is_some_and(|resolution| resolution.invalidated)
+                );
+            }
+            Event::GovernedPlanSuperseded {
+                plan_id,
+                successor_plan_id,
+                ..
+            } => {
+                let plan = self
+                    .governed_plans
+                    .get_mut(plan_id)
+                    .ok_or_else(|| Error::Invariant(format!("unknown governed plan {plan_id}")))?;
+                plan.superseded_by = Some(successor_plan_id.clone());
             }
             Event::PlanAuthorized {
                 authorization_id,
@@ -1549,6 +1964,14 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                     .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
         })
     };
+    let direct_evidence_refs_are_valid = |refs: &[String]| {
+        !refs.is_empty()
+            && refs.iter().all(|reference| {
+                state.evidence.get(reference).is_some_and(|evidence| {
+                    evidence.scope == request.scope && evidence.kind != EvidenceKind::AgentInference
+                })
+            })
+    };
 
     let structural_error = match &request.event {
         Event::IntentEnvelopeRecorded {
@@ -1855,6 +2278,363 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                 None
             }
         }
+        Event::GovernedPlanRegistered {
+            plan_id,
+            predecessor_plan_id,
+            intent_id,
+            objective,
+            acceptance_checks,
+            unresolved_questions,
+            risk_snapshot,
+            requirements,
+        } => {
+            let requirement_ids = requirements
+                .iter()
+                .map(|requirement| requirement.requirement_id.clone())
+                .collect::<Vec<_>>();
+            let requirement_id_set = requirement_ids.iter().collect::<BTreeSet<_>>();
+            let graph_within_limits = requirements.len() <= MAX_GOVERNED_PLAN_REQUIREMENTS
+                && requirements.iter().all(|requirement| {
+                    requirement.depends_on.len() <= MAX_REQUIREMENT_DEPENDENCIES
+                });
+            let requirements_valid = !requirements.is_empty()
+                && unique_nonempty_strings(&requirement_ids)
+                && requirements.iter().all(|requirement| {
+                    !requirement.control_id.trim().is_empty()
+                        && unique_nonempty_strings(&requirement.depends_on)
+                        && requirement.depends_on.iter().all(|dependency| {
+                            dependency != &requirement.requirement_id
+                                && requirement_id_set.contains(dependency)
+                        })
+                });
+            if !required(&[
+                plan_id,
+                intent_id,
+                objective,
+                &risk_snapshot.profile_id,
+                &risk_snapshot.profile_version,
+            ]) || acceptance_checks.is_empty()
+                || requirements.is_empty()
+            {
+                Some((
+                    "MISSING_REQUIRED_FIELD",
+                    "governed plan, intent, objective, risk snapshot, acceptance check, and requirement are required",
+                ))
+            } else if !graph_within_limits {
+                Some((
+                    "GOVERNED_PLAN_GRAPH_TOO_LARGE",
+                    "governed plan requirement and dependency counts exceed runtime limits",
+                ))
+            } else if !unique_nonempty_strings(acceptance_checks)
+                || !unique_nonempty_strings(unresolved_questions)
+                || !unique_nonempty_strings(&risk_snapshot.basis_refs)
+                || !requirements_valid
+            {
+                Some((
+                    "INVALID_GOVERNED_PLAN",
+                    "governed plan lists, controls, and internal requirement references must be unique and non-empty",
+                ))
+            } else if !requirements_are_acyclic(requirements) {
+                Some((
+                    "REQUIREMENT_DEPENDENCY_CYCLE",
+                    "requirement dependencies must form a directed acyclic graph",
+                ))
+            } else if state.plans.contains_key(plan_id)
+                || state.governed_plans.contains_key(plan_id)
+            {
+                Some(("PLAN_ALREADY_EXISTS", "plan id already exists"))
+            } else if let Some(predecessor_id) = predecessor_plan_id {
+                match state.governed_plans.get(predecessor_id) {
+                    None => Some((
+                        "UNKNOWN_PREDECESSOR_PLAN",
+                        "governed predecessor plan does not exist",
+                    )),
+                    Some(predecessor) if state.plans[&predecessor.id].scope != request.scope => {
+                        Some((
+                            "SCOPE_MISMATCH",
+                            "successor scope differs from predecessor scope",
+                        ))
+                    }
+                    Some(predecessor) if predecessor.superseded_by.is_some() => Some((
+                        "PLAN_SUPERSEDED",
+                        "a superseded governed plan cannot receive another successor",
+                    )),
+                    Some(_)
+                        if state.governed_plans.values().any(|candidate| {
+                            candidate.predecessor_plan_id.as_deref()
+                                == Some(predecessor_id.as_str())
+                        }) =>
+                    {
+                        Some((
+                            "PLAN_SUCCESSOR_ALREADY_EXISTS",
+                            "a governed plan can have only one registered successor",
+                        ))
+                    }
+                    Some(_) => match state.intents.get(intent_id) {
+                        None => Some((
+                            "UNKNOWN_INTENT_ENVELOPE",
+                            "governed plan intent envelope does not exist",
+                        )),
+                        Some(intent)
+                            if intent.scope != request.scope || intent.superseded_by.is_some() =>
+                        {
+                            Some((
+                                "STALE_INTENT_ENVELOPE",
+                                "governed plan requires a current same-scope intent envelope",
+                            ))
+                        }
+                        Some(_) => None,
+                    },
+                }
+            } else {
+                match state.intents.get(intent_id) {
+                    None => Some((
+                        "UNKNOWN_INTENT_ENVELOPE",
+                        "governed plan intent envelope does not exist",
+                    )),
+                    Some(intent)
+                        if intent.scope != request.scope || intent.superseded_by.is_some() =>
+                    {
+                        Some((
+                            "STALE_INTENT_ENVELOPE",
+                            "governed plan requires a current same-scope intent envelope",
+                        ))
+                    }
+                    Some(_) => None,
+                }
+            }
+        }
+        Event::RequirementDispositionRecorded {
+            resolution_id,
+            plan_id,
+            requirement_id,
+            disposition,
+            rationale,
+            evidence_refs,
+            compensating_control_ids,
+            accepted_risk_id,
+            supersedes_resolution_id,
+            ..
+        } => {
+            let key = requirement_key(plan_id, requirement_id);
+            let latest = state.latest_requirement_resolutions.get(&key);
+            if !required(&[resolution_id, plan_id, requirement_id, rationale]) {
+                Some((
+                    "MISSING_REQUIRED_FIELD",
+                    "resolution, plan, requirement, and rationale are required",
+                ))
+            } else if !unique_nonempty_strings(evidence_refs)
+                || !unique_nonempty_strings(compensating_control_ids)
+            {
+                Some((
+                    "INVALID_DISPOSITION_LIST",
+                    "disposition lists must contain unique non-empty strings",
+                ))
+            } else if state.requirement_resolutions.contains_key(resolution_id) {
+                Some((
+                    "REQUIREMENT_RESOLUTION_ALREADY_EXISTS",
+                    "requirement resolution id already exists",
+                ))
+            } else if !state.governed_plans.contains_key(plan_id) {
+                Some((
+                    "UNKNOWN_GOVERNED_PLAN",
+                    "governed plan does not exist",
+                ))
+            } else if state.plans[plan_id].scope != request.scope {
+                Some((
+                    "SCOPE_MISMATCH",
+                    "resolution scope differs from governed plan scope",
+                ))
+            } else if !state.governed_plans[plan_id]
+                .requirements
+                .iter()
+                .any(|requirement| requirement.requirement_id == *requirement_id)
+            {
+                Some((
+                    "UNKNOWN_REQUIREMENT",
+                    "governed plan requirement does not exist",
+                ))
+            } else if state.governed_plans[plan_id]
+                .requirements
+                .iter()
+                .find(|requirement| requirement.requirement_id == *requirement_id)
+                .is_some_and(|requirement| {
+                    requirement.depends_on.iter().any(|dependency| {
+                        state.governed_requirement_state(plan_id, dependency)
+                            != Some(RequirementState::Resolved)
+                    })
+                })
+            {
+                Some((
+                    "REQUIREMENT_DEPENDENCY_NOT_RESOLVED",
+                    "requirement dependencies must be resolved before disposition",
+                ))
+            } else if latest.is_none() && supersedes_resolution_id.is_some() {
+                Some((
+                    "INVALID_RESOLUTION_SUPERSESSION",
+                    "an initial resolution cannot supersede another resolution",
+                ))
+            } else if let Some(latest_id) = latest {
+                if supersedes_resolution_id.as_ref() != Some(latest_id)
+                    || state.governed_requirement_state(plan_id, requirement_id)
+                        != Some(RequirementState::Stale)
+                {
+                    Some((
+                        "INVALID_RESOLUTION_SUPERSESSION",
+                        "only the latest stale resolution can be superseded",
+                    ))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+            .or_else(|| match disposition {
+                RequirementDispositionKind::Satisfied
+                | RequirementDispositionKind::NotApplicable => {
+                    if !direct_evidence_refs_are_valid(evidence_refs) {
+                        Some((
+                            "REQUIREMENT_EVIDENCE_MISSING",
+                            "disposition requires direct same-scope evidence",
+                        ))
+                    } else if !compensating_control_ids.is_empty() || accepted_risk_id.is_some() {
+                        Some((
+                            "INVALID_DISPOSITION_FIELDS",
+                            "this disposition cannot name compensating controls or accepted risk",
+                        ))
+                    } else {
+                        None
+                    }
+                }
+                RequirementDispositionKind::Tailored => {
+                    if !direct_evidence_refs_are_valid(evidence_refs)
+                        || compensating_control_ids.is_empty()
+                    {
+                        Some((
+                            "TAILORED_CONTROL_UNVERIFIED",
+                            "tailoring requires compensating controls and direct same-scope evidence",
+                        ))
+                    } else if accepted_risk_id.is_some() {
+                        Some((
+                            "INVALID_DISPOSITION_FIELDS",
+                            "tailoring cannot name an accepted risk",
+                        ))
+                    } else {
+                        None
+                    }
+                }
+                RequirementDispositionKind::Waived => {
+                    let non_waivable = state.governed_plans[plan_id]
+                        .requirements
+                        .iter()
+                        .find(|requirement| requirement.requirement_id == *requirement_id)
+                        .is_some_and(|requirement| requirement.non_waivable);
+                    if non_waivable {
+                        Some((
+                            "REQUIREMENT_NON_WAIVABLE",
+                            "a non-waivable requirement cannot be waived",
+                        ))
+                    } else if !compensating_control_ids.is_empty() {
+                        Some((
+                            "INVALID_DISPOSITION_FIELDS",
+                            "a waiver cannot name compensating controls",
+                        ))
+                    } else if accepted_risk_id.as_ref().is_none_or(|risk_id| {
+                        state
+                            .accepted_risks
+                            .get(risk_id)
+                            .is_none_or(|risk| risk.scope != request.scope)
+                    }) {
+                        Some((
+                            "ACCEPTED_RISK_REQUIRED",
+                            "waiver requires an accepted risk in the same scope",
+                        ))
+                    } else {
+                        None
+                    }
+                }
+            })
+        }
+        Event::RequirementDispositionInvalidated {
+            resolution_id,
+            plan_id,
+            requirement_id,
+            reason,
+            trigger_ref,
+        } => {
+            if !required(&[resolution_id, plan_id, requirement_id, reason, trigger_ref]) {
+                Some((
+                    "MISSING_REQUIRED_FIELD",
+                    "resolution, plan, requirement, reason, and trigger are required",
+                ))
+            } else if state
+                .latest_requirement_resolutions
+                .get(&requirement_key(plan_id, requirement_id))
+                .is_none_or(|latest| latest != resolution_id)
+            {
+                Some((
+                    "REQUIREMENT_RESOLUTION_NOT_CURRENT",
+                    "only the latest requirement resolution can be invalidated",
+                ))
+            } else if let Some(resolution) = state.requirement_resolutions.get(resolution_id) {
+                if resolution.plan_id != *plan_id
+                    || resolution.requirement_id != *requirement_id
+                    || resolution.scope != request.scope
+                {
+                    Some((
+                        "SCOPE_MISMATCH",
+                        "invalidation target differs from the named plan, requirement, or scope",
+                    ))
+                } else if resolution.invalidated {
+                    Some((
+                        "REQUIREMENT_RESOLUTION_ALREADY_INVALIDATED",
+                        "requirement resolution is already invalidated",
+                    ))
+                } else {
+                    None
+                }
+            } else {
+                Some((
+                    "UNKNOWN_REQUIREMENT_RESOLUTION",
+                    "requirement resolution does not exist",
+                ))
+            }
+        }
+        Event::GovernedPlanSuperseded {
+            plan_id,
+            successor_plan_id,
+            reason,
+        } => {
+            if !required(&[plan_id, successor_plan_id, reason]) || plan_id == successor_plan_id {
+                Some((
+                    "INVALID_PLAN_SUPERSESSION",
+                    "distinct governed plan ids and a reason are required",
+                ))
+            } else if let (Some(plan), Some(successor)) = (
+                state.governed_plans.get(plan_id),
+                state.governed_plans.get(successor_plan_id),
+            ) {
+                if state.plans[plan_id].scope != request.scope
+                    || state.plans[successor_plan_id].scope != request.scope
+                {
+                    Some((
+                        "SCOPE_MISMATCH",
+                        "governed plan supersession must remain in one scope",
+                    ))
+                } else if plan.superseded_by.is_some() {
+                    Some(("PLAN_SUPERSEDED", "governed plan is already superseded"))
+                } else if successor.predecessor_plan_id.as_ref() != Some(plan_id) {
+                    Some((
+                        "INVALID_PLAN_SUPERSESSION",
+                        "successor must name the governed predecessor plan",
+                    ))
+                } else {
+                    None
+                }
+            } else {
+                Some(("UNKNOWN_GOVERNED_PLAN", "both governed plans must exist"))
+            }
+        }
         Event::PlanAuthorized {
             authorization_id,
             plan_id,
@@ -1882,6 +2662,13 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                     Some((
                         "STALE_PLAN_INTENT",
                         "plan authorization requires a current intent envelope",
+                    ))
+                } else if state.governed_plans.contains_key(plan_id)
+                    && !state.governed_plan_is_ready(plan_id)
+                {
+                    Some((
+                        "PLAN_NOT_EXECUTION_ELIGIBLE",
+                        "governed plan requirements are not current and resolved",
                     ))
                 } else {
                     None
@@ -1998,6 +2785,13 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                     Some((
                         "STALE_PLAN_INTENT",
                         "execution grant requires a current plan intent envelope",
+                    ))
+                } else if state.governed_plans.contains_key(plan_id)
+                    && !state.governed_plan_is_ready(plan_id)
+                {
+                    Some((
+                        "PLAN_NOT_EXECUTION_ELIGIBLE",
+                        "governed plan requirements are not current and resolved",
                     ))
                 } else {
                     None
@@ -2790,6 +3584,13 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                         "STALE_PLAN_INTENT",
                         "a plan bound to a superseded intent cannot be completed",
                     ))
+                } else if state.governed_plans.contains_key(plan_id)
+                    && !state.governed_plan_is_ready(plan_id)
+                {
+                    Some((
+                        "PLAN_NOT_EXECUTION_ELIGIBLE",
+                        "governed plan requirements are not current and resolved",
+                    ))
                 } else if residual_risk_refs.iter().any(|risk_id| {
                     state
                         .accepted_risks
@@ -2960,7 +3761,8 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
         Event::IntentEnvelopeSuperseded { .. }
         | Event::DelegationGranted { .. }
         | Event::DelegationRevoked { .. }
-        | Event::DecisionSuperseded { .. } => {
+        | Event::DecisionSuperseded { .. }
+        | Event::GovernedPlanSuperseded { .. } => {
             if request.actor.kind != ActorKind::Human {
                 return Evaluation::deny(
                     "HUMAN_AUTHORITY_REQUIRED",
@@ -3023,6 +3825,69 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
             return Evaluation::deny(
                 "RELEASE_AUTHORITY_REQUIRED",
                 "tool hold release requires an event declared as human or evidence-authored",
+            );
+        }
+        Event::RequirementDispositionRecorded {
+            disposition,
+            authority_ref,
+            ..
+        } => match disposition {
+            RequirementDispositionKind::Satisfied if request.actor.kind != ActorKind::Evidence => {
+                return Evaluation::deny(
+                    "REQUIREMENT_DISPOSITION_UNAUTHORIZED",
+                    "satisfied disposition requires an evidence-authored event",
+                );
+            }
+            RequirementDispositionKind::Waived if request.actor.kind != ActorKind::Human => {
+                return Evaluation::deny(
+                    "REQUIREMENT_DISPOSITION_UNAUTHORIZED",
+                    "waived disposition requires a human risk owner",
+                );
+            }
+            RequirementDispositionKind::NotApplicable | RequirementDispositionKind::Tailored
+                if request.actor.kind == ActorKind::Agent =>
+            {
+                let Some(reference) = authority_ref else {
+                    return Evaluation::deny(
+                        "DELEGATION_REQUIRED",
+                        "agent disposition requires an authority_ref",
+                    );
+                };
+                let Some(delegation) = state.delegations.get(reference) else {
+                    return Evaluation::deny(
+                        "UNKNOWN_DELEGATION",
+                        "authority_ref does not name a delegation",
+                    );
+                };
+                if !delegation.active
+                    || delegation.grantee != request.actor.id
+                    || delegation.scope != request.scope
+                    || !delegation
+                        .transition_kinds
+                        .contains(&TransitionKind::PlanGovernance)
+                {
+                    return Evaluation::deny(
+                        "DELEGATION_SCOPE_VIOLATION",
+                        "delegation does not cover plan governance in this scope",
+                    );
+                }
+            }
+            RequirementDispositionKind::NotApplicable | RequirementDispositionKind::Tailored
+                if request.actor.kind != ActorKind::Human =>
+            {
+                return Evaluation::deny(
+                    "REQUIREMENT_DISPOSITION_UNAUTHORIZED",
+                    "disposition requires human authority or a delegated agent",
+                );
+            }
+            _ => {}
+        },
+        Event::RequirementDispositionInvalidated { .. }
+            if !matches!(request.actor.kind, ActorKind::Human | ActorKind::Evidence) =>
+        {
+            return Evaluation::deny(
+                "REQUIREMENT_INVALIDATION_UNAUTHORIZED",
+                "invalidation requires a human or evidence-authored event",
             );
         }
         Event::ActionOutcomeRecorded { .. }
@@ -3373,9 +4238,9 @@ pub fn migrate_to_current(
     destination: impl AsRef<Path>,
     from_schema: u32,
 ) -> Result<MigrationOutcome> {
-    if !matches!(from_schema, 1..=5) || from_schema >= SCHEMA_VERSION {
+    if !matches!(from_schema, 1..=6) || from_schema >= SCHEMA_VERSION {
         return Err(Error::Invariant(format!(
-            "migration supports schema versions 1 through 5 below current version {SCHEMA_VERSION}"
+            "migration supports schema versions 1 through 6 below current version {SCHEMA_VERSION}"
         )));
     }
     let source = source.as_ref();
@@ -3491,11 +4356,13 @@ pub fn migrate_to_current(
                         | "effect_verification_recorded"
                 )
             );
+        let v6_event = v5_event || matches!(event_type, Some("plan_approval_recorded"));
         if (from_schema == 1 && !v1_event)
             || (from_schema == 2 && !v2_event)
             || (from_schema == 3 && !v3_event)
             || (from_schema == 4 && !v4_event)
             || (from_schema == 5 && !v5_event)
+            || (from_schema == 6 && !v6_event)
         {
             return Err(Error::CorruptLog {
                 line: index + 1,
@@ -3543,119 +4410,166 @@ pub fn migrate_to_current(
     })
 }
 
-pub fn migrate_v1_to_v6(
+pub fn migrate_v1_to_v7(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
     migrate_to_current(source, destination, 1)
 }
 
-#[deprecated(note = "use migrate_v1_to_v6; the destination schema is now version 6")]
+#[deprecated(note = "use migrate_v1_to_v7; the destination schema is now version 7")]
+pub fn migrate_v1_to_v6(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<MigrationOutcome> {
+    migrate_v1_to_v7(source, destination)
+}
+
+#[deprecated(note = "use migrate_v1_to_v7; the destination schema is now version 7")]
 pub fn migrate_v1_to_v5(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
-    migrate_v1_to_v6(source, destination)
+    migrate_v1_to_v7(source, destination)
 }
 
-#[deprecated(note = "use migrate_v1_to_v6; the destination schema is now version 6")]
+#[deprecated(note = "use migrate_v1_to_v7; the destination schema is now version 7")]
 pub fn migrate_v1_to_v4(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
-    migrate_v1_to_v6(source, destination)
+    migrate_v1_to_v7(source, destination)
 }
 
-#[deprecated(note = "use migrate_v1_to_v6; the destination schema is now version 6")]
+#[deprecated(note = "use migrate_v1_to_v7; the destination schema is now version 7")]
 pub fn migrate_v1_to_v2(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
-    migrate_v1_to_v6(source, destination)
+    migrate_v1_to_v7(source, destination)
 }
 
-#[deprecated(note = "use migrate_v1_to_v6; the destination schema is now version 6")]
+#[deprecated(note = "use migrate_v1_to_v7; the destination schema is now version 7")]
 pub fn migrate_v1_to_v3(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
-    migrate_v1_to_v6(source, destination)
+    migrate_v1_to_v7(source, destination)
 }
 
-pub fn migrate_v2_to_v6(
+pub fn migrate_v2_to_v7(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
     migrate_to_current(source, destination, 2)
 }
 
-#[deprecated(note = "use migrate_v2_to_v6; the destination schema is now version 6")]
+#[deprecated(note = "use migrate_v2_to_v7; the destination schema is now version 7")]
+pub fn migrate_v2_to_v6(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<MigrationOutcome> {
+    migrate_v2_to_v7(source, destination)
+}
+
+#[deprecated(note = "use migrate_v2_to_v7; the destination schema is now version 7")]
 pub fn migrate_v2_to_v5(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
-    migrate_v2_to_v6(source, destination)
+    migrate_v2_to_v7(source, destination)
 }
 
-#[deprecated(note = "use migrate_v2_to_v6; the destination schema is now version 6")]
+#[deprecated(note = "use migrate_v2_to_v7; the destination schema is now version 7")]
 pub fn migrate_v2_to_v4(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
-    migrate_v2_to_v6(source, destination)
+    migrate_v2_to_v7(source, destination)
 }
 
-#[deprecated(note = "use migrate_v2_to_v6; the destination schema is now version 6")]
+#[deprecated(note = "use migrate_v2_to_v7; the destination schema is now version 7")]
 pub fn migrate_v2_to_v3(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
-    migrate_v2_to_v6(source, destination)
+    migrate_v2_to_v7(source, destination)
 }
 
-pub fn migrate_v3_to_v6(
+pub fn migrate_v3_to_v7(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
     migrate_to_current(source, destination, 3)
 }
 
-#[deprecated(note = "use migrate_v3_to_v6; the destination schema is now version 6")]
+#[deprecated(note = "use migrate_v3_to_v7; the destination schema is now version 7")]
+pub fn migrate_v3_to_v6(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<MigrationOutcome> {
+    migrate_v3_to_v7(source, destination)
+}
+
+#[deprecated(note = "use migrate_v3_to_v7; the destination schema is now version 7")]
 pub fn migrate_v3_to_v5(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
-    migrate_v3_to_v6(source, destination)
+    migrate_v3_to_v7(source, destination)
 }
 
-#[deprecated(note = "use migrate_v3_to_v6; the destination schema is now version 6")]
+#[deprecated(note = "use migrate_v3_to_v7; the destination schema is now version 7")]
 pub fn migrate_v3_to_v4(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
-    migrate_v3_to_v6(source, destination)
+    migrate_v3_to_v7(source, destination)
 }
 
-pub fn migrate_v4_to_v6(
+pub fn migrate_v4_to_v7(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
     migrate_to_current(source, destination, 4)
 }
 
-#[deprecated(note = "use migrate_v4_to_v6; the destination schema is now version 6")]
+#[deprecated(note = "use migrate_v4_to_v7; the destination schema is now version 7")]
+pub fn migrate_v4_to_v6(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<MigrationOutcome> {
+    migrate_v4_to_v7(source, destination)
+}
+
+#[deprecated(note = "use migrate_v4_to_v7; the destination schema is now version 7")]
 pub fn migrate_v4_to_v5(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
-    migrate_v4_to_v6(source, destination)
+    migrate_v4_to_v7(source, destination)
 }
 
-pub fn migrate_v5_to_v6(
+pub fn migrate_v5_to_v7(
     source: impl AsRef<Path>,
     destination: impl AsRef<Path>,
 ) -> Result<MigrationOutcome> {
     migrate_to_current(source, destination, 5)
+}
+
+#[deprecated(note = "use migrate_v5_to_v7; the destination schema is now version 7")]
+pub fn migrate_v5_to_v6(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<MigrationOutcome> {
+    migrate_v5_to_v7(source, destination)
+}
+
+pub fn migrate_v6_to_v7(
+    source: impl AsRef<Path>,
+    destination: impl AsRef<Path>,
+) -> Result<MigrationOutcome> {
+    migrate_to_current(source, destination, 6)
 }
 
 pub fn commit(path: impl AsRef<Path>, request: CommitRequest) -> Result<CommitOutcome> {

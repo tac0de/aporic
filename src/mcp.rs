@@ -1,6 +1,6 @@
 use crate::capability::{Capability, CapabilityEffect, registry};
 use crate::codex::{GatePolicy, PreToolUseInput, explain_action};
-use crate::policy::PolicyDocument;
+use crate::policy::read_policy_document;
 use crate::project::{default_data_root, discover_project};
 use crate::verifier::{VerifierReportInput, ingest_verifier_report};
 use crate::{SCHEMA_VERSION, State, load_nonblocking};
@@ -255,10 +255,7 @@ fn state_count(state: &State, scope: &str) -> Value {
 fn project_status(input: WorkspaceInput) -> Result<Value, String> {
     let project = resolve(&input.workspace)?;
     let log = load_nonblocking(&project.store_path).map_err(|error| error.to_string())?;
-    let policy: PolicyDocument = serde_json::from_slice(
-        &std::fs::read(&project.policy_path).map_err(|error| error.to_string())?,
-    )
-    .map_err(|error| error.to_string())?;
+    let policy = read_policy_document(&project.policy_path)?;
     policy.validate()?;
     Ok(json!({
         "workspace": project.workspace,
@@ -266,6 +263,7 @@ fn project_status(input: WorkspaceInput) -> Result<Value, String> {
         "revision": log.state().revision,
         "event_schema": SCHEMA_VERSION,
         "policy_schema": policy.schema_version,
+        "lifecycle_mode": policy.lifecycle_mode(),
         "protected_tool_count": policy.tools.len(),
         "counts": state_count(log.state(), &project.scope)
     }))
@@ -273,10 +271,7 @@ fn project_status(input: WorkspaceInput) -> Result<Value, String> {
 
 fn explain(input: ExplainInput) -> Result<Value, String> {
     let project = resolve(&input.workspace)?;
-    let policy: PolicyDocument = serde_json::from_slice(
-        &std::fs::read(&project.policy_path).map_err(|error| error.to_string())?,
-    )
-    .map_err(|error| error.to_string())?;
+    let policy = read_policy_document(&project.policy_path)?;
     let policy = GatePolicy::from_document(policy)?;
     let log = load_nonblocking(&project.store_path).map_err(|error| error.to_string())?;
     let hook_input = PreToolUseInput {

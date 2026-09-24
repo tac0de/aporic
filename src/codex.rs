@@ -328,6 +328,10 @@ pub fn pre_tool_use_output(
             "APORIC_INTENT_BOUND_PLAN_REQUIRED: {} requires authority from a plan bound to an active intent envelope.",
             input.tool_name
         )))),
+        GateStatus::PlanNotExecutionEligible => Ok(Some(deny_pre_tool(format!(
+            "APORIC_PLAN_NOT_EXECUTION_ELIGIBLE: {} is bound to a governed plan with pending or stale requirements.",
+            input.tool_name
+        )))),
         GateStatus::PlanAuthorizationRequired => Ok(Some(deny_pre_tool(format!(
             "APORIC_PLAN_AUTHORIZATION_REQUIRED: {} requires an active plan authorization for this scope and session.",
             input.tool_name
@@ -378,7 +382,7 @@ pub fn pre_tool_use_transaction(
 
         let require_grant = policy
             .document()
-            .tool(&input.tool_name)
+            .effective_tool(&input.tool_name)
             .expect("evaluated policy tool exists")
             .require_grant;
         let request = if require_grant {
@@ -856,6 +860,7 @@ struct OmittedExecutionSummary {
     allowed: usize,
     held: usize,
     intent_bound_plan_required: usize,
+    plan_not_execution_eligible: usize,
     plan_authorization_required: usize,
     execution_grant_required: usize,
     tool_use_already_consumed: usize,
@@ -871,6 +876,7 @@ impl OmittedExecutionSummary {
             GateStatus::Allowed => self.allowed += 1,
             GateStatus::Held => self.held += 1,
             GateStatus::IntentBoundPlanRequired => self.intent_bound_plan_required += 1,
+            GateStatus::PlanNotExecutionEligible => self.plan_not_execution_eligible += 1,
             GateStatus::PlanAuthorizationRequired => self.plan_authorization_required += 1,
             GateStatus::ExecutionGrantRequired => self.execution_grant_required += 1,
             GateStatus::ToolUseAlreadyConsumed => self.tool_use_already_consumed += 1,
@@ -1322,8 +1328,12 @@ pub fn session_start_output(
     let executions = policy
         .document()
         .tools
-        .iter()
-        .map(|(tool_name, rule)| {
+        .keys()
+        .map(|tool_name| {
+            let rule = policy
+                .document()
+                .effective_tool(tool_name)
+                .expect("a policy tool always has an effective rule");
             let gate = evaluate_action(
                 state,
                 policy.document(),
@@ -1340,7 +1350,7 @@ pub fn session_start_output(
                 tool_name: tool_name.clone(),
                 require_plan: rule.require_plan,
                 require_grant: rule.require_grant,
-                require_intent: rule.requires_intent(),
+                require_intent: rule.require_intent,
                 status: gate.status,
                 active_hold_count: gate.active_hold_count,
                 matching_plan_authorization_count: gate.matching_plan_authorization_count,
@@ -1541,13 +1551,17 @@ pub fn unavailable_output(
     let mut executions = policy
         .document()
         .tools
-        .iter()
-        .map(|(tool_name, rule)| {
+        .keys()
+        .map(|tool_name| {
+            let rule = policy
+                .document()
+                .effective_tool(tool_name)
+                .expect("a policy tool always has an effective rule");
             serde_json::json!({
                 "tool_name": tool_name,
                 "require_plan": rule.require_plan,
                 "require_grant": rule.require_grant,
-                "require_intent": rule.requires_intent(),
+                "require_intent": rule.require_intent,
                 "status": "unknown"
             })
         })

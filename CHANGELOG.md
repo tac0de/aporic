@@ -6,14 +6,21 @@ All notable changes are documented here. Aporic is experimental; its contracts m
 
 ### Added
 
+- Event schema v7 governed plans with immutable risk snapshots, acyclic requirement graphs, explicit `satisfied` / `not_applicable` / `tailored` / `waived` dispositions, and non-destructive v6-to-v7 migration.
+- Deterministic requirement readiness and selective stale propagation; invalidating one resolution stales only its resolved dependency closure.
+- Bounded, iterative governed-plan cycle and readiness traversal, with at most 256 requirements and 32 direct dependencies per requirement.
+- Governed-plan readiness checks at authorization, grant, completion, and action-gate time, including a distinct `PLAN_NOT_EXECUTION_ELIGIBLE` denial.
+- Policy schema v4 with explicit `development` and `maintenance` lifecycle modes. Development supports up to 32 exact low-risk profile ID/version entries per tool; maintenance disables automatic allowance and requires intent-bound exact-input grants for every configured tool.
+- One MiB policy and hook-input limits plus a 256-tool policy limit, closing unbounded parsing paths in session-start and pre-tool adapters.
 - Event schema v6 `plan_approval_recorded` events atomically project one intent, its bound plan, and one session/tool authorization.
 - A one-command `approve-plan` CLI workflow with strict JSON input, exact retry handling, and unchanged Aporia and delegation enforcement.
-- Explicit non-destructive v5-to-v6 migration alongside v1/v2/v3/v4 migration to the current schema.
+- Explicit non-destructive migration from v1 through v6 to the current schema.
 
 ### Known limitations
 
 - Approval actors and provenance remain caller-declared; the consolidated CLI workflow is not human authentication.
-- Existing stores and installed plugins are not migrated or upgraded automatically.
+- Risk profiles and risk levels remain caller-declared snapshots; profile allowlisting is deterministic policy matching, not automatic semantic risk classification or authenticated attestation.
+- Existing project policies are not rewritten automatically; pre-v4 policies retain their prior behavior until deliberately upgraded.
 
 ## 0.7.0 - 2026-09-21
 

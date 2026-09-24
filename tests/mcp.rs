@@ -1,4 +1,5 @@
 use aporic::codex::{PostToolUseInput, post_tool_use_transaction};
+use aporic::policy::MAX_POLICY_TOOLS;
 use aporic::project::{initialize_project, store_path};
 use aporic::{
     Actor, ActorKind, CommitRequest, Event, EvidenceKind, SCHEMA_VERSION, commit, initialize, load,
@@ -94,7 +95,7 @@ fn mcp_lists_bounded_tools_and_read_only_calls_do_not_mutate_state() {
 }
 
 #[test]
-fn project_status_stays_count_only_for_a_large_policy() {
+fn project_status_stays_count_only_at_the_policy_limit() {
     let workspace = temp_path("large-policy-workspace");
     let data_root = temp_path("large-policy-data");
     std::fs::create_dir_all(&workspace).unwrap();
@@ -102,7 +103,7 @@ fn project_status_stays_count_only_for_a_large_policy() {
     let workspace = std::fs::canonicalize(workspace).unwrap();
     let store = store_path(&data_root, &workspace).unwrap();
     initialize(&store).unwrap();
-    let tools = (0..5_000)
+    let tools = (0..MAX_POLICY_TOOLS)
         .map(|index| {
             (
                 format!("attacker_controlled_tool_{index}"),
@@ -131,7 +132,7 @@ fn project_status_stays_count_only_for_a_large_policy() {
     assert!(encoded.len() < 4_096);
     assert_eq!(
         responses[1]["result"]["structuredContent"]["protected_tool_count"],
-        5_000
+        MAX_POLICY_TOOLS
     );
     assert!(
         !String::from_utf8(encoded)

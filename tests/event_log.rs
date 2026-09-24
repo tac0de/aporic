@@ -122,7 +122,7 @@ fn unsupported_stored_schema_stops_replay_and_further_writes() {
     assert!(matches!(
         replay_error,
         Error::CorruptLog { line: 1, reason }
-            if reason == "unsupported schema version 99; expected 6"
+            if reason == "unsupported schema version 99; expected 7"
     ));
 
     let append_error = commit(&path, open_aporia("a1", "k1", 0)).unwrap_err();
