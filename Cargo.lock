@@ -51,7 +51,6 @@ dependencies = [
  "aporic-host",
  "aporic-kernel",
  "aporic-model-control",
- "aporic-observatory",
  "aporic-projects",
  "aporic-roles",
  "aporic-routing",
@@ -97,18 +96,6 @@ version = "0.1.0"
 dependencies = [
  "aporic-roles",
  "aporic-routing",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "aporic-observatory"
-version = "0.1.0"
-dependencies = [
- "aporic-handoff",
- "aporic-kernel",
- "aporic-model-control",
- "aporic-projects",
  "serde",
  "serde_json",
 ]

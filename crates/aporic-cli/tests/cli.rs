@@ -1,11 +1,9 @@
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
-use std::io::{Read, Write};
-use std::net::{TcpListener, TcpStream};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Duration;
 
 static NEXT_PATH: AtomicU64 = AtomicU64::new(1);
 
@@ -119,28 +117,6 @@ fn success(output: Output) -> Value {
     serde_json::from_slice(&output.stdout).unwrap()
 }
 
-fn http_get(address: std::net::SocketAddr, path: &str) -> String {
-    let mut stream = TcpStream::connect_timeout(&address, Duration::from_secs(1)).unwrap();
-    write!(
-        stream,
-        "GET {path} HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n"
-    )
-    .unwrap();
-    let mut response = String::new();
-    stream.read_to_string(&mut response).unwrap();
-    response
-}
-
-fn wait_for_server(address: std::net::SocketAddr) {
-    for _ in 0..50 {
-        if TcpStream::connect_timeout(&address, Duration::from_millis(30)).is_ok() {
-            return;
-        }
-        std::thread::sleep(Duration::from_millis(20));
-    }
-    panic!("observatory did not start");
-}
-
 fn bind_input(area: &TestArea) -> Value {
     json!({
         "schema_version": 1,
@@ -228,52 +204,6 @@ fn plans_and_applies_a_forced_codex_launch_with_an_append_only_audit() {
 
     let status = success(invoke("status", &connection, None));
     assert_eq!(status["result"]["model_control_records"], 2);
-}
-
-#[test]
-fn serves_a_live_read_only_observatory_snapshot() {
-    let area = TestArea::new();
-    setup(&area);
-    let connection = area.connection();
-    success(invoke("bind", &connection, Some(bind_input(&area))));
-
-    let probe = TcpListener::bind("127.0.0.1:0").unwrap();
-    let address = probe.local_addr().unwrap();
-    drop(probe);
-    let mut server = Command::new(env!("CARGO_BIN_EXE_aporicctl"))
-        .arg("observe")
-        .arg(&connection)
-        .arg(address.to_string())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .spawn()
-        .unwrap();
-    wait_for_server(address);
-
-    let page = http_get(address, "/");
-    assert!(page.starts_with("HTTP/1.1 200 OK"));
-    assert!(page.contains("살아있는 궁정"));
-    let initial = http_get(address, "/api/snapshot");
-    assert!(initial.contains("\"kernel_revision\":0"));
-
-    success(invoke(
-        "grant",
-        &connection,
-        Some(json!({
-            "event_id": "dashboard-grant-event",
-            "idempotency_key": "dashboard-grant-key",
-            "expected_revision": 0,
-            "grant_id": "dashboard-grant",
-            "action": action(),
-            "authority_ref": "human:dashboard-test"
-        })),
-    ));
-    let updated = http_get(address, "/api/snapshot");
-    assert!(updated.contains("\"kernel_revision\":1"));
-    assert!(updated.contains("authority_granted"));
-
-    server.kill().unwrap();
-    server.wait().unwrap();
 }
 
 fn action() -> Value {

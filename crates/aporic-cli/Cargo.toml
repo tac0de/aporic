@@ -15,7 +15,6 @@ aporic-handoff = { path = "../aporic-handoff" }
 aporic-host = { path = "../aporic-host" }
 aporic-kernel = { path = "../aporic-kernel" }
 aporic-model-control = { path = "../aporic-model-control" }
-aporic-observatory = { path = "../aporic-observatory" }
 aporic-projects = { path = "../aporic-projects" }
 aporic-routing = { path = "../aporic-routing" }
 aporic-roles = { path = "../aporic-roles" }

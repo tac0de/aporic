@@ -9,7 +9,6 @@ use aporic_model_control::{
     ApplicationPlan, AuditEvent, HostCapability, LaunchOutcome, ModelControlPolicy, append_audit,
     canonicalize_policy, initialize_audit, load_audit, plan as plan_model_control,
 };
-use aporic_observatory::{ServerConfig as ObservatoryConfig, Source as ObservatorySource};
 use aporic_projects::{BindRequest, bind_project};
 use aporic_roles::{HostPolicy, load_role};
 use aporic_routing::RoutingSignals;
@@ -147,7 +146,7 @@ fn run() -> Result<CommandOutput, Box<dyn std::error::Error>> {
         return Err("connection file path must be absolute".into());
     }
 
-    if !matches!(command.as_str(), "codex-launch" | "observe") && !trailing.is_empty() {
+    if command != "codex-launch" && !trailing.is_empty() {
         return Err("too many arguments".into());
     }
 
@@ -226,51 +225,8 @@ fn run() -> Result<CommandOutput, Box<dyn std::error::Error>> {
             success("model-plan", serde_json::to_value(plan)?)
         }),
         "codex-launch" => codex_launch(&connection_path, &trailing),
-        "observe" => observe(&connection_path, &trailing),
         _ => Err(format!("unknown command: {command}").into()),
     }
-}
-
-fn observe(
-    connection_path: &Path,
-    trailing: &[std::ffi::OsString],
-) -> Result<CommandOutput, Box<dyn std::error::Error>> {
-    if trailing.len() > 1 {
-        return Err("usage: aporicctl observe CONNECTION [IP:PORT]".into());
-    }
-    let bind = trailing
-        .first()
-        .and_then(|value| value.to_str())
-        .unwrap_or("127.0.0.1:4242")
-        .parse::<std::net::SocketAddr>()?;
-    let connection: ConnectionDocument = read_document(connection_path)?;
-    let runtime = connect_runtime(&connection)?;
-    let token = std::env::var("APORIC_OBSERVATORY_TOKEN").ok();
-    let config = ObservatoryConfig {
-        bind,
-        bearer_token: token,
-    };
-    config.validate()?;
-    let source = ObservatorySource {
-        binding: runtime.binding().clone(),
-        role_id: runtime.profile().role_id().into(),
-        scope: runtime.scope().into(),
-        kernel_store: connection.kernel_store,
-        handoff_store: connection.handoff_store,
-        model_control_store: connection.model_control_store,
-    };
-    let display_host = if bind.ip().is_unspecified() {
-        "localhost".to_string()
-    } else {
-        bind.ip().to_string()
-    };
-    eprintln!(
-        "Aporic observatory: http://{}:{}",
-        display_host,
-        bind.port()
-    );
-    aporic_observatory::serve(source, config)?;
-    success("observe", json!({"stopped": true}))
 }
 
 fn bind(path: &Path) -> Result<CommandOutput, Box<dyn std::error::Error>> {
