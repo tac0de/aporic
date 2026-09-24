@@ -1,0 +1,17 @@
+{
+  "schema_version": 4,
+  "lifecycle_mode": "development",
+  "tools": {
+    "apply_patch": {
+      "require_plan": true,
+      "require_grant": false,
+      "require_intent": true,
+      "auto_allow_low_risk_profiles": [
+        {
+          "profile_id": "local-code",
+          "profile_version": "1"
+        }
+      ]
+    }
+  }
+}

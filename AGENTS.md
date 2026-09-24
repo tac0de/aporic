@@ -17,8 +17,11 @@ separate human-authorized boundaries.
   Activate a newer policy schema only in a fresh task running the new plugin,
   after that binary validates the candidate policy.
 - If a policy upgrade is part of a task that will end after installation, leave
-  the active policy unchanged and record the pending activation for the next
-  task. Never ask the user to repair or hand-edit policy files.
+  the active policy unchanged and stage the candidate as
+  `.aporic/policy.next.json`. A fresh task using the new plugin must validate
+  and activate that candidate before other kernel work, then remove the
+  candidate in the same commit. Never ask the user to repair or hand-edit
+  policy files.
 - Preserve the pre-migration event store as a rollback snapshot. Swap in a
   validated migrated store only as the final stateful action of the old-plugin
   task, because its loaded hooks cannot read the newer event schema.
