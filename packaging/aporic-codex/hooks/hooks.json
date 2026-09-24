@@ -10,7 +10,20 @@
             "command": "\"${PLUGIN_ROOT}/scripts/run-hook.sh\"",
             "timeout": 5,
             "statusMessage": "Loading Aporic handoff",
-            "additionalContextLimit": 1800
+            "additionalContextLimit": 4096
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${PLUGIN_ROOT}/scripts/run-hook.sh\"",
+            "timeout": 5,
+            "statusMessage": "Applying Aporic operating defaults",
+            "additionalContextLimit": 900
           }
         ]
       }

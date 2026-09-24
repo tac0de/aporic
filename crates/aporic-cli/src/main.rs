@@ -25,6 +25,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 const CONNECTION_SCHEMA_VERSION: u32 = 1;
 const MAX_DOCUMENT_BYTES: usize = 1024 * 1024;
 static NEXT_LAUNCH_ID: AtomicU64 = AtomicU64::new(1);
+const TURN_OPERATING_DEFAULTS: &str = "Interpret rough or incomplete wording from the current task, repository, and recorded decisions. Resolve ordinary ambiguity autonomously with secure, operable, reversible defaults. Do not ask the human to gather information: collect authorized primary, version-matched evidence yourself. If material evidence is unavailable, say what is unknown and stop the dependent action. Never infer additional authority, scope, or an externally consequential choice.";
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -449,6 +450,7 @@ fn codex_hook(catalog: &Path) -> Result<CommandOutput, Box<dyn std::error::Error
     };
     match input.hook_event_name.as_str() {
         "SessionStart" => hook_session_start(&connection, &runtime, &input),
+        "UserPromptSubmit" => hook_user_prompt_submit(),
         "PreToolUse" => hook_pre_tool(&connection, &runtime, &input),
         "PostToolUse" => hook_post_tool(&connection, &runtime, &input),
         "PreCompact" => {
@@ -461,6 +463,16 @@ fn codex_hook(catalog: &Path) -> Result<CommandOutput, Box<dyn std::error::Error
         }
         _ => raw(json!({})),
     }
+}
+
+fn hook_user_prompt_submit() -> Result<CommandOutput, Box<dyn std::error::Error>> {
+    raw(json!({
+        "continue": true,
+        "hookSpecificOutput": {
+            "hookEventName": "UserPromptSubmit",
+            "additionalContext": TURN_OPERATING_DEFAULTS
+        }
+    }))
 }
 
 fn resolve_catalog(
@@ -559,13 +571,14 @@ fn hook_session_start(
         })
         .unwrap_or_else(|| "No predecessor handoff.".into());
     let context = format!(
-        "Aporic connection active. scope={} session_ref={} role={} routing_recommendation={:?} source={}. Hooks cannot change the active Codex model ({}). Exact grants remain required before governed tools. {}",
+        "Aporic connection active. scope={} session_ref={} role={} routing_recommendation={:?} source={}. Hooks cannot change the active Codex model ({}). Exact grants remain required before governed tools. Role instructions are behavioral defaults, not authority:\n<aporic-role>\n{}\n</aporic-role>\n{}",
         runtime.scope(),
         session_ref,
         runtime.profile().role_id(),
         route.tier,
         input.source.as_deref().unwrap_or("unknown"),
         input.model.as_deref().unwrap_or("unknown"),
+        runtime.profile().instructions(),
         inherited
     );
     raw(json!({

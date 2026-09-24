@@ -5,8 +5,8 @@ use aporic::codex::{
     user_prompt_submit_output,
 };
 use aporic::{
-    Actor, ActorKind, Aporia, Decision, Delegation, Error, InformationRequest, PlanAuthorization,
-    State, ToolHold, TransitionKind,
+    Actor, ActorKind, Aporia, Decision, Delegation, Error, PlanAuthorization, State, ToolHold,
+    TransitionKind,
 };
 use serde_json::Value;
 
@@ -232,12 +232,6 @@ fn truncates_deterministically_and_marks_projection_incomplete() {
             question: "Blocking question".into(),
             scope: "repo".into(),
             blocks: vec![TransitionKind::DecisionCommit],
-            information_request: Some(InformationRequest {
-                requested_materials: vec!["the signed architecture decision".into()],
-                collection_method: None,
-                selection_criteria: vec!["approved by the project owner".into()],
-                intended_use: "select the persistence format".into(),
-            }),
             resolution_ref: None,
         },
     );
@@ -262,18 +256,14 @@ fn truncates_deterministically_and_marks_projection_incomplete() {
         &input(SessionSource::Resume),
         "repo",
         &policy("apply_patch", true),
-        2_700,
+        2_200,
     )
     .unwrap();
-    assert!(output.hook_specific_output.additional_context.len() <= 2_700);
+    assert!(output.hook_specific_output.additional_context.len() <= 2_200);
     let data = capsule(&output.hook_specific_output.additional_context);
     assert_eq!(data["complete"], false);
     assert!(data["omitted"]["decisions"].as_u64().unwrap() > 0);
     assert_eq!(data["open_aporia"][0]["id"], "blocker");
-    assert_eq!(
-        data["open_aporia"][0]["information_request"]["intended_use"],
-        "select the persistence format"
-    );
     assert_eq!(data["blocked_transition_kinds"][0], "decision_commit");
     assert!(!output.projection_report.unwrap().complete);
 }
@@ -634,7 +624,6 @@ fn later_aporia_does_not_revoke_existing_plan_authorization() {
             question: "Can another plan be authorized?".into(),
             scope: "repo".into(),
             blocks: vec![TransitionKind::PlanAuthorize],
-            information_request: None,
             resolution_ref: None,
         },
     );

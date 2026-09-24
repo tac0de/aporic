@@ -177,12 +177,6 @@ fn approve_plan_cannot_partially_write_past_a_blocking_aporia() {
                 aporia_id: "aporia".into(),
                 question: "Is approval safe?".into(),
                 blocks: vec![aporic::TransitionKind::PlanAuthorize],
-                information_request: Some(aporic::InformationRequest {
-                    requested_materials: vec!["approval evidence".into()],
-                    collection_method: None,
-                    selection_criteria: vec!["issued by the project owner".into()],
-                    intended_use: "decide whether plan authorization is safe".into(),
-                }),
             },
         },
     )

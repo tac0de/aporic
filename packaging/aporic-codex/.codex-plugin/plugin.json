@@ -1,6 +1,6 @@
 {
   "name": "aporic-codex",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Connects Codex lifecycle hooks to the clean-room Aporic runtime.",
   "author": {
     "name": "Aporic contributors"
@@ -9,17 +9,18 @@
   "interface": {
     "displayName": "Aporic Codex",
     "shortDescription": "Bind Codex sessions and tool effects to Aporic.",
-    "longDescription": "Loads bounded handoffs at session start, gates local tools against exact grants, records unknown effects after execution, and seals continuity state before compaction and session end.",
+    "longDescription": "Loads a bounded role and handoff at session start, applies secure and operable defaults to rough requests, gathers evidence autonomously, gates local tools against exact grants, and seals continuity state.",
     "developerName": "Aporic contributors",
     "category": "Developer Tools",
     "capabilities": [
       "Session continuity",
+      "Role operating defaults for rough requests",
+      "Autonomous evidence collection",
       "Exact local-tool gating",
       "Effect recording",
       "Deterministic routing recommendations",
-      "Launch-bound model control",
-      "Read-only live observatory"
+      "Launch-bound model control"
     ],
-    "defaultPrompt": "Show the active Aporic connection and routing recommendation."
+    "defaultPrompt": "Handle this project using its active Aporic role and decision boundary."
   }
 }

@@ -6,7 +6,11 @@ The Codex adapter is a host integration, not part of the authorization kernel.
 It consumes the documented Codex hook JSON and invokes the same H0 and D0 APIs
 as `aporicctl`.
 
-- `SessionStart` opens or resumes one Aporic day and injects a bounded handoff.
+- `SessionStart` opens or resumes one Aporic day and injects the bounded role
+  instructions plus handoff. Role text is behavior, never kernel authority.
+- `UserPromptSubmit` restates compact operating defaults: recover rough intent
+  from context, gather evidence autonomously, and prefer secure, operable,
+  reversible interpretations without inventing authority.
 - `PreToolUse` requires and consumes one exact grant before a local tool runs.
 - `PostToolUse` records an `unknown` effect; it never infers success from output.
 - `PreCompact` projects a bounded, transcript-independent handoff.

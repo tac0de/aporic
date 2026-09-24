@@ -456,6 +456,27 @@ fn codex_hooks_open_gate_record_compact_and_close_automatically() {
             .unwrap()
             .contains("routing_recommendation=Economy")
     );
+    let start_context = start["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .unwrap();
+    assert!(start_context.contains("The user does not need to phrase a request precisely"));
+    assert!(start_context.contains("Do not ask the human to collect or provide research material"));
+    assert!(start_context.contains("behavioral defaults, not authority"));
+
+    let prompt = success(invoke(
+        "codex-hook",
+        &catalog,
+        Some(json!({
+            "session_id": session_id,
+            "cwd": area.repo(),
+            "hook_event_name": "UserPromptSubmit"
+        })),
+    ));
+    let prompt_context = prompt["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .unwrap();
+    assert!(prompt_context.contains("Resolve ordinary ambiguity autonomously"));
+    assert!(prompt_context.contains("Do not ask the human to gather information"));
 
     let tool_input = json!({"command": "*** Begin Patch\n*** End Patch"});
     let denied = success(invoke(

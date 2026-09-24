@@ -106,15 +106,6 @@ pub enum EpistemicStatus {
     Stale,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct InformationRequest {
-    pub requested_materials: Vec<String>,
-    pub collection_method: Option<String>,
-    pub selection_criteria: Vec<String>,
-    pub intended_use: String,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ActionOutcome {
@@ -216,8 +207,6 @@ pub enum Event {
         aporia_id: String,
         question: String,
         blocks: Vec<TransitionKind>,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        information_request: Option<InformationRequest>,
     },
     AporiaResolved {
         aporia_id: String,
@@ -509,8 +498,6 @@ pub struct Aporia {
     pub question: String,
     pub scope: String,
     pub blocks: Vec<TransitionKind>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub information_request: Option<InformationRequest>,
     pub resolution_ref: Option<String>,
 }
 
@@ -1055,7 +1042,6 @@ impl State {
                 aporia_id,
                 question,
                 blocks,
-                information_request,
             } => {
                 if self.aporias.contains_key(aporia_id) {
                     return Err(Error::Invariant(format!(
@@ -1069,7 +1055,6 @@ impl State {
                         question: question.clone(),
                         scope,
                         blocks: blocks.clone(),
-                        information_request: information_request.clone(),
                         resolution_ref: None,
                     },
                 );
@@ -1971,17 +1956,6 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
             .enumerate()
             .all(|(index, value)| !value.trim().is_empty() && !values[..index].contains(value))
     };
-    let valid_information_request = |request: &InformationRequest| {
-        (!request.requested_materials.is_empty() || request.collection_method.is_some())
-            && unique_nonempty_strings(&request.requested_materials)
-            && request
-                .collection_method
-                .as_ref()
-                .is_none_or(|method| !method.trim().is_empty())
-            && !request.selection_criteria.is_empty()
-            && unique_nonempty_strings(&request.selection_criteria)
-            && !request.intended_use.trim().is_empty()
-    };
     let informational_identity = |value: &str| {
         value.strip_prefix("fnv1a64:").is_some_and(|digest| {
             digest.len() == 16
@@ -2078,7 +2052,6 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
             aporia_id,
             question,
             blocks,
-            information_request,
         } => {
             if !required(&[aporia_id, question]) {
                 Some((
@@ -2089,19 +2062,6 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                 Some((
                     "DUPLICATE_TRANSITION_KIND",
                     "aporia blocks contain duplicates",
-                ))
-            } else if request.actor.kind == ActorKind::Agent && information_request.is_none() {
-                Some((
-                    "AGENT_INFORMATION_REQUEST_REQUIRED",
-                    "an agent opening an Aporia must state the requested material or collection plan, selection criteria, and intended use",
-                ))
-            } else if information_request
-                .as_ref()
-                .is_some_and(|request| !valid_information_request(request))
-            {
-                Some((
-                    "INVALID_INFORMATION_REQUEST",
-                    "information request must name material or a collection method, unique non-empty selection criteria, and an intended use",
                 ))
             } else if state.aporias.contains_key(aporia_id) {
                 Some(("APORIA_ALREADY_EXISTS", "aporia id already exists"))
@@ -2126,22 +2086,6 @@ pub fn evaluate(state: &State, request: &CommitRequest) -> Evaluation {
                         "SCOPE_MISMATCH",
                         "resolution scope differs from aporia scope",
                     ))
-                } else if aporia.information_request.is_some() {
-                    match state.evidence.get(resolution_ref) {
-                        None => Some((
-                            "UNKNOWN_RESOLUTION_EVIDENCE",
-                            "an information request must be resolved by recorded evidence",
-                        )),
-                        Some(evidence) if evidence.scope != request.scope => Some((
-                            "SCOPE_MISMATCH",
-                            "resolution evidence scope differs from Aporia scope",
-                        )),
-                        Some(evidence) if evidence.kind == EvidenceKind::AgentInference => Some((
-                            "INFERENCE_ONLY_APORIA_RESOLUTION",
-                            "agent inference cannot resolve an information request",
-                        )),
-                        Some(_) => None,
-                    }
                 } else {
                     None
                 }

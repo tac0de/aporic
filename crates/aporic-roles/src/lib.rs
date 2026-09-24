@@ -14,7 +14,7 @@ use std::path::Path;
 
 pub const ROLE_SCHEMA_VERSION: u32 = 1;
 pub const MAX_ROLE_JSON_BYTES: usize = 16 * 1_024;
-pub const MAX_ROLE_MARKDOWN_BYTES: usize = 32 * 1_024;
+pub const MAX_ROLE_MARKDOWN_BYTES: usize = 4 * 1_024;
 const MAX_CAPABILITIES: usize = 64;
 const MAX_TOOL_CALLS: u32 = 10_000;
 const MAX_PARALLEL_TASKS: u16 = 64;
