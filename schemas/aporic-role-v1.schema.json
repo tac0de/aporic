@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aporic.local/schemas/aporic-role-v1.schema.json",
+  "title": "Aporic role manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "role_id",
+    "role_version",
+    "capabilities",
+    "routing",
+    "limits",
+    "may_delegate",
+    "report"
+  ],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "role_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9._-]{1,128}$"
+    },
+    "role_version": { "type": "integer", "minimum": 1 },
+    "capabilities": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9._-]{1,128}$"
+      }
+    },
+    "routing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["default", "ceiling"],
+      "properties": {
+        "default": { "enum": ["economy", "balanced", "deep"] },
+        "ceiling": { "enum": ["economy", "balanced", "deep"] }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_tool_calls", "max_parallel_tasks"],
+      "properties": {
+        "max_tool_calls": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "max_parallel_tasks": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        }
+      }
+    },
+    "may_delegate": { "type": "boolean" },
+    "report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["format", "max_items"],
+      "properties": {
+        "format": { "const": "decision_card" },
+        "max_items": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        }
+      }
+    }
+  }
+}

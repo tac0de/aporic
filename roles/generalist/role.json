@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "role_id": "generalist",
+  "role_version": 1,
+  "capabilities": [
+    "process.execute",
+    "workspace.read",
+    "workspace.write"
+  ],
+  "routing": {
+    "default": "balanced",
+    "ceiling": "deep"
+  },
+  "limits": {
+    "max_tool_calls": 32,
+    "max_parallel_tasks": 1
+  },
+  "may_delegate": false,
+  "report": {
+    "format": "decision_card",
+    "max_items": 4
+  }
+}

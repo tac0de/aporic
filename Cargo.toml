@@ -17,4 +17,10 @@ serde_json = "1.0"
 wasmtime = { version = "40.0.4", default-features = false, features = ["cranelift", "runtime", "std", "wat"] }
 
 [workspace]
-members = ["analyzers/structural"]
+members = [
+    "analyzers/structural",
+    "crates/aporic-boundary",
+    "crates/aporic-kernel",
+    "crates/aporic-projects",
+    "crates/aporic-roles",
+]
