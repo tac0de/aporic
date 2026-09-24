@@ -8,7 +8,7 @@
     "workspace.write"
   ],
   "routing": {
-    "default": "balanced",
+    "default": "economy",
     "ceiling": "deep"
   },
   "limits": {

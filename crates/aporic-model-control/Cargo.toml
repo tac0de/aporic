@@ -1,0 +1,13 @@
+[package]
+name = "aporic-model-control"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+publish = false
+
+[dependencies]
+aporic-roles = { path = "../aporic-roles" }
+aporic-routing = { path = "../aporic-routing" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+

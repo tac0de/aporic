@@ -240,7 +240,15 @@ fn validate_reservation(reservation: &Reservation) -> Result<(), &'static str> {
     validate_id(&reservation.profile_ref)?;
     validate_scope(&reservation.scope)?;
     validate_id(&reservation.action)?;
-    validate_input(&reservation.input)
+    validate_input(&reservation.input)?;
+    validate_id(&reservation.routing_tier)?;
+    if reservation.routing_reasons.is_empty() || reservation.routing_reasons.len() > 16 {
+        return Err("INVALID_ROUTING_REASONS");
+    }
+    reservation
+        .routing_reasons
+        .iter()
+        .try_for_each(|reason| validate_id(reason))
 }
 
 pub(crate) fn validate_request_text(value: &str) -> Result<(), &'static str> {

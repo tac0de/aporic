@@ -100,7 +100,8 @@ pub struct RoleDocument {
     pub report: ReportPolicy,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct HostPolicy {
     pub capabilities: BTreeSet<String>,
     pub default_routing: RoutingTier,

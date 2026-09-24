@@ -1,77 +1,62 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 pub const PROTOCOL_EPOCH: u32 = 1;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Grant {
-    pub grant_id: String,
-    pub principal: String,
-    pub task_ref: String,
-    pub session_ref: String,
-    pub profile_ref: String,
-    pub scope: String,
-    pub action: String,
-    pub input: Value,
-    pub authority_ref: String,
+pub struct WorkspaceCheckpoint {
+    pub binding_sha256: String,
+    pub head: String,
+    pub dirty: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Reservation {
-    pub reservation_id: String,
-    pub grant_id: String,
-    pub principal: String,
+pub struct HandoffCapsule {
+    pub objective: String,
+    pub constraints: Vec<String>,
+    pub accepted_decisions: Vec<String>,
+    pub completed_checks: Vec<String>,
+    pub open_questions: Vec<String>,
+    pub next_action: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HandoffRef {
+    pub day_id: String,
+    pub handoff_sha256: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Day {
+    pub day_id: String,
+    pub lineage_ref: String,
     pub task_ref: String,
     pub session_ref: String,
-    pub profile_ref: String,
     pub scope: String,
-    pub action: String,
-    pub input: Value,
-    pub routing_tier: String,
-    pub routing_reasons: Vec<String>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum EffectOutcome {
-    Succeeded,
-    Failed,
-    Unknown,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum VerificationResult {
-    Passed,
-    Failed,
-    Inconclusive,
+    pub predecessor: Option<HandoffRef>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Event {
-    AuthorityGranted {
-        grant: Grant,
+    DayOpened {
+        day: Day,
+        workspace: WorkspaceCheckpoint,
     },
-    ActionReserved {
-        reservation: Reservation,
+    HandoffProjected {
+        day_id: String,
+        capsule: HandoffCapsule,
+        workspace: WorkspaceCheckpoint,
+        handoff_sha256: String,
     },
-    EffectRecorded {
-        reservation_id: String,
-        outcome: EffectOutcome,
-        observation_ref: String,
-    },
-    VerificationRecorded {
-        reservation_id: String,
-        verifier: String,
-        result: VerificationResult,
-        evidence_ref: String,
-    },
-    ReservationAbandoned {
-        reservation_id: String,
-        reason: String,
+    DayClosed {
+        day_id: String,
+        handoff_sha256: String,
+        workspace: WorkspaceCheckpoint,
     },
 }
 
@@ -149,4 +134,26 @@ impl CommitOutcome {
 pub struct StoredEvent {
     pub sequence: u64,
     pub request: CommitRequest,
+}
+
+#[derive(Serialize)]
+struct HandoffFingerprint<'a> {
+    schema_version: u32,
+    day: &'a Day,
+    capsule: &'a HandoffCapsule,
+    workspace: &'a WorkspaceCheckpoint,
+}
+
+pub fn handoff_sha256(
+    day: &Day,
+    capsule: &HandoffCapsule,
+    workspace: &WorkspaceCheckpoint,
+) -> crate::Result<String> {
+    let encoded = serde_json::to_vec(&HandoffFingerprint {
+        schema_version: 1,
+        day,
+        capsule,
+        workspace,
+    })?;
+    Ok(format!("{:x}", Sha256::digest(encoded)))
 }

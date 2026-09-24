@@ -43,9 +43,59 @@ dependencies = [
 ]
 
 [[package]]
+name = "aporic-cli"
+version = "0.1.0"
+dependencies = [
+ "aporic-boundary",
+ "aporic-handoff",
+ "aporic-host",
+ "aporic-kernel",
+ "aporic-model-control",
+ "aporic-projects",
+ "aporic-roles",
+ "aporic-routing",
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
+name = "aporic-handoff"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sha2",
+]
+
+[[package]]
+name = "aporic-host"
+version = "0.1.0"
+dependencies = [
+ "aporic-boundary",
+ "aporic-handoff",
+ "aporic-kernel",
+ "aporic-projects",
+ "aporic-roles",
+ "aporic-routing",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "aporic-kernel"
 version = "0.1.0"
 dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "aporic-model-control"
+version = "0.1.0"
+dependencies = [
+ "aporic-roles",
+ "aporic-routing",
  "serde",
  "serde_json",
 ]
@@ -66,6 +116,14 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+]
+
+[[package]]
+name = "aporic-routing"
+version = "0.1.0"
+dependencies = [
+ "aporic-roles",
+ "serde",
 ]
 
 [[package]]

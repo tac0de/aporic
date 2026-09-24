@@ -35,13 +35,15 @@ impl From<aporic_kernel::Error> for Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ActionRule {
     pub capability: String,
     pub delegates: bool,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BoundaryPolicy {
     pub actions: BTreeMap<String, ActionRule>,
 }
@@ -60,6 +62,7 @@ pub struct ReserveRequest {
     pub action: String,
     pub input: Value,
     pub selected_routing: RoutingTier,
+    pub routing_reasons: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -92,6 +95,8 @@ pub fn reserve(
                 scope: request.scope.clone(),
                 action: request.action.clone(),
                 input: request.input.clone(),
+                routing_tier: format!("{:?}", request.selected_routing).to_lowercase(),
+                routing_reasons: request.routing_reasons.clone(),
             },
         },
     );
@@ -144,6 +149,7 @@ pub fn reserve(
         candidate.reservation.principal == request.principal
             && candidate.reservation.session_ref == request.session_ref
             && candidate.reservation.profile_ref == profile.profile_sha256()
+            && candidate.reservation.scope == request.scope
     });
     let tool_calls = same_day.clone().count();
     if tool_calls >= profile.max_tool_calls() as usize {

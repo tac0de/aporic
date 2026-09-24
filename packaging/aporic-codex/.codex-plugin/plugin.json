@@ -1,0 +1,24 @@
+{
+  "name": "aporic-codex",
+  "version": "0.1.0",
+  "description": "Connects Codex lifecycle hooks to the clean-room Aporic runtime.",
+  "author": {
+    "name": "Aporic contributors"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Aporic Codex",
+    "shortDescription": "Bind Codex sessions and tool effects to Aporic.",
+    "longDescription": "Loads bounded handoffs at session start, gates local tools against exact grants, records unknown effects after execution, and seals continuity state before compaction and session end.",
+    "developerName": "Aporic contributors",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Session continuity",
+      "Exact local-tool gating",
+      "Effect recording",
+      "Deterministic routing recommendations",
+      "Launch-bound model control"
+    ],
+    "defaultPrompt": "Show the active Aporic connection and routing recommendation."
+  }
+}

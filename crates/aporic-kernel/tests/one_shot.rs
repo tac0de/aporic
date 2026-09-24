@@ -59,6 +59,8 @@ fn reservation(input: Value) -> Reservation {
         scope: "repo".into(),
         action: "write_file".into(),
         input,
+        routing_tier: "economy".into(),
+        routing_reasons: vec!["profile_default:economy".into()],
     }
 }
 

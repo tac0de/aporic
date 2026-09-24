@@ -20,7 +20,12 @@ wasmtime = { version = "40.0.4", default-features = false, features = ["cranelif
 members = [
     "analyzers/structural",
     "crates/aporic-boundary",
+    "crates/aporic-cli",
+    "crates/aporic-handoff",
+    "crates/aporic-host",
     "crates/aporic-kernel",
+    "crates/aporic-model-control",
     "crates/aporic-projects",
+    "crates/aporic-routing",
     "crates/aporic-roles",
 ]

@@ -92,6 +92,7 @@ fn request(revision: u64, suffix: &str, action: &str) -> ReserveRequest {
         action: action.into(),
         input: json!({"path": "README.md"}),
         selected_routing: RoutingTier::Balanced,
+        routing_reasons: vec!["test".into()],
     }
 }
 
