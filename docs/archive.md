@@ -11,11 +11,6 @@ the staged policy-v4 activation and incremental hook-reduction sequence are not
 pending work for the new implementation. Their requirements may be reconsidered
 against the rebuild charter rather than copied mechanically.
 
-The existing project event store and `.aporic/policy.next.json` are preserved
-unchanged. They are not automatically compatible with the rebuilt kernel and
-must not be deleted, activated, or migrated without a separately reviewed
-transition.
-
-The companion Aporic Commons repository is preserved at the same-named local
-archive ref. Its source is an input to future monorepo extensions, not a second
-release train.
+Legacy project-local `.aporic` state is not preserved in this repository. The
+rebuilt system keeps its connection and ledger state outside governed
+workspaces and does not read the old project-local format.

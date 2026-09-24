@@ -1,15 +1,28 @@
 # Aporic rebuild charter
 
+## Current development posture
+
+As of 2026-09-24, Aporic is not an operating service. Its integrations are
+therefore advisory and fail-open. They may preserve continuity, observations,
+and append-only history, but they must not deny a tool call, require a grant,
+add an approval prompt, or narrow permissions supplied by the host.
+
+Governance may be introduced only after an operating service exists, one
+explicit and observable control at a time. Each control needs a concrete
+threat or operational failure, an owner, an escape hatch, and evidence that it
+improves the service without obstructing development. The authorization work
+below is retained as design evidence, not as the active integration contract.
+
 ## Purpose
 
-Aporic is a small deterministic authorization kernel for coding-agent actions.
-It records enough durable state to replay authority decisions and effects. It is
-not a general agent framework, a natural-language interpreter, or a workflow
-catalog.
+Aporic currently explores durable continuity and deterministic records for
+coding-agent work. It is not a runtime permission boundary, a general agent
+framework, a natural-language interpreter, or a workflow catalog.
 
-## Trusted core
+## Candidate trusted core for a future operating service
 
-The trusted computing base owns only:
+If authorization is reintroduced, the candidate trusted computing base owns
+only:
 
 - append-only records, locking, idempotency, and deterministic replay;
 - exact scope, session, action, and input authority;
@@ -17,7 +30,7 @@ The trusted computing base owns only:
 - fail-closed handling of corrupt, incomplete, unsupported, or contended state.
 
 Natural-language interpretation, risk inference, plan quality, analyzers,
-host-specific hooks, UI projections, and extension workflows stay outside this
+host integrations, UI projections, and extension workflows stay outside this
 boundary. Extensions may submit commands and evidence but cannot grant
 authority, mutate the ledger directly, or override replay.
 
@@ -54,16 +67,14 @@ The new implementation is one monorepo with conceptual `kernel`, `ledger`,
 `protocol`, `hosts`, `extensions`, `sdk`, and `tests` boundaries. Begin with
 module boundaries and split packages only when independent contracts require
 it. A Git commit identifies a coherent build. Compatibility is established by
-a rare protocol epoch plus declared capabilities and event-kind revisions, not
-by matching product or plugin release numbers.
+a rare protocol epoch plus declared capabilities and event-kind revisions.
 
-## First vertical slice
+## Superseded authorization slice
 
-The first milestone accepts one command, evaluates it, reserves exact authority,
-records whether the effect occurred, and replays to the identical state. It must
-cover stale revisions, duplicate retries, contention, corrupt records, abandoned
-reservations, and attempted one-shot reuse before adding policy DSLs, plan
-graphs, Wasm analysis, or multiple host hooks.
+The original first milestone accepted one command, evaluated it, reserved exact
+authority, recorded whether the effect occurred, and replayed to identical
+state. That work remains useful as an isolated experiment, but it is no longer
+connected to automatic host authorization during development.
 
 ## Context rollover
 
@@ -72,8 +83,8 @@ system continuously projects a small handoff capsule containing objective,
 constraints, accepted decisions, repository state, completed checks, open
 questions, and the next executable action.
 
-At a host-provided or conservatively estimated context threshold, the host
-adapter prepares a successor task. The successor must acknowledge the capsule
+At a host-provided or conservatively estimated context threshold, a host
+integration may prepare a successor task. The successor must acknowledge the capsule
 and workspace handshake before the predecessor retires. Only facts and work
 state cross this boundary; session authority, execution grants, and one-shot
 consumption rights never transfer.

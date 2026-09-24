@@ -1,44 +1,32 @@
 # Security
 
-## Project status
+Aporic is experimental software, not a hardened security boundary. Do not rely
+on it as the sole control for untrusted code execution, secrets, production
+deployment, authentication, or access control.
 
-Aporic `0.7.x` is an experimental governance kernel, not a hardened security boundary. Do not rely on it as the sole control for untrusted code execution, secrets, production deployment, or access control.
+## Current development posture
 
-## Current trust boundary
+This repository ships Rust crates, schemas, role packages, and an optional local
+CLI. It does not install host hooks, ship an application plugin, intercept tool
+calls, add approval prompts, or control model selection. Host and platform
+permissions remain authoritative.
 
-- Event actor identity and provenance are caller-declared and are not cryptographically authenticated.
-- File locking coordinates cooperating processes under the same operating-system user; it does not prevent same-user tampering.
-- The Codex adapter can fail closed when its configured store is missing, invalid, or busy, but it cannot guarantee behavior when the hook process itself is bypassed, killed, or never invoked.
-- The global Codex adapter activates only for an explicit `.aporic/config.json` binding. An invalid binding or policy fails closed, while an absent binding intentionally skips Aporic. A same-user attacker can edit, remove, or replace project files and remains outside the security boundary.
-- Project stores are separated under `${APORIC_DATA_HOME:-$HOME/.local/share/aporic}` by a lossless versioned encoding of the canonical absolute workspace path, and the data root must resolve outside the workspace. Moving a repository selects a new store; Aporic does not infer identity across moves or merge old state automatically.
-- The initial preventive configuration requires an active intent-bound plan for `apply_patch`; shell commands, hosted tools, and other mutation paths remain outside that gate unless separately integrated.
-- Plan authorization proves that a matching record exists. It does not prove that the plan is good or that a proposed patch semantically follows it.
-- `approve-plan` consolidates intent registration, plan registration, and session/tool authorization into one composite event, so replay cannot observe only a subset of those semantic records. It does not authenticate the caller, bypass open Aporia or delegation checks, strengthen the event log's existing power-loss durability, or prevent a same-user process from invoking the lower-level `commit` command.
-- Governed plans reject cyclic, dangling, or oversized requirement graphs, cap them at 256 requirements and 32 direct dependencies per requirement, and re-check readiness when authority is issued or used. Disposition actors, evidence provenance, risk profiles, and risk levels remain caller-declared; this is cooperative governance, not authenticated policy attestation.
-- Policy schema v4 requires an explicit lifecycle. `development` can omit routine `PlanAuthorized` records for ready low-risk governed plans whose profile ID and version exactly match a tool allowlist. `maintenance` ignores that allowlist and requires an intent-bound exact-input grant for every configured tool. This is deterministic matching over caller-declared state, not semantic risk classification or authenticated deployment detection; a same-user editor can still change the policy file.
-- Hook requests and policy files are capped at 1 MiB; validated policies contain at most 256 tools and 32 automatic low-risk profile references per tool.
-- Invalidating a requirement resolution deterministically stales its dependency closure. A caller must still record the invalidation; Aporic does not discover changed premises or classify risk automatically.
-- Authorization is checked before a tool runs; it is not atomically bound to the later filesystem effect. State can change between the check and the effect.
-- Bounded-grant evaluation and consumption are atomic with respect to cooperating Aporic writers, but consumption means only that preflight admission was issued. It does not attest tool success or effects.
-- `PostToolUse` records an effect receipt with an `unknown` outcome and non-cryptographic identities instead of raw input or response payloads. Exact scope, session, tool-use, and tool name make retries idempotent; the first receipt is retained without treating later payload identities as an equality or integrity check. Only a separate evidence-backed verifier report may support a success claim; verifier identity, provenance, evidence locators, and digests are caller-declared rather than authenticated attestations.
-- `ingest-verifier-report` validates and records report data but never launches or isolates an external verifier. Operators remain responsible for running the verifier independently and protecting its output path.
-- The bundled MCP server is a local stdio boundary. It caps each request at 1 MiB, resolves only absolute explicitly bound workspaces, and does not accept event-log or policy paths from callers. Capability, status, and explanation tools are read-only; status returns counts instead of recorded text. The sole write tool is verifier-report ingestion and the package config marks it for an approval prompt.
-- MCP client approval is defense in depth, not an Aporic authority record. A same-user caller can invoke the binary directly. The MCP server therefore exposes no tool for plan registration or authorization, execution grants, risk acceptance, actor authentication, or arbitrary event commits; unknown methods, tools, and input fields are rejected.
-- Session checkpoints are derived from recorded Aporic state, not transcripts. A single-claim lifecycle prevents duplicate continuation injection but does not prove the checkpoint is complete or fresh.
-- Exact tool input for a bounded grant is stored in the append-only log. Do not place credentials, tokens, private keys, or other secrets in granted input.
-- Successful appends request data synchronization with `sync_data`, but Aporic does not claim power-loss durability: parent-directory metadata is not synchronized and there is no repair or online snapshot mechanism. The explicit migration command creates a validated offline snapshot copy; it is not recovery.
-- `SessionStart` projects recorded text as untrusted context. Its execution status is a sampled observation at one recorded revision, not permission, and it can become stale before a later tool call. It does not provide prompt-injection immunity or make event contents authoritative instructions.
-- `UserPromptSubmit` supplies advisory intent-fidelity context. It does not parse or authenticate meaning, persist the prompt, prove that the model followed the guidance, grant authority, or protect tools outside the independent `PreToolUse` path. Invalid project discovery warns without blocking conversation; configured mutation tools retain their separate fail-closed behavior. Raw hook input is capped at 1 MiB and an oversized payload skips this advisory rather than blocking conversation.
-- The 6,000-byte projection limit bounds injected UTF-8 bytes; it does not promise a token count, model-cost reduction, or retention of every detailed record. For observed state, critical gate status and authority counts remain as per-tool entries or explicit omitted-tool aggregates, blocker kinds are retained, and detail omission is explicit. Unavailable state has no trusted status to aggregate and reports only unknown retained entries plus protected and omitted counts.
-- FNV identities in diagnostics, effect receipts, and omission receipts are non-cryptographic lookup aids. They do not provide integrity or confidentiality, and low-entropy input or response values can be guessed by enumeration. The authorization boundary compares canonical JSON values exactly and never trusts these identities.
-- Replay rejects malformed sequences and unsupported schema versions, but it does not rerun the current authorization policy over historical events.
-- Argument relations, counterarguments, contradiction labels, belief revisions, and decision reviews are caller-declared records. Structural consistency does not prove semantic truth, soundness, or decision quality.
-- Wasm analyzer modules are untrusted local inputs. Aporic rejects imports and bounds module bytes, fuel, stack, linear memory, instances, table count and elements, input, and output, but compilation is not fuel-metered and same-user module replacement is not prevented. The runtime exposes no store, filesystem, network, clock, randomness, or authorization host capability.
-- Analyzer output must match the input revision and schema, but remains an untrusted diagnostic. It cannot append events, grant authority, accept risk, or revise a claim without a separate governed event.
-- Rollback from schema v7 requires restoring a compatible binary and a pre-migration store snapshot. Migration from v1 through v6 is offline, non-destructive, and does not merge concurrent writes.
+## Recorded state
 
-## Reporting a vulnerability
+The crates use bounded structured inputs, append-only records, deterministic
+replay, revision checks, and cooperative file locks. These mechanisms protect
+internal consistency; they do not authenticate callers or resist a malicious
+process running as the same user. Connection files, role packages, and ledgers
+should be protected with ordinary operating-system permissions.
 
-Do not open a public issue for a vulnerability that would expose sensitive details. Use GitHub's private vulnerability reporting for `tac0de/aporic` when available. Include affected revision, reproducer, expected boundary, observed behavior, and potential impact.
+Project bindings reject state placed inside the governed workspace and detect
+changes to the bound Git remote. Continuity and effect records are observations,
+not proof that an external effect occurred.
 
-Until a response policy is published, no response-time or remediation-time guarantee is made.
+Markdown role instructions are hashed and carried as behavioral context. They
+are not parsed by the deterministic kernel and do not grant authority.
+
+## Reporting
+
+Report suspected vulnerabilities privately to the repository maintainers. Do
+not include secrets or exploit unrelated systems while preparing a report.
