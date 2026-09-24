@@ -1,4 +1,9 @@
 use aporic_boundary::BoundaryPolicy;
+use aporic_evolution::{
+    Change, CommitRequest as EvolutionCommitRequest, CommitStatus as EvolutionCommitStatus,
+    Component, Event as EvolutionEvent, Improvement, commit as commit_evolution,
+    initialize as initialize_evolution, load as load_evolution,
+};
 use aporic_handoff::{CommitStatus as HandoffCommitStatus, HandoffCapsule, HandoffRef};
 use aporic_host::{
     ActionIdentity, CloseDayRequest, ConnectRequest, EffectRequest, HostRuntime, OpenDayRequest,
@@ -39,6 +44,13 @@ struct BindInput {
     model_control: ModelControlPolicy,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProjectConnectInput {
+    catalog: PathBuf,
+    binding: BindInput,
+}
+
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ConnectionDocument {
@@ -49,6 +61,8 @@ struct ConnectionDocument {
     kernel_store: PathBuf,
     handoff_store: PathBuf,
     model_control_store: PathBuf,
+    #[serde(default)]
+    evolution_store: Option<PathBuf>,
     host_policy: HostPolicy,
     boundary_policy: BoundaryPolicy,
     model_control: ModelControlPolicy,
@@ -63,6 +77,8 @@ struct StatusDocument<'a> {
     kernel_revision: u64,
     handoff_revision: u64,
     model_control_records: usize,
+    improvement_requests: usize,
+    pending_improvements: usize,
     head: String,
     head_changed: bool,
     dirty: bool,
@@ -81,12 +97,62 @@ struct CatalogRegisterInput {
     connection_file: PathBuf,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ImprovementRequestInput {
+    event_id: String,
+    idempotency_key: String,
+    expected_revision: u64,
+    request_id: String,
+    component: Component,
+    change: Change,
+    summary: String,
+    rationale: String,
+    evidence_refs: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ImprovementImplementedInput {
+    event_id: String,
+    idempotency_key: String,
+    expected_revision: u64,
+    request_id: String,
+    aporic_commit: String,
+    checks: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ImprovementReconnectInput {
+    event_id: String,
+    idempotency_key: String,
+    expected_revision: u64,
+    request_id: String,
+    catalog: PathBuf,
+    adapter_manifest: PathBuf,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AdapterBuildManifest {
+    schema_version: u32,
+    aporic_commit: String,
+    adapter_sha256: String,
+}
+
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct CatalogEntry {
     schema_version: u32,
     connection_file: PathBuf,
     workspace: PathBuf,
+}
+
+struct ResolvedConnection {
+    path: PathBuf,
+    connection: ConnectionDocument,
+    runtime: HostRuntime,
 }
 
 #[derive(Debug, Deserialize)]
@@ -152,6 +218,7 @@ fn run() -> Result<CommandOutput, Box<dyn std::error::Error>> {
 
     match command.as_str() {
         "bind" => bind(&connection_path),
+        "project-connect" => project_connect(&connection_path),
         "catalog-register" => catalog_register(&connection_path),
         "codex-hook" => codex_hook(&connection_path),
         "status" => with_runtime(&connection_path, |runtime, connection| {
@@ -159,6 +226,13 @@ fn run() -> Result<CommandOutput, Box<dyn std::error::Error>> {
             let kernel = aporic_kernel::load(&connection.kernel_store)?;
             let handoff = aporic_handoff::load(&connection.handoff_store)?;
             let model_control = load_audit(&connection.model_control_store)?;
+            let evolution = load_connection_evolution(connection)?;
+            let pending_improvements = evolution
+                .state()
+                .improvements
+                .values()
+                .filter(|item| !item.reconnected)
+                .count();
             let status = StatusDocument {
                 project_id: runtime.binding().project_id(),
                 scope: runtime.scope(),
@@ -167,6 +241,8 @@ fn run() -> Result<CommandOutput, Box<dyn std::error::Error>> {
                 kernel_revision: kernel.state().revision,
                 handoff_revision: handoff.state().revision,
                 model_control_records: model_control.records().len(),
+                improvement_requests: evolution.state().improvements.len(),
+                pending_improvements,
                 head: observation.head,
                 head_changed: observation.head_changed,
                 dirty: observation.dirty,
@@ -224,6 +300,81 @@ fn run() -> Result<CommandOutput, Box<dyn std::error::Error>> {
             )?;
             success("model-plan", serde_json::to_value(plan)?)
         }),
+        "improvement-list" => with_runtime(&connection_path, |_, connection| {
+            success(
+                "improvement-list",
+                serde_json::to_value(load_connection_evolution(connection)?.state())?,
+            )
+        }),
+        "improvement-request" => with_runtime(&connection_path, |runtime, connection| {
+            let input: ImprovementRequestInput = read_stdin()?;
+            let outcome = commit_evolution(
+                connection_evolution_store(connection)?,
+                EvolutionCommitRequest::new(
+                    input.event_id,
+                    input.idempotency_key,
+                    input.expected_revision,
+                    EvolutionEvent::Requested {
+                        improvement: Improvement {
+                            request_id: input.request_id,
+                            source_project_id: connection.project_id.clone(),
+                            source_binding_sha256: runtime.binding().binding_sha256().into(),
+                            component: input.component,
+                            change: input.change,
+                            summary: input.summary,
+                            rationale: input.rationale,
+                            evidence_refs: input.evidence_refs,
+                        },
+                    },
+                ),
+            )?;
+            evolution_operation("improvement-request", outcome)
+        }),
+        "improvement-implemented" => with_runtime(&connection_path, |_, connection| {
+            let input: ImprovementImplementedInput = read_stdin()?;
+            verify_pushed_aporic_commit(&connection.role_directory, &input.aporic_commit)?;
+            let outcome = commit_evolution(
+                connection_evolution_store(connection)?,
+                EvolutionCommitRequest::new(
+                    input.event_id,
+                    input.idempotency_key,
+                    input.expected_revision,
+                    EvolutionEvent::Implemented {
+                        request_id: input.request_id,
+                        aporic_commit: input.aporic_commit,
+                        checks: input.checks,
+                    },
+                ),
+            )?;
+            evolution_operation("improvement-implemented", outcome)
+        }),
+        "improvement-reconnect" => with_runtime(&connection_path, |runtime, connection| {
+            let input: ImprovementReconnectInput = read_stdin()?;
+            let manifest: AdapterBuildManifest = read_document(&input.adapter_manifest)?;
+            validate_adapter_manifest(
+                &manifest,
+                &input.adapter_manifest,
+                &connection.role_directory,
+                runtime.binding().workspace(),
+            )?;
+            register_connection(&input.catalog, &connection_path, runtime)?;
+            let outcome = commit_evolution(
+                connection_evolution_store(connection)?,
+                EvolutionCommitRequest::new(
+                    input.event_id,
+                    input.idempotency_key,
+                    input.expected_revision,
+                    EvolutionEvent::Reconnected {
+                        request_id: input.request_id,
+                        aporic_commit: manifest.aporic_commit,
+                        target_binding_sha256: runtime.binding().binding_sha256().into(),
+                        profile_sha256: runtime.profile().profile_sha256().into(),
+                        adapter_sha256: manifest.adapter_sha256,
+                    },
+                ),
+            )?;
+            evolution_operation("improvement-reconnect", outcome)
+        }),
         "codex-launch" => codex_launch(&connection_path, &trailing),
         _ => Err(format!("unknown command: {command}").into()),
     }
@@ -231,6 +382,10 @@ fn run() -> Result<CommandOutput, Box<dyn std::error::Error>> {
 
 fn bind(path: &Path) -> Result<CommandOutput, Box<dyn std::error::Error>> {
     let input: BindInput = read_stdin()?;
+    bind_input(path, input)
+}
+
+fn bind_input(path: &Path, input: BindInput) -> Result<CommandOutput, Box<dyn std::error::Error>> {
     if input.schema_version != CONNECTION_SCHEMA_VERSION {
         return Err("unsupported bind schema version".into());
     }
@@ -251,10 +406,12 @@ fn bind(path: &Path) -> Result<CommandOutput, Box<dyn std::error::Error>> {
     let kernel_store = parent.join("kernel.jsonl");
     let handoff_store = parent.join("handoff.jsonl");
     let model_control_store = parent.join("model-control.jsonl");
+    let evolution_store = parent.join("evolution.jsonl");
     if connection_path.try_exists()?
         || kernel_store.try_exists()?
         || handoff_store.try_exists()?
         || model_control_store.try_exists()?
+        || evolution_store.try_exists()?
     {
         return Err("connection or state store already exists".into());
     }
@@ -272,6 +429,7 @@ fn bind(path: &Path) -> Result<CommandOutput, Box<dyn std::error::Error>> {
     aporic_kernel::initialize(&kernel_store)?;
     aporic_handoff::initialize(&handoff_store)?;
     initialize_audit(&model_control_store)?;
+    initialize_evolution(&evolution_store)?;
     let connection = ConnectionDocument {
         schema_version: CONNECTION_SCHEMA_VERSION,
         registry,
@@ -280,6 +438,7 @@ fn bind(path: &Path) -> Result<CommandOutput, Box<dyn std::error::Error>> {
         kernel_store,
         handoff_store,
         model_control_store,
+        evolution_store: Some(evolution_store),
         host_policy: input.host_policy,
         boundary_policy: input.boundary_policy,
         model_control,
@@ -292,6 +451,18 @@ fn bind(path: &Path) -> Result<CommandOutput, Box<dyn std::error::Error>> {
             "project_id": binding.project_id(),
             "binding_sha256": binding.binding_sha256(),
         }),
+    )
+}
+
+fn project_connect(path: &Path) -> Result<CommandOutput, Box<dyn std::error::Error>> {
+    let input: ProjectConnectInput = read_stdin()?;
+    let bound = bind_input(path, input.binding)?;
+    let connection: ConnectionDocument = read_document(path)?;
+    let runtime = connect_runtime(&connection)?;
+    let registered = register_connection(&input.catalog, path, &runtime)?;
+    success(
+        "project-connect",
+        json!({"binding": bound.value, "catalog": registered}),
     )
 }
 
@@ -404,6 +575,18 @@ fn catalog_register(path: &Path) -> Result<CommandOutput, Box<dyn std::error::Er
     let input: CatalogRegisterInput = read_stdin()?;
     let connection: ConnectionDocument = read_document(&input.connection_file)?;
     let runtime = connect_runtime(&connection)?;
+    let value = register_connection(path, &input.connection_file, &runtime)?;
+    success("catalog-register", value)
+}
+
+fn register_connection(
+    path: &Path,
+    connection_file: &Path,
+    runtime: &HostRuntime,
+) -> Result<Value, Box<dyn std::error::Error>> {
+    if !path.is_absolute() {
+        return Err("catalog path must be absolute".into());
+    }
     let parent = path.parent().ok_or("catalog path must have a parent")?;
     let parent = std::fs::canonicalize(parent)?;
     let catalog = parent.join(
@@ -417,7 +600,7 @@ fn catalog_register(path: &Path) -> Result<CommandOutput, Box<dyn std::error::Er
     let catalog = std::fs::canonicalize(catalog)?;
     let entry = CatalogEntry {
         schema_version: 1,
-        connection_file: std::fs::canonicalize(input.connection_file)?,
+        connection_file: std::fs::canonicalize(connection_file)?,
         workspace: runtime.binding().workspace().to_path_buf(),
     };
     let entry_path = catalog.join(format!("{}.json", runtime.binding().binding_sha256()));
@@ -429,10 +612,7 @@ fn catalog_register(path: &Path) -> Result<CommandOutput, Box<dyn std::error::Er
     } else {
         write_new_document(&entry_path, &entry)?;
     }
-    success(
-        "catalog-register",
-        json!({"catalog": catalog, "entry": entry_path}),
-    )
+    Ok(json!({"catalog": catalog, "entry": entry_path}))
 }
 
 fn codex_hook(catalog: &Path) -> Result<CommandOutput, Box<dyn std::error::Error>> {
@@ -444,11 +624,16 @@ fn codex_hook(catalog: &Path) -> Result<CommandOutput, Box<dyn std::error::Error
         }
         Err(error) => return Err(error),
     };
-    let Some((connection, runtime)) = resolved else {
+    let Some(ResolvedConnection {
+        path: connection_path,
+        connection,
+        runtime,
+    }) = resolved
+    else {
         return raw(json!({}));
     };
     match input.hook_event_name.as_str() {
-        "SessionStart" => hook_session_start(&connection, &runtime, &input),
+        "SessionStart" => hook_session_start(&connection_path, &connection, &runtime, &input),
         "PreToolUse" => hook_pre_tool(&connection, &runtime, &input),
         "PostToolUse" => hook_post_tool(&connection, &runtime, &input),
         "PreCompact" => {
@@ -466,12 +651,12 @@ fn codex_hook(catalog: &Path) -> Result<CommandOutput, Box<dyn std::error::Error
 fn resolve_catalog(
     catalog: &Path,
     cwd: &Path,
-) -> Result<Option<(ConnectionDocument, HostRuntime)>, Box<dyn std::error::Error>> {
+) -> Result<Option<ResolvedConnection>, Box<dyn std::error::Error>> {
     if !catalog.exists() {
         return Ok(None);
     }
     let cwd = std::fs::canonicalize(cwd)?;
-    let mut selected: Option<(usize, ConnectionDocument, HostRuntime)> = None;
+    let mut selected: Option<(usize, PathBuf, ConnectionDocument, HostRuntime)> = None;
     for item in std::fs::read_dir(catalog)? {
         let path = item?.path();
         if path.extension().and_then(|value| value.to_str()) != Some("json") {
@@ -487,14 +672,21 @@ fn resolve_catalog(
         if cwd.starts_with(workspace) {
             let depth = workspace.components().count();
             if selected.as_ref().is_none_or(|current| depth > current.0) {
-                selected = Some((depth, connection, runtime));
+                selected = Some((depth, entry.connection_file, connection, runtime));
             }
         }
     }
-    Ok(selected.map(|(_, connection, runtime)| (connection, runtime)))
+    Ok(
+        selected.map(|(_, path, connection, runtime)| ResolvedConnection {
+            path,
+            connection,
+            runtime,
+        }),
+    )
 }
 
 fn hook_session_start(
+    connection_path: &Path,
     connection: &ConnectionDocument,
     runtime: &HostRuntime,
     input: &CodexHookInput,
@@ -558,14 +750,24 @@ fn hook_session_start(
             )
         })
         .unwrap_or_else(|| "No predecessor handoff.".into());
+    let evolution = load_connection_evolution(connection)?;
+    let pending = evolution
+        .state()
+        .improvements
+        .values()
+        .filter(|item| !item.reconnected)
+        .count();
     let context = format!(
-        "Aporic connection active. scope={} session_ref={} role={} routing_recommendation={:?} source={}. Hooks cannot change the active Codex model ({}). Exact grants remain required before governed tools. Role instructions are behavioral defaults, not authority:\n<aporic-role>\n{}\n</aporic-role>\n{}",
+        "Aporic connection active. scope={} session_ref={} role={} routing_recommendation={:?} source={}. Hooks cannot change the active Codex model ({}). Exact grants remain required before governed tools. Improvement queue revision={} pending={}; record a bounded request only after finishing scoped project work with `aporicctl improvement-request {}`. Role instructions are behavioral defaults, not authority:\n<aporic-role>\n{}\n</aporic-role>\n{}",
         runtime.scope(),
         session_ref,
         runtime.profile().role_id(),
         route.tier,
         input.source.as_deref().unwrap_or("unknown"),
         input.model.as_deref().unwrap_or("unknown"),
+        evolution.state().revision,
+        pending,
+        connection_path.display(),
         runtime.profile().instructions(),
         inherited
     );
@@ -810,7 +1012,141 @@ fn validate_model_control_connection(
         return Err("model-control audit must be distinct from other stores".into());
     }
     load_audit(&audit)?;
+    if let Some(evolution_store) = &connection.evolution_store {
+        if !evolution_store.is_absolute() {
+            return Err("evolution ledger path must be absolute".into());
+        }
+        let metadata = std::fs::symlink_metadata(evolution_store)?;
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            return Err("evolution ledger must be a real regular file".into());
+        }
+        let evolution = std::fs::canonicalize(evolution_store)?;
+        if evolution.starts_with(runtime.binding().workspace()) {
+            return Err("evolution ledger must remain outside the governed workspace".into());
+        }
+        if evolution == connection.kernel_store
+            || evolution == connection.handoff_store
+            || evolution == audit
+        {
+            return Err("evolution ledger must be distinct from other stores".into());
+        }
+        load_evolution(&evolution)?;
+    }
     Ok(())
+}
+
+fn connection_evolution_store(
+    connection: &ConnectionDocument,
+) -> Result<&Path, Box<dyn std::error::Error>> {
+    connection
+        .evolution_store
+        .as_deref()
+        .ok_or_else(|| "connection predates the evolution workflow; reconnect it first".into())
+}
+
+fn load_connection_evolution(
+    connection: &ConnectionDocument,
+) -> Result<aporic_evolution::Ledger, Box<dyn std::error::Error>> {
+    match &connection.evolution_store {
+        Some(path) => Ok(load_evolution(path)?),
+        None => Err("connection predates the evolution workflow; reconnect it first".into()),
+    }
+}
+
+fn evolution_operation(
+    command: &'static str,
+    outcome: aporic_evolution::CommitOutcome,
+) -> Result<CommandOutput, Box<dyn std::error::Error>> {
+    let rejected = outcome.status == EvolutionCommitStatus::Rejected;
+    operation(command, serde_json::to_value(outcome)?, rejected)
+}
+
+fn file_sha256(path: &Path) -> Result<String, Box<dyn std::error::Error>> {
+    let metadata = std::fs::symlink_metadata(path)?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        return Err("adapter executable must be a real regular file".into());
+    }
+    let mut file = File::open(path)?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0_u8; 64 * 1024];
+    loop {
+        let read = file.read(&mut buffer)?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+    }
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
+fn validate_adapter_manifest(
+    manifest: &AdapterBuildManifest,
+    manifest_path: &Path,
+    role_directory: &Path,
+    governed_workspace: &Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if manifest.schema_version != 1 {
+        return Err("unsupported adapter build manifest schema version".into());
+    }
+    let manifest_path = std::fs::canonicalize(manifest_path)?;
+    if manifest_path.starts_with(governed_workspace) {
+        return Err("adapter build manifest must remain outside the governed workspace".into());
+    }
+    verify_pushed_aporic_commit(role_directory, &manifest.aporic_commit)?;
+    let executable = std::env::current_exe()?;
+    if executable.starts_with(governed_workspace) {
+        return Err("adapter executable must remain outside the governed workspace".into());
+    }
+    if file_sha256(&executable)? != manifest.adapter_sha256 {
+        return Err("adapter build manifest does not match the running executable".into());
+    }
+    Ok(())
+}
+
+fn verify_pushed_aporic_commit(
+    role_directory: &Path,
+    requested_commit: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if !matches!(requested_commit.len(), 40 | 64)
+        || !requested_commit
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
+    {
+        return Err("Aporic commit must be a full Git object ID".into());
+    }
+    let root = git_text(role_directory, &["rev-parse", "--show-toplevel"])?;
+    let commit = git_text(
+        Path::new(&root),
+        &[
+            "rev-parse",
+            "--verify",
+            &format!("{requested_commit}^{{commit}}"),
+        ],
+    )?;
+    if commit != requested_commit {
+        return Err("Aporic commit does not resolve exactly".into());
+    }
+    let remote_branches = git_text(
+        Path::new(&root),
+        &["branch", "-r", "--contains", requested_commit],
+    )?;
+    if remote_branches.trim().is_empty() {
+        return Err("Aporic commit is not present on a fetched remote branch".into());
+    }
+    Ok(())
+}
+
+fn git_text(directory: &Path, arguments: &[&str]) -> Result<String, Box<dyn std::error::Error>> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(directory)
+        .args(arguments)
+        .env("GIT_CONFIG_NOSYSTEM", "1")
+        .output()?;
+    if !output.status.success() {
+        return Err(format!("Git verification failed: {}", arguments.join(" ")).into());
+    }
+    Ok(String::from_utf8(output.stdout)?.trim().into())
 }
 
 fn kernel_operation(

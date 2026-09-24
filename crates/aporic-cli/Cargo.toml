@@ -11,6 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 aporic-boundary = { path = "../aporic-boundary" }
+aporic-evolution = { path = "../aporic-evolution" }
 aporic-handoff = { path = "../aporic-handoff" }
 aporic-host = { path = "../aporic-host" }
 aporic-kernel = { path = "../aporic-kernel" }

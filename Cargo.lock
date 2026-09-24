@@ -47,6 +47,7 @@ name = "aporic-cli"
 version = "0.1.0"
 dependencies = [
  "aporic-boundary",
+ "aporic-evolution",
  "aporic-handoff",
  "aporic-host",
  "aporic-kernel",
@@ -57,6 +58,14 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+]
+
+[[package]]
+name = "aporic-evolution"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

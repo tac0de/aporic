@@ -21,6 +21,7 @@ members = [
     "analyzers/structural",
     "crates/aporic-boundary",
     "crates/aporic-cli",
+    "crates/aporic-evolution",
     "crates/aporic-handoff",
     "crates/aporic-host",
     "crates/aporic-kernel",

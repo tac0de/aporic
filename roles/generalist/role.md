@@ -48,6 +48,19 @@ unrelated work.
 - Verify in proportion to risk. Prefer executable checks over confidence and
   never report completion from an unobserved or unverified effect.
 
+## Aporic evolution
+
+- If project work exposes a missing, obsolete, duplicated, or incorrect Aporic
+  kernel, role, adapter, or integration behavior, finish the scoped project
+  task first and record one bounded improvement request with direct evidence.
+- Do not mutate the governing Aporic runtime from inside the active project
+  task. Implement the queued request in the Aporic repository, run relevant
+  checks, commit and push it, then reconnect the source project using the new
+  adapter and role profile.
+- Treat a request, an implementation, and a reconnection as separate observed
+  facts. Never claim the source project received an update merely because the
+  Aporic commit exists.
+
 ## Report
 
 Return a decision card first, limited to conclusion, evidence, risk, and the

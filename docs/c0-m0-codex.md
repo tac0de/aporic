@@ -85,3 +85,10 @@ its private `PLUGIN_DATA/catalog` directory.
 
 The catalog and all ledgers remain outside governed repositories. The closest
 registered workspace wins for nested projects.
+
+`project-connect` performs the first bind and catalog registration together.
+After a queued Aporic improvement is implemented and pushed, a freshly built or
+installed adapter runs `improvement-reconnect` to revalidate the catalog entry
+and record the new executable and role-profile hashes. A new Codex task is still
+required because an already-running task cannot replace its loaded hooks or
+model.

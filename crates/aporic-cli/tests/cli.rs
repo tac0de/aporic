@@ -126,7 +126,7 @@ fn bind_input(area: &TestArea) -> Value {
         "role_directory": role_path(),
         "host_policy": {
             "capabilities": ["workspace.read", "workspace.write"],
-            "default_routing": "balanced",
+            "default_routing": "economy",
             "routing_ceiling": "deep",
             "max_tool_calls": 8,
             "max_parallel_tasks": 1,
@@ -155,6 +155,92 @@ fn bind_input(area: &TestArea) -> Value {
             }
         }
     })
+}
+
+fn project_connect_input(area: &TestArea) -> Value {
+    json!({
+        "catalog": area.state().join("catalog"),
+        "binding": bind_input(area)
+    })
+}
+
+#[test]
+fn connects_a_real_project_and_replays_the_improvement_reconnect_flow() {
+    let area = TestArea::new();
+    setup(&area);
+    let connection = area.connection();
+    let connected = success(invoke(
+        "project-connect",
+        &connection,
+        Some(project_connect_input(&area)),
+    ));
+    assert!(connected["result"]["catalog"]["entry"].is_string());
+
+    let requested = success(invoke(
+        "improvement-request",
+        &connection,
+        Some(json!({
+            "event_id": "improvement-request-event",
+            "idempotency_key": "improvement-request-key",
+            "expected_revision": 0,
+            "request_id": "improvement-1",
+            "component": "kernel",
+            "change": "modify",
+            "summary": "Preserve an invariant discovered by project work",
+            "rationale": "The project exposed a reproducible missing case",
+            "evidence_refs": ["test:project-regression"]
+        })),
+    ));
+    assert_eq!(requested["result"]["revision"], 1);
+
+    let aporic_commit = git(&role_path(), &["rev-parse", "HEAD"]);
+    let implemented = success(invoke(
+        "improvement-implemented",
+        &connection,
+        Some(json!({
+            "event_id": "improvement-implemented-event",
+            "idempotency_key": "improvement-implemented-key",
+            "expected_revision": 1,
+            "request_id": "improvement-1",
+            "aporic_commit": aporic_commit,
+            "checks": ["cargo test --workspace", "cargo clippy --workspace --all-targets"]
+        })),
+    ));
+    assert_eq!(implemented["result"]["revision"], 2);
+
+    let executable = PathBuf::from(env!("CARGO_BIN_EXE_aporicctl"));
+    let adapter_sha256 = format!("{:x}", Sha256::digest(std::fs::read(&executable).unwrap()));
+    let adapter_manifest = area.state().join("aporic-build.json");
+    std::fs::write(
+        &adapter_manifest,
+        format!(
+            "{{\"schema_version\":1,\"aporic_commit\":\"{aporic_commit}\",\"adapter_sha256\":\"{adapter_sha256}\"}}\n"
+        ),
+    )
+    .unwrap();
+
+    let reconnected = success(invoke(
+        "improvement-reconnect",
+        &connection,
+        Some(json!({
+            "event_id": "improvement-reconnected-event",
+            "idempotency_key": "improvement-reconnected-key",
+            "expected_revision": 2,
+            "request_id": "improvement-1",
+            "catalog": area.state().join("catalog"),
+            "adapter_manifest": adapter_manifest
+        })),
+    ));
+    assert_eq!(reconnected["result"]["revision"], 3);
+
+    let status = success(invoke("status", &connection, None));
+    assert_eq!(status["result"]["improvement_requests"], 1);
+    assert_eq!(status["result"]["pending_improvements"], 0);
+    let listed = success(invoke("improvement-list", &connection, None));
+    assert_eq!(
+        listed["result"]["improvements"]["improvement-1"]["reconnected"],
+        true
+    );
 }
 
 #[test]

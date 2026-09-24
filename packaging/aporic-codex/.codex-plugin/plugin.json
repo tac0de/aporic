@@ -1,11 +1,10 @@
 {
   "name": "aporic-codex",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Connects Codex lifecycle hooks to the clean-room Aporic runtime.",
   "author": {
     "name": "Aporic contributors"
   },
-  "skills": "./skills/",
   "interface": {
     "displayName": "Aporic Codex",
     "shortDescription": "Bind Codex sessions and tool effects to Aporic.",
@@ -19,7 +18,8 @@
       "Exact local-tool gating",
       "Effect recording",
       "Deterministic routing recommendations",
-      "Launch-bound model control"
+      "Launch-bound model control",
+      "Append-only Aporic improvement requests"
     ],
     "defaultPrompt": "Handle this project using its active Aporic role and decision boundary."
   }
