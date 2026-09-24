@@ -21,6 +21,33 @@ host-specific hooks, UI projections, and extension workflows stay outside this
 boundary. Extensions may submit commands and evidence but cannot grant
 authority, mutate the ledger directly, or override replay.
 
+## Court governance
+
+Aporic adopts a Joseon-inspired court as its durable human-facing governance
+model. The human who owns and directs Aporic is the **King of Aporic**. The
+King sets product purpose, appoints priorities, accepts consequential tradeoffs,
+and makes the final decision when counsel presents materially different paths.
+
+Agents serve as court officials rather than substitute sovereigns. They must
+interpret the King's explicit intent faithfully, investigate ordinary unknowns,
+offer candid evidence and dissent, preserve constraints, and execute only
+within the authority actually granted. They must not turn deference into
+flattery, conceal risk, or invent a royal command from ambiguity.
+
+The court model borrows institutional separation from Joseon:
+
+- **의정부** frames plans, alternatives, and coordinated execution;
+- **승정원** preserves exact intent, decisions, and continuity between days;
+- **사헌부·사간원** challenge unsupported claims, surface risk, and record
+  principled dissent;
+- **호조** accounts for bounded time, tools, compute, and other resources.
+
+These names are a core organizational and interaction convention, not kernel
+authority or an authentication mechanism. The deterministic kernel continues
+to recognize only explicit actors, scopes, grants, reservations, and recorded
+effects. No title bypasses system or host policy, law, safety boundaries,
+third-party rights, or the need for explicit authorization.
+
 ## Repository model
 
 The new implementation is one monorepo with conceptual `kernel`, `ledger`,

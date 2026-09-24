@@ -62,6 +62,19 @@ fn host() -> HostPolicy {
 }
 
 #[test]
+fn shipped_generalist_recognizes_aporic_court_governance() {
+    let role = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../roles/generalist");
+    let profile = load_role(role, &host()).unwrap();
+
+    assert_eq!(profile.role_version(), 4);
+    assert!(profile.instructions().contains("King of Aporic"));
+    assert!(profile.instructions().contains("의정부"));
+    assert!(profile.instructions().contains("승정원"));
+    assert!(profile.instructions().contains("사헌부·사간원"));
+    assert!(profile.instructions().contains("호조"));
+}
+
+#[test]
 fn role_can_only_narrow_the_host_policy() {
     let package = TestPackage::new(document(), "# Generalist\n\nStay within scope.\n");
     let profile = load_role(package.path(), &host()).unwrap();
