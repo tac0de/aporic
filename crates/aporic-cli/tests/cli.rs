@@ -252,7 +252,7 @@ fn serves_a_live_read_only_observatory_snapshot() {
 
     let page = http_get(address, "/");
     assert!(page.starts_with("HTTP/1.1 200 OK"));
-    assert!(page.contains("어전 관제도"));
+    assert!(page.contains("살아있는 궁정"));
     let initial = http_get(address, "/api/snapshot");
     assert!(initial.contains("\"kernel_revision\":0"));
 

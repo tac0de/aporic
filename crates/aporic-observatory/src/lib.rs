@@ -19,6 +19,7 @@ use std::time::Duration;
 const INDEX_HTML: &str = include_str!("../assets/index.html");
 const APP_JS: &str = include_str!("../assets/app.js");
 const STYLE_CSS: &str = include_str!("../assets/style.css");
+const PALACE_COURTYARD: &[u8] = include_bytes!("../assets/images/palace-courtyard.png");
 const MAX_REQUEST_BYTES: usize = 8 * 1_024;
 
 #[derive(Debug)]
@@ -519,6 +520,7 @@ fn handle(stream: &mut TcpStream, source: &Source, token: Option<&str>) -> Resul
         "/" => response(stream, "200 OK", "text/html; charset=utf-8", INDEX_HTML),
         "/app.js" => response(stream, "200 OK", "text/javascript; charset=utf-8", APP_JS),
         "/style.css" => response(stream, "200 OK", "text/css; charset=utf-8", STYLE_CSS),
+        "/images/palace-courtyard.png" => image_response(stream, PALACE_COURTYARD),
         "/api/snapshot" if authorized => {
             let encoded = serde_json::to_string(&source.snapshot()?)?;
             response(
@@ -627,6 +629,16 @@ fn response(stream: &mut TcpStream, status: &str, content_type: &str, body: &str
         body.len()
     )?;
     stream.flush()?;
+    Ok(())
+}
+
+fn image_response(stream: &mut TcpStream, body: &[u8]) -> Result<()> {
+    write!(
+        stream,
+        "HTTP/1.1 200 OK\r\nContent-Type: image/png\r\nContent-Length: {}\r\nCache-Control: public, max-age=86400\r\nConnection: close\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src 'self'\r\n\r\n",
+        body.len()
+    )?;
+    stream.write_all(body)?;
     Ok(())
 }
 

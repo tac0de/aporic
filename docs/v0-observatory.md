@@ -1,5 +1,11 @@
 # V0 live observatory
 
+The V1 presentation upgrades the first viewport into a simplified palace work
+map. Its generated background is documented in `docs/v1-visual-assets.md`; it
+remains a replaceable presentation asset, while live agent characters and
+literal state are rendered from the snapshot and remain available in the
+folded read-only ledger.
+
 The observatory is a read-only host integration. It serves one embedded,
 dependency-free web interface and a literal JSON event surface from the
 external Aporic state directory. It never writes a governed repository or any
