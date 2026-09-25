@@ -354,8 +354,9 @@ Verification specifications now carry a versioned sandbox profile. `host`
 preserves existing behavior. `required` is implemented on Linux with
 `bubblewrap`, requires network denial, and chooses read-only or read-write
 workspace access. Unsupported platforms, a missing backend, invalid mount setup,
-or missing sandbox-start evidence fail the run rather than downgrade it. Receipts
-persist the selected backend and whether enforcement was established.
+host policy that forbids unprivileged user namespaces, or missing sandbox-start
+evidence fail the run rather than downgrade it. Receipts persist the selected
+backend and whether enforcement was established.
 
 This is a bounded verification worker, not a general untrusted-code service.
 It does not yet impose cgroup CPU, memory, or process-count quotas; use a custom

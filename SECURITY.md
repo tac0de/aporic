@@ -36,9 +36,10 @@ timeout cleanup does not guarantee containment of every descendant a hostile
 program may create.
 
 The opt-in `required` profile is available only when Aporic can start Linux
-`bubblewrap`. It isolates namespaces, drops capabilities, exposes only a minimal
-read-only system view, gives the process a private home and `/tmp`, denies
-network access, and mounts the workspace read-only or read-write as declared.
+`bubblewrap` and the host permits its user-namespace setup. It isolates
+namespaces, drops capabilities, exposes only a minimal read-only system view,
+gives the process a private home and `/tmp`, denies network access, and mounts
+the workspace read-only or read-write as declared.
 The child must write a readiness marker from inside that mount namespace before
 its exit can be evaluated. Missing support, setup failure, or missing readiness
 evidence fails closed and never falls back to `host`.
