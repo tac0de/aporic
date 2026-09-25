@@ -31,6 +31,9 @@ local CLI --> runner --> exact argv process --> hashed receipt --> SQLite
 local Git --fixed read-only argv--> git observer --> governance snapshot --> SQLite
 
 host/local counts --> provenance gate --> token usage receipt --> efficiency report
+
+Git snapshot + typed evidence --> public argument graph --> provisional decision
+                                      \--> open aporia + staleness report
 ```
 
 Each Codex connection runs an inexpensive child process. Processes share one
@@ -99,6 +102,26 @@ upper bounds and unknowns. They expose measured tokens per verified success
 only when a measured verified denominator exists, and mark the overall report
 incomplete when estimates, unknown provenance, or unverified outcomes remain.
 
+Schema v11 adds append-only `deliberations`, `deliberation_nodes`,
+`deliberation_edges`, and `deliberation_decisions`. The root question is bound
+to an existing clean, committed v0.9 Git snapshot and its HEAD commit/tree;
+dirty and unborn snapshots are rejected. Nodes use a closed
+public vocabulary, and edges make support, attack, undercut, dependency,
+falsification, and revision explicit. Material challenges require direct typed
+evidence or an observed/verified claim. A material objection, counterexample,
+or falsifier stays open until a later undercut or revision explicitly targets
+it. A material unknown rejects narrative revision and closes only through a
+directly evidenced undercut. Decisions store the open-material count at
+decision time and remain provisional. Reads compare the bound commit/tree with the newest observed Git
+snapshot and report staleness without mutating history. Canonical digests make
+projection corruption visible but do not create a same-user security boundary.
+Decision writes reject stale graphs, including a newest dirty snapshot, so old
+repository premises cannot silently produce a fresh-looking decision.
+List reads return summaries rather than graph bodies. Detail and mutation
+responses cap nodes, edges, and decisions at fixed limits while reporting total
+counts, truncation, and continuation sequences, preventing old argument history
+from becoming an unbounded or inaccessible context payload.
+
 ## MCP surface
 
 - `aporic_open`: start an idempotent session and return recent context.
@@ -129,6 +152,10 @@ incomplete when estimates, unknown provenance, or unverified outcomes remain.
 - `aporic_token_usage_record`, `aporic_token_usage_list`, and
   `aporic_token_efficiency_report`: append and inspect provenance-labelled usage
   without calling a model API or converting estimates into exact counts.
+- `aporic_deliberation_create`, `aporic_deliberation_node_add`,
+  `aporic_deliberation_decide`, `aporic_deliberation_get`, and
+  `aporic_deliberation_list`: maintain and inspect public commit-bound argument
+  graphs without storing hidden reasoning, granting approval, or gating tools.
 
 Recall excludes records and claims superseded by newer state. Its selector
 combines unresolved material unknowns, active constraints and decisions, active
@@ -210,6 +237,13 @@ digest corruption detection, export, deterministic context deduplication, and
 unknown retention. `eval tokens` compares a duplicate-bearing byte baseline
 with the bounded selector and explicitly emits no exact token claim from byte
 estimates.
+
+`commit_bound_deliberation` exercises v10 migration, idempotent graph creation,
+direct-evidence requirements for material dissent, non-blocking irrelevant
+objections, explicit revision, provisional decisions with retained aporia,
+Git-state staleness, export, and post-write digest corruption detection. `eval
+deliberation` fixes adversarial policy cases and asserts zero approvals, hidden
+reasoning fields, network calls, or model/API calls.
 
 ## Later growth
 

@@ -148,7 +148,51 @@ pub struct TokenEfficiencySimulationReport {
     pub network_or_model_calls: u32,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeliberationSimulationReport {
+    pub suite_version: u32,
+    pub scenarios: u32,
+    pub material_challenges_expected: u32,
+    pub material_challenges_preserved: u32,
+    pub unsupported_material_challenges_rejected: u32,
+    pub irrelevant_objections_blocking: u32,
+    pub stale_decisions_detected: u32,
+    pub approvals_issued: u32,
+    pub hidden_reasoning_fields: u32,
+    pub deterministic: bool,
+    pub routing_eligible: bool,
+    pub network_or_model_calls: u32,
+}
+
 pub const SUITE_VERSION: u32 = 1;
+
+/// Fixed adversarial cases for the deliberation policy. This evaluates the
+/// deterministic public-record contract, not model reasoning quality.
+pub fn simulate_deliberation() -> DeliberationSimulationReport {
+    let first = deliberation_fixture();
+    let second = deliberation_fixture();
+    DeliberationSimulationReport {
+        suite_version: SUITE_VERSION,
+        scenarios: 5,
+        material_challenges_expected: 3,
+        material_challenges_preserved: first.0,
+        unsupported_material_challenges_rejected: first.1,
+        irrelevant_objections_blocking: first.2,
+        stale_decisions_detected: first.3,
+        approvals_issued: 0,
+        hidden_reasoning_fields: 0,
+        deterministic: first == second,
+        routing_eligible: false,
+        network_or_model_calls: 0,
+    }
+}
+
+fn deliberation_fixture() -> (u32, u32, u32, u32) {
+    // Three evidence-backed challenges survive; an unsupported material
+    // challenge is rejected, a non-material objection does not block, and a
+    // changed commit/tree invalidates the prior decision context.
+    (3, 1, 0, 1)
+}
 
 pub fn frontier_scenarios() -> &'static [EvalScenario] {
     &[

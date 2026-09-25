@@ -32,11 +32,12 @@ saves.
 
 ## Current stage
 
-The product is in the measured token-efficiency and context-control stage. The
+The product is in the commit-bound deliberation stage. The
 product question is:
 
-> Can a local hub reduce context and total campaign usage while preserving
-> material constraints, unknowns, direct evidence, and verified task success?
+> Can a local hub preserve material disagreement, unknowns, revisions, and
+> provisional decisions against exact repository state without manufacturing
+> authority or storing hidden reasoning?
 
 The first protocol slice is complete: an actual stdio MCP client can open a
 session, recall project context, record a durable item, close the session, and
@@ -116,6 +117,21 @@ manual evaluation.
   claim or execution state in the same workspace.
 - Exact duplicate context content is removed only after safety-priority sorting;
   budget reports disclose duplicate, oversized, and item-limit omissions.
+- v0.11 deliberations contain only concise public statements and typed
+  relations; there is no field for private chain-of-thought or raw transcripts.
+- Every deliberation is bound to an existing clean, committed local Git
+  snapshot and becomes stale when the latest observed HEAD commit/tree differs
+  or the newest snapshot is dirty.
+- A new decision cannot be recorded on a stale graph; current Git evidence must
+  seed a new deliberation instead of silently reusing old premises.
+- Material objections, counterexamples, falsifiers, and unknowns require direct
+  evidence or an observed/verified claim. Non-material dissent remains visible
+  but cannot block a provisional decision.
+- Decisions remain provisional, disclose the count of open material issues,
+  and never establish approval, permission, merge safety, or tool authority.
+- Deliberation listings return summaries, while graph detail uses fixed
+  node/edge/decision bounds and reports total counts, sequence cursors, and
+  truncation explicitly.
 
 ## Material unknowns
 
@@ -125,6 +141,8 @@ manual evaluation.
   model-driven workloads, beyond the current structural simulations.
 - Whether host environments expose complete and trustworthy token counts for
   all Astra, Sol, and Terra work, including hidden reasoning and cached input.
+- Whether public argument graphs improve real project decisions enough to
+  justify their recording overhead beyond deterministic adversarial tests.
 - Which agent runtime should back later delegation and scheduling.
 - Whether the observed efficiency gain justifies an always-running local
   service beyond the current stdio deployment.
@@ -142,7 +160,7 @@ Observed on 2026-09-25:
 
 - the exact kernel candidate in the repository matches the installed candidate
   by SHA-256;
-- a real stdio MCP child process exposes all twenty-nine tools and preserves a record
+- a real stdio MCP child process exposes all thirty-four tools and preserves a record
   across a server restart;
 - exact retries are idempotent and conflicting reuse of a key is rejected;
 - concurrent writers retain all tested sessions through SQLite WAL;
@@ -193,6 +211,14 @@ Observed on 2026-09-25:
   206 to 107 UTF-8 bytes while retaining all three essential items and the
   unresolved unknown; it makes zero exact token claims, network calls, or model
   calls.
+- the commit-bound-deliberation suite migrates v10 state, rejects unsupported
+  material dissent and narrative closure of unknowns, preserves non-blocking
+  low-materiality objections, requires direct evidence to undercut a material
+  unknown, marks changed commit/tree decisions stale, detects digest
+  corruption, and exports the complete graph.
+- the fixed deliberation simulation preserves all three material challenges,
+  rejects unsupported materiality, detects stale state, and emits zero
+  approvals, hidden-reasoning fields, network calls, or model calls.
 
 Not yet established:
 
@@ -202,6 +228,8 @@ Not yet established:
   workload;
 - a real reduction in provider-reported tokens per verified success; current
   byte simulation is structural evidence only;
+- better decisions or reduced rework in model-driven deliberation; the current
+  graph and simulation establish structural guarantees only;
 - actual agent dispatch or parallel worker execution.
 - real-world hook coverage and outcome accuracy across host versions; the
   current report detects observable gaps but cannot prove unobserved actions.

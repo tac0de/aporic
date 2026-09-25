@@ -34,10 +34,27 @@ async fn main() -> Result<(), Box<dyn Error>> {
         [eval, runtime] if eval == "eval" && runtime == "runtime" => simulate_runtime_eval(),
         [eval, git] if eval == "eval" && git == "git" => simulate_git_eval(),
         [eval, tokens] if eval == "eval" && tokens == "tokens" => simulate_token_eval(),
+        [eval, deliberation] if eval == "eval" && deliberation == "deliberation" => {
+            simulate_deliberation_eval()
+        }
         [tokens, report, flag, workspace]
             if tokens == "tokens" && report == "report" && flag == "--workspace" =>
         {
             token_report(workspace)
+        }
+        [
+            deliberation,
+            show,
+            workspace_flag,
+            workspace,
+            id_flag,
+            deliberation_id,
+        ] if deliberation == "deliberation"
+            && show == "show"
+            && workspace_flag == "--workspace"
+            && id_flag == "--id" =>
+        {
+            show_deliberation(workspace, deliberation_id)
         }
         [executions, reconcile, flag, seconds]
             if executions == "executions"
@@ -52,7 +69,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         _ => {
             eprintln!(
-                "usage: aporic doctor | aporic export --workspace PATH | aporic trace export --workspace PATH | aporic git inspect --workspace PATH | aporic tokens report --workspace PATH | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic eval context | aporic eval memory | aporic eval runtime | aporic eval git | aporic eval tokens | aporic executions reconcile --stale-after SECONDS | aporic hook codex | aporic mcp serve --stdio"
+                "usage: aporic doctor | aporic export --workspace PATH | aporic trace export --workspace PATH | aporic git inspect --workspace PATH | aporic tokens report --workspace PATH | aporic deliberation show --workspace PATH --id ID | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic eval context | aporic eval memory | aporic eval runtime | aporic eval git | aporic eval tokens | aporic eval deliberation | aporic executions reconcile --stale-after SECONDS | aporic hook codex | aporic mcp serve --stdio"
             );
             std::process::exit(2);
         }
@@ -95,6 +112,33 @@ fn simulate_token_eval() -> Result<(), Box<dyn Error>> {
     println!(
         "{}",
         serde_json::to_string_pretty(&aporic::eval::simulate_token_efficiency())?
+    );
+    Ok(())
+}
+
+fn simulate_deliberation_eval() -> Result<(), Box<dyn Error>> {
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&aporic::eval::simulate_deliberation())?
+    );
+    Ok(())
+}
+
+fn show_deliberation(workspace: &str, deliberation_id: &str) -> Result<(), Box<dyn Error>> {
+    let database = default_database_path().map_err(std::io::Error::other)?;
+    let hub = Hub::open(database)?;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&hub.get_deliberation(
+            &aporic::domain::DeliberationGetRequest {
+                workspace: workspace.to_owned(),
+                deliberation_id: deliberation_id.to_owned(),
+                node_after_sequence: None,
+                edge_after_sequence: None,
+                decision_after_sequence: None,
+                limit: None,
+            },
+        )?)?
     );
     Ok(())
 }
@@ -171,11 +215,13 @@ fn doctor() -> Result<(), Box<dyn Error>> {
     let runtime_projection = hub.audit_runtime_projection()?;
     let git_snapshots = hub.audit_git_snapshots()?;
     let token_usage = hub.audit_token_usage()?;
+    let deliberations = hub.audit_deliberations()?;
     let replay_ok = execution_replay.mismatches.is_empty()
         && memory_projection.consistent
         && runtime_projection.consistent
         && git_snapshots.consistent
-        && token_usage.consistent;
+        && token_usage.consistent
+        && deliberations.consistent;
     println!(
         "{}",
         serde_json::to_string(&serde_json::json!({
@@ -187,7 +233,8 @@ fn doctor() -> Result<(), Box<dyn Error>> {
             "memory_projection": memory_projection,
             "runtime_projection": runtime_projection
             ,"git_snapshots": git_snapshots,
-            "token_usage": token_usage
+            "token_usage": token_usage,
+            "deliberations": deliberations
         }))?
     );
     Ok(())

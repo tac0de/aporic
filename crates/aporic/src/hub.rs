@@ -4,14 +4,17 @@ use crate::{
     domain::{
         CapabilityReport, ClaimOutcome, ClaimRequest, CloseOutcome, CloseRequest,
         CommandSpecOutcome, CommandSpecRequest, Consequence, ContextCapsule, CoordinatedTask,
-        DissentAssessment, DissentRequest, EvidenceOutcome, EvidenceRequest, ExecutionFinish,
-        ExecutionGetRequest, ExecutionListRequest, ExecutionOutcome, ExecutionReplayAudit,
-        ExecutionRun, ExecutionStart, GitObserveRequest, GitSnapshot, GitSnapshotAudit,
-        GitSnapshotGetRequest, GitSnapshotListRequest, HookHealthReport, HubStats,
-        MemoryGetRequest, MemoryItem, MemoryProjectionAudit, MemorySearchRequest,
-        MemorySearchResult, ModelRoute, ModelRouteRequest, OpenOutcome, OpenRequest, ProjectExport,
-        RecallRequest, ReconcileOutcome, ReconcileRequest, RecordOutcome, RecordRequest,
-        RuntimeEvent, RuntimeObservation, RuntimeProjectionAudit, RuntimeTraceGetRequest,
+        DeliberationAudit, DeliberationCreateRequest, DeliberationDecisionRequest,
+        DeliberationGetRequest, DeliberationGraph, DeliberationListRequest,
+        DeliberationNodeAddRequest, DeliberationOutcome, DeliberationSummary, DissentAssessment,
+        DissentRequest, EvidenceOutcome, EvidenceRequest, ExecutionFinish, ExecutionGetRequest,
+        ExecutionListRequest, ExecutionOutcome, ExecutionReplayAudit, ExecutionRun, ExecutionStart,
+        GitObserveRequest, GitSnapshot, GitSnapshotAudit, GitSnapshotGetRequest,
+        GitSnapshotListRequest, HookHealthReport, HubStats, MemoryGetRequest, MemoryItem,
+        MemoryProjectionAudit, MemorySearchRequest, MemorySearchResult, ModelRoute,
+        ModelRouteRequest, OpenOutcome, OpenRequest, ProjectExport, RecallRequest,
+        ReconcileOutcome, ReconcileRequest, RecordOutcome, RecordRequest, RuntimeEvent,
+        RuntimeObservation, RuntimeProjectionAudit, RuntimeTraceGetRequest,
         RuntimeTraceListRequest, RuntimeWorkspaceRequest, TaskCancelRequest, TaskClaimRequest,
         TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskOutcome,
         TokenEfficiencyReport, TokenEfficiencyReportRequest, TokenUsageAudit,
@@ -155,6 +158,42 @@ impl Hub {
 
     pub fn audit_token_usage(&self) -> Result<TokenUsageAudit> {
         self.store.audit_token_usage()
+    }
+
+    pub fn create_deliberation(
+        &self,
+        request: &DeliberationCreateRequest,
+    ) -> Result<DeliberationOutcome> {
+        self.store.create_deliberation(request)
+    }
+
+    pub fn add_deliberation_node(
+        &self,
+        request: &DeliberationNodeAddRequest,
+    ) -> Result<DeliberationOutcome> {
+        self.store.add_deliberation_node(request)
+    }
+
+    pub fn record_deliberation_decision(
+        &self,
+        request: &DeliberationDecisionRequest,
+    ) -> Result<DeliberationOutcome> {
+        self.store.record_deliberation_decision(request)
+    }
+
+    pub fn get_deliberation(&self, request: &DeliberationGetRequest) -> Result<DeliberationGraph> {
+        self.store.get_deliberation(request)
+    }
+
+    pub fn list_deliberations(
+        &self,
+        request: &DeliberationListRequest,
+    ) -> Result<Vec<DeliberationSummary>> {
+        self.store.list_deliberations(request)
+    }
+
+    pub fn audit_deliberations(&self) -> Result<DeliberationAudit> {
+        self.store.audit_deliberations()
     }
 
     pub fn record(&self, request: &RecordRequest) -> Result<RecordOutcome> {

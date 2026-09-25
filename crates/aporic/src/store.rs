@@ -15,15 +15,19 @@ use crate::domain::{
     AbandonedSession, ActiveSession, CapabilityClass, CapabilityObservation, CapabilityReport,
     ClaimOutcome, ClaimRequest, ClaimStatus, CloseDisposition, CloseOutcome, CloseRequest,
     CommandSpec, CommandSpecOutcome, CommandSpecRequest, Consequence, ContextCapsule,
-    CoordinatedTask, CriterionProof, DissentAssessment, DissentRequest, DurableRecord,
-    EpistemicClaim, EvidenceArtifact, EvidenceGrade, EvidenceKind, EvidenceOutcome,
-    EvidenceRequest, ExecutionFinish, ExecutionGetRequest, ExecutionListRequest, ExecutionOutcome,
-    ExecutionReceipt, ExecutionReplayAudit, ExecutionRun, ExecutionStart, ExecutionStatus,
-    ExportEvent, ExportSession, GitSnapshot, GitSnapshotAudit, GitSnapshotDraft,
-    GitSnapshotGetRequest, GitSnapshotListRequest, Handoff, HookHealthReport, HubStats,
-    InfluenceClass, MemoryClass, MemoryEdge, MemoryExposure, MemoryGetRequest, MemoryItem,
-    MemoryLifecycle, MemoryProjectionAudit, MemorySearchRequest, MemorySearchResult, OpenOutcome,
-    OpenRequest, OriginChannel, ProjectExport, RecallRequest, ReceiptArtifact, ReconcileOutcome,
+    CoordinatedTask, CriterionProof, Deliberation, DeliberationAudit, DeliberationCreateRequest,
+    DeliberationDecision, DeliberationDecisionRequest, DeliberationEdge, DeliberationEdgeKind,
+    DeliberationGetRequest, DeliberationGraph, DeliberationListRequest, DeliberationNode,
+    DeliberationNodeAddRequest, DeliberationNodeKind, DeliberationOutcome, DeliberationSummary,
+    DissentAssessment, DissentRequest, DurableRecord, EpistemicClaim, EvidenceArtifact,
+    EvidenceGrade, EvidenceKind, EvidenceOutcome, EvidenceRequest, ExecutionFinish,
+    ExecutionGetRequest, ExecutionListRequest, ExecutionOutcome, ExecutionReceipt,
+    ExecutionReplayAudit, ExecutionRun, ExecutionStart, ExecutionStatus, ExportEvent,
+    ExportSession, GitSnapshot, GitSnapshotAudit, GitSnapshotDraft, GitSnapshotGetRequest,
+    GitSnapshotListRequest, Handoff, HookHealthReport, HubStats, InfluenceClass, MemoryClass,
+    MemoryEdge, MemoryExposure, MemoryGetRequest, MemoryItem, MemoryLifecycle,
+    MemoryProjectionAudit, MemorySearchRequest, MemorySearchResult, OpenOutcome, OpenRequest,
+    OriginChannel, ProjectExport, RecallRequest, ReceiptArtifact, ReconcileOutcome,
     ReconcileRequest, RecordKind, RecordOutcome, RecordRequest, RuntimeEvent, RuntimeEventKind,
     RuntimeObservation, RuntimeOutcomeStatus, RuntimeProjectionAudit, RuntimeTraceGetRequest,
     RuntimeTraceListRequest, RuntimeWorkspaceRequest, ShadowDisposition, TaskCancelRequest,
@@ -43,6 +47,7 @@ const MIGRATION_7: &str = include_str!("../../../migrations/0007_memory_lifecycl
 const MIGRATION_8: &str = include_str!("../../../migrations/0008_runtime_trace.sql");
 const MIGRATION_9: &str = include_str!("../../../migrations/0009_git_governance.sql");
 const MIGRATION_10: &str = include_str!("../../../migrations/0010_token_efficiency.sql");
+const MIGRATION_11: &str = include_str!("../../../migrations/0011_commit_bound_deliberation.sql");
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -84,6 +89,7 @@ impl Store {
                 connection.execute_batch(MIGRATION_8)?;
                 connection.execute_batch(MIGRATION_9)?;
                 connection.execute_batch(MIGRATION_10)?;
+                connection.execute_batch(MIGRATION_11)?;
             }
             1 => {
                 connection.execute_batch(MIGRATION_2)?;
@@ -95,6 +101,7 @@ impl Store {
                 connection.execute_batch(MIGRATION_8)?;
                 connection.execute_batch(MIGRATION_9)?;
                 connection.execute_batch(MIGRATION_10)?;
+                connection.execute_batch(MIGRATION_11)?;
             }
             2 => {
                 connection.execute_batch(MIGRATION_3)?;
@@ -105,6 +112,7 @@ impl Store {
                 connection.execute_batch(MIGRATION_8)?;
                 connection.execute_batch(MIGRATION_9)?;
                 connection.execute_batch(MIGRATION_10)?;
+                connection.execute_batch(MIGRATION_11)?;
             }
             3 => {
                 connection.execute_batch(MIGRATION_4)?;
@@ -114,6 +122,7 @@ impl Store {
                 connection.execute_batch(MIGRATION_8)?;
                 connection.execute_batch(MIGRATION_9)?;
                 connection.execute_batch(MIGRATION_10)?;
+                connection.execute_batch(MIGRATION_11)?;
             }
             4 => {
                 connection.execute_batch(MIGRATION_5)?;
@@ -122,6 +131,7 @@ impl Store {
                 connection.execute_batch(MIGRATION_8)?;
                 connection.execute_batch(MIGRATION_9)?;
                 connection.execute_batch(MIGRATION_10)?;
+                connection.execute_batch(MIGRATION_11)?;
             }
             5 => {
                 connection.execute_batch(MIGRATION_6)?;
@@ -129,27 +139,35 @@ impl Store {
                 connection.execute_batch(MIGRATION_8)?;
                 connection.execute_batch(MIGRATION_9)?;
                 connection.execute_batch(MIGRATION_10)?;
+                connection.execute_batch(MIGRATION_11)?;
             }
             6 => {
                 connection.execute_batch(MIGRATION_7)?;
                 connection.execute_batch(MIGRATION_8)?;
                 connection.execute_batch(MIGRATION_9)?;
                 connection.execute_batch(MIGRATION_10)?;
+                connection.execute_batch(MIGRATION_11)?;
             }
             7 => {
                 connection.execute_batch(MIGRATION_8)?;
                 connection.execute_batch(MIGRATION_9)?;
                 connection.execute_batch(MIGRATION_10)?;
+                connection.execute_batch(MIGRATION_11)?;
             }
             8 => {
                 connection.execute_batch(MIGRATION_9)?;
                 connection.execute_batch(MIGRATION_10)?;
+                connection.execute_batch(MIGRATION_11)?;
             }
-            9 => connection.execute_batch(MIGRATION_10)?,
-            10 => {}
+            9 => {
+                connection.execute_batch(MIGRATION_10)?;
+                connection.execute_batch(MIGRATION_11)?;
+            }
+            10 => connection.execute_batch(MIGRATION_11)?,
+            11 => {}
             version => {
                 return Err(Error::Invalid(format!(
-                    "database schema version {version} is newer than supported version 10"
+                    "database schema version {version} is newer than supported version 11"
                 )));
             }
         }
@@ -2416,6 +2434,456 @@ impl Store {
         })
     }
 
+    pub fn create_deliberation(
+        &self,
+        request: &DeliberationCreateRequest,
+    ) -> Result<DeliberationOutcome> {
+        require_bounded_public_text("title", &request.title, 256)?;
+        require_bounded_public_text("question", &request.question, 4_096)?;
+        require_text("git_snapshot_id", &request.git_snapshot_id)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        let workspace = canonical_workspace(&request.workspace)?;
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<DeliberationOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "deliberation_created",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        let project_id = find_or_create_project(&transaction, &workspace, now)?;
+        let snapshot = transaction
+            .query_row(
+                &format!(
+                    "{} FROM git_snapshots WHERE project_id = ?1 AND snapshot_id = ?2",
+                    git_snapshot_select()
+                ),
+                params![project_id, request.git_snapshot_id],
+                git_snapshot_from_row,
+            )
+            .optional()?
+            .ok_or_else(|| Error::NotFound(format!("Git snapshot {}", request.git_snapshot_id)))?;
+        if git_snapshot_digest(&snapshot)? != snapshot.snapshot_sha256 {
+            return Err(Error::Conflict(
+                "cannot bind deliberation to a Git snapshot with a digest mismatch".to_owned(),
+            ));
+        }
+        if snapshot.dirty || snapshot.head_commit.is_none() || snapshot.head_tree.is_none() {
+            return Err(Error::Invalid(
+                "deliberation requires a clean committed Git snapshot".to_owned(),
+            ));
+        }
+        let mut deliberation = Deliberation {
+            sequence: 0,
+            deliberation_id: Uuid::now_v7().to_string(),
+            title: request.title.trim().to_owned(),
+            question: request.question.trim().to_owned(),
+            git_snapshot_id: request.git_snapshot_id.clone(),
+            bound_head_commit: snapshot.head_commit,
+            bound_head_tree: snapshot.head_tree,
+            deliberation_sha256: String::new(),
+            created_at_unix_ms: now,
+        };
+        deliberation.deliberation_sha256 = deliberation_digest(&deliberation)?;
+        transaction.execute(
+            "INSERT INTO deliberations(
+                deliberation_id, project_id, title, question, git_snapshot_id,
+                bound_head_commit, bound_head_tree, deliberation_sha256, created_at_unix_ms
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                deliberation.deliberation_id,
+                project_id,
+                deliberation.title,
+                deliberation.question,
+                deliberation.git_snapshot_id,
+                deliberation.bound_head_commit,
+                deliberation.bound_head_tree,
+                deliberation.deliberation_sha256,
+                deliberation.created_at_unix_ms,
+            ],
+        )?;
+        deliberation.sequence = u64::try_from(transaction.last_insert_rowid())
+            .map_err(|_| Error::Invalid("deliberation sequence overflow".to_owned()))?;
+        let mut root = DeliberationNode {
+            sequence: 0,
+            node_id: Uuid::now_v7().to_string(),
+            deliberation_id: deliberation.deliberation_id.clone(),
+            kind: DeliberationNodeKind::Question,
+            statement: deliberation.question.clone(),
+            material: true,
+            evidence_id: None,
+            claim_id: None,
+            node_sha256: String::new(),
+            created_at_unix_ms: now,
+        };
+        root.node_sha256 = deliberation_node_digest(&deliberation.deliberation_id, &root)?;
+        insert_deliberation_node(&transaction, &deliberation.deliberation_id, &root)?;
+        root.sequence = u64::try_from(transaction.last_insert_rowid())
+            .map_err(|_| Error::Invalid("deliberation node sequence overflow".to_owned()))?;
+        let graph =
+            load_deliberation_graph(&transaction, &project_id, &deliberation.deliberation_id)?;
+        let outcome = DeliberationOutcome {
+            graph,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &deliberation.deliberation_id,
+            "deliberation_created",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn add_deliberation_node(
+        &self,
+        request: &DeliberationNodeAddRequest,
+    ) -> Result<DeliberationOutcome> {
+        require_text("deliberation_id", &request.deliberation_id)?;
+        require_bounded_public_text("statement", &request.statement, 4_096)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        if request.kind == DeliberationNodeKind::Question {
+            return Err(Error::Invalid(
+                "the root question is created with the deliberation".to_owned(),
+            ));
+        }
+        if request.relations.len() > 32 {
+            return Err(Error::Invalid(
+                "a node may declare at most 32 relations".to_owned(),
+            ));
+        }
+        let workspace = canonical_workspace(&request.workspace)?;
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<DeliberationOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "deliberation_node_added",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        let project_id = project_id_for_workspace(&transaction, &workspace)?
+            .ok_or_else(|| Error::NotFound(format!("project for workspace {workspace}")))?;
+        require_deliberation_owner(&transaction, &project_id, &request.deliberation_id)?;
+        let direct_evidence = validate_deliberation_evidence(
+            &transaction,
+            &project_id,
+            request.evidence_id.as_deref(),
+            request.claim_id.as_deref(),
+        )?;
+        if request.material && is_challenge_kind(&request.kind) && !direct_evidence {
+            return Err(Error::Invalid(
+                "material objections, counterexamples, falsifiers, and unknowns require direct evidence or an observed/verified claim"
+                    .to_owned(),
+            ));
+        }
+        for relation in &request.relations {
+            require_text("target_node_id", &relation.target_node_id)?;
+            let target = transaction
+                .query_row(
+                    "SELECT kind, material FROM deliberation_nodes
+                 WHERE deliberation_id = ?1 AND node_id = ?2",
+                    params![request.deliberation_id, relation.target_node_id],
+                    |row| Ok((row.get::<_, String>(0)?, row.get::<_, bool>(1)?)),
+                )
+                .optional()?
+                .ok_or_else(|| {
+                    Error::Conflict(format!(
+                        "relation target {} is not in deliberation {}",
+                        relation.target_node_id, request.deliberation_id
+                    ))
+                })?;
+            if relation.kind == DeliberationEdgeKind::Revision
+                && request.kind != DeliberationNodeKind::Revision
+            {
+                return Err(Error::Invalid(
+                    "revision relations must originate from revision nodes".to_owned(),
+                ));
+            }
+            if target.0 == "material_unknown" && target.1 {
+                if relation.kind == DeliberationEdgeKind::Revision {
+                    return Err(Error::Invalid(
+                        "a material unknown cannot be closed by narrative revision; use a directly evidenced undercut"
+                            .to_owned(),
+                    ));
+                }
+                if relation.kind == DeliberationEdgeKind::Undercut && !direct_evidence {
+                    return Err(Error::Invalid(
+                        "undercutting a material unknown requires direct evidence or an observed/verified claim"
+                            .to_owned(),
+                    ));
+                }
+            }
+        }
+        let mut node = DeliberationNode {
+            sequence: 0,
+            node_id: Uuid::now_v7().to_string(),
+            deliberation_id: request.deliberation_id.clone(),
+            kind: request.kind.clone(),
+            statement: request.statement.trim().to_owned(),
+            material: request.material,
+            evidence_id: request.evidence_id.clone(),
+            claim_id: request.claim_id.clone(),
+            node_sha256: String::new(),
+            created_at_unix_ms: now,
+        };
+        node.node_sha256 = deliberation_node_digest(&request.deliberation_id, &node)?;
+        insert_deliberation_node(&transaction, &request.deliberation_id, &node)?;
+        node.sequence = u64::try_from(transaction.last_insert_rowid())
+            .map_err(|_| Error::Invalid("deliberation node sequence overflow".to_owned()))?;
+        for relation in &request.relations {
+            let mut edge = DeliberationEdge {
+                sequence: 0,
+                edge_id: Uuid::now_v7().to_string(),
+                deliberation_id: request.deliberation_id.clone(),
+                source_node_id: node.node_id.clone(),
+                target_node_id: relation.target_node_id.clone(),
+                kind: relation.kind.clone(),
+                edge_sha256: String::new(),
+                created_at_unix_ms: now,
+            };
+            edge.edge_sha256 = deliberation_edge_digest(&request.deliberation_id, &edge)?;
+            transaction.execute(
+                "INSERT INTO deliberation_edges(
+                    edge_id, deliberation_id, source_node_id, target_node_id,
+                    kind, edge_sha256, created_at_unix_ms
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![
+                    edge.edge_id,
+                    request.deliberation_id,
+                    edge.source_node_id,
+                    edge.target_node_id,
+                    edge.kind.as_str(),
+                    edge.edge_sha256,
+                    edge.created_at_unix_ms,
+                ],
+            )?;
+        }
+        let graph = load_deliberation_graph(&transaction, &project_id, &request.deliberation_id)?;
+        let outcome = DeliberationOutcome {
+            graph,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &request.deliberation_id,
+            "deliberation_node_added",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn record_deliberation_decision(
+        &self,
+        request: &DeliberationDecisionRequest,
+    ) -> Result<DeliberationOutcome> {
+        require_text("deliberation_id", &request.deliberation_id)?;
+        require_text("proposal_node_id", &request.proposal_node_id)?;
+        require_bounded_public_text("summary", &request.summary, 4_096)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        let workspace = canonical_workspace(&request.workspace)?;
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<DeliberationOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "deliberation_decision_recorded",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        let project_id = project_id_for_workspace(&transaction, &workspace)?
+            .ok_or_else(|| Error::NotFound(format!("project for workspace {workspace}")))?;
+        require_deliberation_owner(&transaction, &project_id, &request.deliberation_id)?;
+        let proposal_kind = transaction
+            .query_row(
+                "SELECT kind FROM deliberation_nodes
+                 WHERE deliberation_id = ?1 AND node_id = ?2",
+                params![request.deliberation_id, request.proposal_node_id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+            .ok_or_else(|| {
+                Error::NotFound(format!("proposal node {}", request.proposal_node_id))
+            })?;
+        if !matches!(proposal_kind.as_str(), "proposal" | "revision") {
+            return Err(Error::Invalid(
+                "a provisional decision must reference a proposal or revision node".to_owned(),
+            ));
+        }
+        let graph_before =
+            load_deliberation_graph(&transaction, &project_id, &request.deliberation_id)?;
+        if graph_before.stale {
+            return Err(Error::Conflict(
+                "cannot record a decision on a stale deliberation; create a graph bound to the current Git snapshot"
+                    .to_owned(),
+            ));
+        }
+        let mut decision = DeliberationDecision {
+            sequence: 0,
+            decision_id: Uuid::now_v7().to_string(),
+            deliberation_id: request.deliberation_id.clone(),
+            proposal_node_id: request.proposal_node_id.clone(),
+            summary: request.summary.trim().to_owned(),
+            open_material_issues: graph_before.total_open_material_issue_count,
+            decision_sha256: String::new(),
+            created_at_unix_ms: now,
+        };
+        decision.decision_sha256 =
+            deliberation_decision_digest(&request.deliberation_id, &decision)?;
+        transaction.execute(
+            "INSERT INTO deliberation_decisions(
+                decision_id, deliberation_id, proposal_node_id, summary,
+                open_material_issues, decision_sha256, created_at_unix_ms
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![
+                decision.decision_id,
+                request.deliberation_id,
+                decision.proposal_node_id,
+                decision.summary,
+                decision.open_material_issues,
+                decision.decision_sha256,
+                decision.created_at_unix_ms,
+            ],
+        )?;
+        let graph = load_deliberation_graph(&transaction, &project_id, &request.deliberation_id)?;
+        let outcome = DeliberationOutcome {
+            graph,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &request.deliberation_id,
+            "deliberation_decision_recorded",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn get_deliberation(&self, request: &DeliberationGetRequest) -> Result<DeliberationGraph> {
+        require_text("deliberation_id", &request.deliberation_id)?;
+        let workspace = canonical_workspace(&request.workspace)?;
+        let connection = self.connection()?;
+        let project_id = project_id_for_workspace(&connection, &workspace)?
+            .ok_or_else(|| Error::NotFound(format!("project for workspace {workspace}")))?;
+        load_deliberation_graph_page(
+            &connection,
+            &project_id,
+            &request.deliberation_id,
+            request.node_after_sequence.unwrap_or(0),
+            request.edge_after_sequence.unwrap_or(0),
+            request.decision_after_sequence.unwrap_or(0),
+            request.limit.unwrap_or(200).clamp(1, 500) as usize,
+        )
+    }
+
+    pub fn list_deliberations(
+        &self,
+        request: &DeliberationListRequest,
+    ) -> Result<Vec<DeliberationSummary>> {
+        let workspace = canonical_workspace(&request.workspace)?;
+        let connection = self.connection()?;
+        let Some(project_id) = project_id_for_workspace(&connection, &workspace)? else {
+            return Ok(Vec::new());
+        };
+        let limit = request.limit.unwrap_or(20).clamp(1, 100);
+        let mut statement = connection.prepare(
+            "SELECT deliberation_id FROM deliberations
+             WHERE project_id = ?1 ORDER BY sequence DESC LIMIT ?2",
+        )?;
+        let ids = statement
+            .query_map(params![project_id, limit], |row| row.get::<_, String>(0))?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        ids.iter()
+            .map(|id| {
+                let graph = load_deliberation_graph(&connection, &project_id, id)?;
+                Ok(DeliberationSummary {
+                    deliberation_id: graph.deliberation.deliberation_id,
+                    title: graph.deliberation.title,
+                    git_snapshot_id: graph.deliberation.git_snapshot_id,
+                    current_git_snapshot_id: graph.current_git_snapshot_id,
+                    stale: graph.stale,
+                    node_count: graph.total_node_count,
+                    edge_count: graph.total_edge_count,
+                    decision_count: graph.total_decision_count,
+                    open_material_issue_count: graph.total_open_material_issue_count,
+                    created_at_unix_ms: graph.deliberation.created_at_unix_ms,
+                    provisional_only: true,
+                    approval_proven: false,
+                })
+            })
+            .collect()
+    }
+
+    pub fn audit_deliberations(&self) -> Result<DeliberationAudit> {
+        let connection = self.connection()?;
+        let deliberations = load_all_deliberations(&connection)?;
+        let nodes = load_all_deliberation_nodes(&connection)?;
+        let edges = load_all_deliberation_edges(&connection)?;
+        let decisions = load_all_deliberation_decisions(&connection)?;
+        let mut digest_mismatch_count = 0;
+        for deliberation in &deliberations {
+            if deliberation_digest(deliberation)? != deliberation.deliberation_sha256 {
+                digest_mismatch_count += 1;
+            }
+        }
+        for (deliberation_id, node) in &nodes {
+            if deliberation_node_digest(deliberation_id, node)? != node.node_sha256 {
+                digest_mismatch_count += 1;
+            }
+        }
+        for (deliberation_id, edge) in &edges {
+            if deliberation_edge_digest(deliberation_id, edge)? != edge.edge_sha256 {
+                digest_mismatch_count += 1;
+            }
+        }
+        for (deliberation_id, decision) in &decisions {
+            if deliberation_decision_digest(deliberation_id, decision)? != decision.decision_sha256
+            {
+                digest_mismatch_count += 1;
+            }
+        }
+        let cross_graph_edge_count = connection.query_row(
+            "SELECT COUNT(*) FROM deliberation_edges edges
+             JOIN deliberation_nodes sources ON sources.node_id = edges.source_node_id
+             JOIN deliberation_nodes targets ON targets.node_id = edges.target_node_id
+             WHERE sources.deliberation_id != edges.deliberation_id
+                OR targets.deliberation_id != edges.deliberation_id",
+            [],
+            |row| row.get::<_, u64>(0),
+        )?;
+        Ok(DeliberationAudit {
+            deliberation_count: deliberations.len() as u64,
+            node_count: nodes.len() as u64,
+            edge_count: edges.len() as u64,
+            decision_count: decisions.len() as u64,
+            digest_mismatch_count,
+            cross_graph_edge_count,
+            consistent: digest_mismatch_count == 0 && cross_graph_edge_count == 0,
+        })
+    }
+
     pub fn stats(&self) -> Result<HubStats> {
         let connection = self.connection()?;
         Ok(HubStats {
@@ -2455,6 +2923,12 @@ impl Store {
             execution_receipt_count: table_count(&connection, "execution_receipts", "1 = 1")?,
             git_snapshot_count: table_count(&connection, "git_snapshots", "1 = 1")?,
             token_usage_receipt_count: table_count(&connection, "token_usage_receipts", "1 = 1")?,
+            deliberation_count: table_count(&connection, "deliberations", "1 = 1")?,
+            deliberation_decision_count: table_count(
+                &connection,
+                "deliberation_decisions",
+                "1 = 1",
+            )?,
         })
     }
 
@@ -2623,6 +3097,10 @@ impl Store {
                 .query_map([&project_id], token_usage_from_row)?
                 .collect::<std::result::Result<Vec<_>, _>>()?
         };
+        let deliberations = load_project_deliberations(&connection, &project_id)?;
+        let deliberation_nodes = load_project_deliberation_nodes(&connection, &project_id)?;
+        let deliberation_edges = load_project_deliberation_edges(&connection, &project_id)?;
+        let deliberation_decisions = load_project_deliberation_decisions(&connection, &project_id)?;
 
         let events = {
             let mut statement = connection.prepare(
@@ -2637,6 +3115,8 @@ impl Store {
                      SELECT execution_runs.run_id FROM execution_runs
                      JOIN sessions ON sessions.session_id = execution_runs.session_id
                      WHERE sessions.project_id = ?1
+                 ) OR stream_id IN (
+                     SELECT deliberation_id FROM deliberations WHERE project_id = ?1
                  )
                  ORDER BY sequence ASC",
             )?;
@@ -2670,7 +3150,7 @@ impl Store {
         };
 
         Ok(ProjectExport {
-            format_version: 8,
+            format_version: 9,
             exported_at_unix_ms: unix_millis()?,
             project_id,
             workspace,
@@ -2690,6 +3170,10 @@ impl Store {
             capability_observations,
             git_snapshots,
             token_usage_receipts,
+            deliberations,
+            deliberation_nodes,
+            deliberation_edges,
+            deliberation_decisions,
             events,
         })
     }
@@ -2700,6 +3184,552 @@ impl Store {
         connection.pragma_update(None, "journal_mode", "WAL")?;
         connection.pragma_update(None, "foreign_keys", "ON")?;
         Ok(connection)
+    }
+}
+
+fn require_bounded_public_text(name: &str, value: &str, max_bytes: usize) -> Result<()> {
+    require_text(name, value)?;
+    if value.len() > max_bytes {
+        return Err(Error::Invalid(format!(
+            "{name} exceeds the {max_bytes}-byte public-record limit"
+        )));
+    }
+    if value.contains('\0') {
+        return Err(Error::Invalid(format!("{name} contains a NUL byte")));
+    }
+    Ok(())
+}
+
+fn is_challenge_kind(kind: &DeliberationNodeKind) -> bool {
+    matches!(
+        kind,
+        DeliberationNodeKind::Objection
+            | DeliberationNodeKind::Counterexample
+            | DeliberationNodeKind::Falsifier
+            | DeliberationNodeKind::MaterialUnknown
+    )
+}
+
+fn require_deliberation_owner(
+    connection: &Connection,
+    project_id: &str,
+    deliberation_id: &str,
+) -> Result<()> {
+    let belongs = connection.query_row(
+        "SELECT EXISTS(SELECT 1 FROM deliberations
+         WHERE project_id = ?1 AND deliberation_id = ?2)",
+        params![project_id, deliberation_id],
+        |row| row.get::<_, bool>(0),
+    )?;
+    if !belongs {
+        return Err(Error::NotFound(format!("deliberation {deliberation_id}")));
+    }
+    Ok(())
+}
+
+fn validate_deliberation_evidence(
+    connection: &Connection,
+    project_id: &str,
+    evidence_id: Option<&str>,
+    claim_id: Option<&str>,
+) -> Result<bool> {
+    let mut direct = false;
+    if let Some(evidence_id) = evidence_id {
+        require_text("evidence_id", evidence_id)?;
+        let grade = connection
+            .query_row(
+                "SELECT evidence_artifacts.grade FROM evidence_artifacts
+                 JOIN sessions ON sessions.session_id = evidence_artifacts.session_id
+                 WHERE sessions.project_id = ?1 AND evidence_artifacts.evidence_id = ?2",
+                params![project_id, evidence_id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+            .ok_or_else(|| Error::NotFound(format!("evidence {evidence_id}")))?;
+        direct |= grade == "direct";
+    }
+    if let Some(claim_id) = claim_id {
+        require_text("claim_id", claim_id)?;
+        let status = connection
+            .query_row(
+                "SELECT claims.status FROM claims
+                 JOIN sessions ON sessions.session_id = claims.session_id
+                 WHERE sessions.project_id = ?1 AND claims.claim_id = ?2",
+                params![project_id, claim_id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+            .ok_or_else(|| Error::NotFound(format!("claim {claim_id}")))?;
+        direct |= matches!(status.as_str(), "observed" | "verified");
+    }
+    Ok(direct)
+}
+
+fn insert_deliberation_node(
+    connection: &Connection,
+    deliberation_id: &str,
+    node: &DeliberationNode,
+) -> Result<()> {
+    connection.execute(
+        "INSERT INTO deliberation_nodes(
+            node_id, deliberation_id, kind, statement, material,
+            evidence_id, claim_id, node_sha256, created_at_unix_ms
+         ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![
+            node.node_id,
+            deliberation_id,
+            node.kind.as_str(),
+            node.statement,
+            node.material,
+            node.evidence_id,
+            node.claim_id,
+            node.node_sha256,
+            node.created_at_unix_ms,
+        ],
+    )?;
+    Ok(())
+}
+
+fn load_deliberation_graph(
+    connection: &Connection,
+    project_id: &str,
+    deliberation_id: &str,
+) -> Result<DeliberationGraph> {
+    load_deliberation_graph_page(connection, project_id, deliberation_id, 0, 0, 0, 200)
+}
+
+fn load_deliberation_graph_page(
+    connection: &Connection,
+    project_id: &str,
+    deliberation_id: &str,
+    node_after_sequence: u64,
+    edge_after_sequence: u64,
+    decision_after_sequence: u64,
+    limit: usize,
+) -> Result<DeliberationGraph> {
+    let deliberation = connection
+        .query_row(
+            &format!(
+                "{} FROM deliberations WHERE project_id = ?1 AND deliberation_id = ?2",
+                deliberation_select()
+            ),
+            params![project_id, deliberation_id],
+            deliberation_from_row,
+        )
+        .optional()?
+        .ok_or_else(|| Error::NotFound(format!("deliberation {deliberation_id}")))?;
+    let mut nodes = {
+        let mut statement = connection.prepare(&format!(
+            "{} FROM deliberation_nodes WHERE deliberation_id = ?1 ORDER BY sequence ASC",
+            deliberation_node_select()
+        ))?;
+        statement
+            .query_map([deliberation_id], deliberation_node_from_row)?
+            .collect::<std::result::Result<Vec<_>, _>>()?
+    };
+    let mut edges = {
+        let mut statement = connection.prepare(&format!(
+            "{} FROM deliberation_edges WHERE deliberation_id = ?1 ORDER BY sequence ASC",
+            deliberation_edge_select()
+        ))?;
+        statement
+            .query_map([deliberation_id], deliberation_edge_from_row)?
+            .collect::<std::result::Result<Vec<_>, _>>()?
+    };
+    let mut decisions = {
+        let mut statement = connection.prepare(&format!(
+            "{} FROM deliberation_decisions WHERE deliberation_id = ?1 ORDER BY sequence ASC",
+            deliberation_decision_select()
+        ))?;
+        statement
+            .query_map([deliberation_id], deliberation_decision_from_row)?
+            .collect::<std::result::Result<Vec<_>, _>>()?
+    };
+    let current = connection
+        .query_row(
+            "SELECT snapshot_id, head_commit, head_tree, dirty FROM git_snapshots
+             WHERE project_id = ?1 ORDER BY sequence DESC LIMIT 1",
+            [project_id],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                    row.get::<_, bool>(3)?,
+                ))
+            },
+        )
+        .optional()?;
+    let stale = current.as_ref().is_some_and(|(_, head, tree, dirty)| {
+        *dirty || *head != deliberation.bound_head_commit || *tree != deliberation.bound_head_tree
+    });
+    let mut open_material_node_ids = nodes
+        .iter()
+        .filter(|node| node.material && is_challenge_kind(&node.kind))
+        .filter(|node| {
+            !edges.iter().any(|edge| {
+                if edge.target_node_id != node.node_id {
+                    return false;
+                }
+                if node.kind == DeliberationNodeKind::MaterialUnknown {
+                    edge.kind == DeliberationEdgeKind::Undercut
+                        && nodes.iter().any(|source| {
+                            source.node_id == edge.source_node_id
+                                && (source.evidence_id.is_some() || source.claim_id.is_some())
+                        })
+                } else {
+                    matches!(
+                        edge.kind,
+                        DeliberationEdgeKind::Undercut | DeliberationEdgeKind::Revision
+                    )
+                }
+            })
+        })
+        .map(|node| node.node_id.clone())
+        .collect::<Vec<_>>();
+    let total_open_material_issue_count = open_material_node_ids.len() as u64;
+    let open_material_issues_truncated = open_material_node_ids.len() > 200;
+    open_material_node_ids.truncate(200);
+    let total_node_count = nodes.len() as u64;
+    let total_edge_count = edges.len() as u64;
+    let total_decision_count = decisions.len() as u64;
+    nodes.retain(|value| value.sequence > node_after_sequence);
+    edges.retain(|value| value.sequence > edge_after_sequence);
+    decisions.retain(|value| value.sequence > decision_after_sequence);
+    let next_node_after_sequence = (nodes.len() > limit).then(|| nodes[limit - 1].sequence);
+    let next_edge_after_sequence = (edges.len() > limit).then(|| edges[limit - 1].sequence);
+    let next_decision_after_sequence =
+        (decisions.len() > limit).then(|| decisions[limit - 1].sequence);
+    let truncated = next_node_after_sequence.is_some()
+        || next_edge_after_sequence.is_some()
+        || next_decision_after_sequence.is_some();
+    nodes.truncate(limit);
+    edges.truncate(limit);
+    decisions.truncate(limit);
+    Ok(DeliberationGraph {
+        deliberation,
+        nodes,
+        edges,
+        decisions,
+        total_node_count,
+        total_edge_count,
+        total_decision_count,
+        truncated,
+        next_node_after_sequence,
+        next_edge_after_sequence,
+        next_decision_after_sequence,
+        current_git_snapshot_id: current.map(|(id, _, _, _)| id),
+        stale,
+        open_material_node_ids,
+        total_open_material_issue_count,
+        open_material_issues_truncated,
+        provisional_only: true,
+        approval_proven: false,
+        authority_notice: "Deliberation records public arguments and provisional decisions. It stores no hidden chain-of-thought, proves no approval, grants no permission, and never gates host tools."
+            .to_owned(),
+    })
+}
+
+fn deliberation_select() -> &'static str {
+    "SELECT deliberations.sequence, deliberations.deliberation_id, deliberations.title,
+            deliberations.question, deliberations.git_snapshot_id,
+            deliberations.bound_head_commit, deliberations.bound_head_tree,
+            deliberations.deliberation_sha256, deliberations.created_at_unix_ms"
+}
+
+fn deliberation_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Deliberation> {
+    Ok(Deliberation {
+        sequence: row.get(0)?,
+        deliberation_id: row.get(1)?,
+        title: row.get(2)?,
+        question: row.get(3)?,
+        git_snapshot_id: row.get(4)?,
+        bound_head_commit: row.get(5)?,
+        bound_head_tree: row.get(6)?,
+        deliberation_sha256: row.get(7)?,
+        created_at_unix_ms: row.get(8)?,
+    })
+}
+
+fn deliberation_node_select() -> &'static str {
+    "SELECT deliberation_nodes.sequence, deliberation_nodes.node_id,
+            deliberation_nodes.deliberation_id, deliberation_nodes.kind,
+            deliberation_nodes.statement, deliberation_nodes.material,
+            deliberation_nodes.evidence_id, deliberation_nodes.claim_id,
+            deliberation_nodes.node_sha256, deliberation_nodes.created_at_unix_ms"
+}
+
+fn deliberation_node_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<DeliberationNode> {
+    Ok(DeliberationNode {
+        sequence: row.get(0)?,
+        node_id: row.get(1)?,
+        deliberation_id: row.get(2)?,
+        kind: parse_deliberation_node_kind(row.get(3)?)?,
+        statement: row.get(4)?,
+        material: row.get(5)?,
+        evidence_id: row.get(6)?,
+        claim_id: row.get(7)?,
+        node_sha256: row.get(8)?,
+        created_at_unix_ms: row.get(9)?,
+    })
+}
+
+fn deliberation_edge_select() -> &'static str {
+    "SELECT deliberation_edges.sequence, deliberation_edges.edge_id,
+            deliberation_edges.deliberation_id, deliberation_edges.source_node_id,
+            deliberation_edges.target_node_id, deliberation_edges.kind,
+            deliberation_edges.edge_sha256, deliberation_edges.created_at_unix_ms"
+}
+
+fn deliberation_edge_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<DeliberationEdge> {
+    Ok(DeliberationEdge {
+        sequence: row.get(0)?,
+        edge_id: row.get(1)?,
+        deliberation_id: row.get(2)?,
+        source_node_id: row.get(3)?,
+        target_node_id: row.get(4)?,
+        kind: parse_deliberation_edge_kind(row.get(5)?)?,
+        edge_sha256: row.get(6)?,
+        created_at_unix_ms: row.get(7)?,
+    })
+}
+
+fn deliberation_decision_select() -> &'static str {
+    "SELECT deliberation_decisions.sequence, deliberation_decisions.decision_id,
+            deliberation_decisions.deliberation_id, deliberation_decisions.proposal_node_id,
+            deliberation_decisions.summary, deliberation_decisions.open_material_issues,
+            deliberation_decisions.decision_sha256,
+            deliberation_decisions.created_at_unix_ms"
+}
+
+fn deliberation_decision_from_row(
+    row: &rusqlite::Row<'_>,
+) -> rusqlite::Result<DeliberationDecision> {
+    Ok(DeliberationDecision {
+        sequence: row.get(0)?,
+        decision_id: row.get(1)?,
+        deliberation_id: row.get(2)?,
+        proposal_node_id: row.get(3)?,
+        summary: row.get(4)?,
+        open_material_issues: row.get(5)?,
+        decision_sha256: row.get(6)?,
+        created_at_unix_ms: row.get(7)?,
+    })
+}
+
+fn load_project_deliberations(
+    connection: &Connection,
+    project_id: &str,
+) -> Result<Vec<Deliberation>> {
+    let mut statement = connection.prepare(&format!(
+        "{} FROM deliberations WHERE project_id = ?1 ORDER BY sequence ASC",
+        deliberation_select()
+    ))?;
+    Ok(statement
+        .query_map([project_id], deliberation_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?)
+}
+
+fn load_project_deliberation_nodes(
+    connection: &Connection,
+    project_id: &str,
+) -> Result<Vec<DeliberationNode>> {
+    let mut statement = connection.prepare(&format!(
+        "{} FROM deliberation_nodes JOIN deliberations USING(deliberation_id)
+         WHERE deliberations.project_id = ?1 ORDER BY deliberation_nodes.sequence ASC",
+        deliberation_node_select()
+    ))?;
+    Ok(statement
+        .query_map([project_id], deliberation_node_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?)
+}
+
+fn load_project_deliberation_edges(
+    connection: &Connection,
+    project_id: &str,
+) -> Result<Vec<DeliberationEdge>> {
+    let mut statement = connection.prepare(&format!(
+        "{} FROM deliberation_edges JOIN deliberations USING(deliberation_id)
+         WHERE deliberations.project_id = ?1 ORDER BY deliberation_edges.sequence ASC",
+        deliberation_edge_select()
+    ))?;
+    Ok(statement
+        .query_map([project_id], deliberation_edge_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?)
+}
+
+fn load_project_deliberation_decisions(
+    connection: &Connection,
+    project_id: &str,
+) -> Result<Vec<DeliberationDecision>> {
+    let mut statement = connection.prepare(&format!(
+        "{} FROM deliberation_decisions JOIN deliberations USING(deliberation_id)
+         WHERE deliberations.project_id = ?1 ORDER BY deliberation_decisions.sequence ASC",
+        deliberation_decision_select()
+    ))?;
+    Ok(statement
+        .query_map([project_id], deliberation_decision_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?)
+}
+
+fn load_all_deliberations(connection: &Connection) -> Result<Vec<Deliberation>> {
+    let mut statement = connection.prepare(&format!(
+        "{} FROM deliberations ORDER BY sequence ASC",
+        deliberation_select()
+    ))?;
+    Ok(statement
+        .query_map([], deliberation_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?)
+}
+
+fn load_all_deliberation_nodes(connection: &Connection) -> Result<Vec<(String, DeliberationNode)>> {
+    load_all_with_parent(
+        connection,
+        deliberation_node_select(),
+        "deliberation_nodes",
+        deliberation_node_from_row,
+    )
+}
+
+fn load_all_deliberation_edges(connection: &Connection) -> Result<Vec<(String, DeliberationEdge)>> {
+    load_all_with_parent(
+        connection,
+        deliberation_edge_select(),
+        "deliberation_edges",
+        deliberation_edge_from_row,
+    )
+}
+
+fn load_all_deliberation_decisions(
+    connection: &Connection,
+) -> Result<Vec<(String, DeliberationDecision)>> {
+    load_all_with_parent(
+        connection,
+        deliberation_decision_select(),
+        "deliberation_decisions",
+        deliberation_decision_from_row,
+    )
+}
+
+fn load_all_with_parent<T, F>(
+    connection: &Connection,
+    select: &str,
+    table: &str,
+    mapper: F,
+) -> Result<Vec<(String, T)>>
+where
+    T: Serialize,
+    F: FnMut(&rusqlite::Row<'_>) -> rusqlite::Result<T>,
+{
+    let mut statement =
+        connection.prepare(&format!("{select} FROM {table} ORDER BY sequence ASC"))?;
+    let values = statement
+        .query_map([], mapper)?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    // Every child domain record carries its deliberation id. Serialize once to
+    // keep this generic helper private and bounded to doctor-time auditing.
+    values
+        .into_iter()
+        .map(|value| {
+            let json = serde_json::to_value(&value)?;
+            let parent = json["deliberation_id"]
+                .as_str()
+                .ok_or_else(|| {
+                    Error::Invalid("missing deliberation_id in audit record".to_owned())
+                })?
+                .to_owned();
+            Ok((parent, value))
+        })
+        .collect()
+}
+
+fn deliberation_digest(value: &Deliberation) -> Result<String> {
+    digest_json(&serde_json::json!({
+        "deliberation_id": value.deliberation_id,
+        "title": value.title,
+        "question": value.question,
+        "git_snapshot_id": value.git_snapshot_id,
+        "bound_head_commit": value.bound_head_commit,
+        "bound_head_tree": value.bound_head_tree,
+        "created_at_unix_ms": value.created_at_unix_ms,
+    }))
+}
+
+fn deliberation_node_digest(deliberation_id: &str, value: &DeliberationNode) -> Result<String> {
+    digest_json(&serde_json::json!({
+        "node_id": value.node_id,
+        "deliberation_id": deliberation_id,
+        "kind": value.kind.as_str(),
+        "statement": value.statement,
+        "material": value.material,
+        "evidence_id": value.evidence_id,
+        "claim_id": value.claim_id,
+        "created_at_unix_ms": value.created_at_unix_ms,
+    }))
+}
+
+fn deliberation_edge_digest(deliberation_id: &str, value: &DeliberationEdge) -> Result<String> {
+    digest_json(&serde_json::json!({
+        "edge_id": value.edge_id,
+        "deliberation_id": deliberation_id,
+        "source_node_id": value.source_node_id,
+        "target_node_id": value.target_node_id,
+        "kind": value.kind.as_str(),
+        "created_at_unix_ms": value.created_at_unix_ms,
+    }))
+}
+
+fn deliberation_decision_digest(
+    deliberation_id: &str,
+    value: &DeliberationDecision,
+) -> Result<String> {
+    digest_json(&serde_json::json!({
+        "decision_id": value.decision_id,
+        "deliberation_id": deliberation_id,
+        "proposal_node_id": value.proposal_node_id,
+        "summary": value.summary,
+        "open_material_issues": value.open_material_issues,
+        "created_at_unix_ms": value.created_at_unix_ms,
+    }))
+}
+
+fn digest_json(value: &serde_json::Value) -> Result<String> {
+    Ok(format!("{:x}", Sha256::digest(serde_json::to_vec(value)?)))
+}
+
+fn parse_deliberation_node_kind(value: String) -> rusqlite::Result<DeliberationNodeKind> {
+    match value.as_str() {
+        "question" => Ok(DeliberationNodeKind::Question),
+        "premise" => Ok(DeliberationNodeKind::Premise),
+        "claim" => Ok(DeliberationNodeKind::Claim),
+        "objection" => Ok(DeliberationNodeKind::Objection),
+        "counterexample" => Ok(DeliberationNodeKind::Counterexample),
+        "falsifier" => Ok(DeliberationNodeKind::Falsifier),
+        "value_constraint" => Ok(DeliberationNodeKind::ValueConstraint),
+        "material_unknown" => Ok(DeliberationNodeKind::MaterialUnknown),
+        "proposal" => Ok(DeliberationNodeKind::Proposal),
+        "revision" => Ok(DeliberationNodeKind::Revision),
+        _ => Err(rusqlite::Error::FromSqlConversionFailure(
+            0,
+            rusqlite::types::Type::Text,
+            format!("invalid deliberation node kind {value}").into(),
+        )),
+    }
+}
+
+fn parse_deliberation_edge_kind(value: String) -> rusqlite::Result<DeliberationEdgeKind> {
+    match value.as_str() {
+        "support" => Ok(DeliberationEdgeKind::Support),
+        "attack" => Ok(DeliberationEdgeKind::Attack),
+        "undercut" => Ok(DeliberationEdgeKind::Undercut),
+        "dependency" => Ok(DeliberationEdgeKind::Dependency),
+        "falsification" => Ok(DeliberationEdgeKind::Falsification),
+        "revision" => Ok(DeliberationEdgeKind::Revision),
+        _ => Err(rusqlite::Error::FromSqlConversionFailure(
+            0,
+            rusqlite::types::Type::Text,
+            format!("invalid deliberation edge kind {value}").into(),
+        )),
     }
 }
 

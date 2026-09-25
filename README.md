@@ -14,7 +14,7 @@ See [PRODUCT.md](PRODUCT.md) for the product objective and
 
 ## Current product surface
 
-The hub exposes twenty-nine MCP tools in nine groups.
+The hub exposes thirty-four MCP tools in ten groups.
 
 Continuity:
 
@@ -82,6 +82,20 @@ Token efficiency:
 - `aporic_token_usage_list`: inspect bounded, append-only usage history;
 - `aporic_token_efficiency_report`: separate measured counts, conservative
   estimates, cached input, and verified outcomes.
+
+Commit-bound deliberation:
+
+- `aporic_deliberation_create`: open a concise public question bound to an
+  existing Git snapshot;
+- `aporic_deliberation_node_add`: append a typed premise, claim, objection,
+  counterexample, falsifier, value constraint, material unknown, proposal, or
+  revision with explicit graph relations;
+- `aporic_deliberation_decide`: record only a provisional decision while
+  preserving its open material issues;
+- `aporic_deliberation_get` and `aporic_deliberation_list`: inspect graph
+  history, unresolved aporia, and commit/tree staleness; list returns compact
+  summaries and graph detail supports sequence cursors with explicit
+  truncation at fixed bounds.
 
 MCP cannot execute a registered check or submit a receipt. A human or local
 automation invokes `aporic verify --spec SPEC_ID`; the Rust runner executes the
@@ -221,6 +235,32 @@ The router is advisory and outside the behavioral kernel. It does not dispatch a
 model, grant authority, or turn a model review into evidence. See
 [model routing](docs/model-routing.md).
 
+## Commit-bound deliberation
+
+v0.11 represents inspectable public reasons rather than hidden model reasoning.
+A graph begins from a question bound to an existing clean, committed Git
+governance snapshot; unborn or dirty snapshots are rejected.
+Nodes have a closed type vocabulary and edges distinguish support, attack,
+undercut, dependency, falsification, and revision. Material challenges require
+direct evidence or an observed/verified claim; unsupported model rhetoric
+cannot become a blocking objection merely by declaring itself important.
+
+Material objections, counterexamples, and falsifiers remain open until a later
+undercut or revision targets them. A material unknown is stricter: narrative
+revision cannot close it, and a directly evidenced undercut is required. A
+provisional decision records how many issues were still open. After a newer Git
+observation changes the bound HEAD commit or tree, reads mark the graph stale.
+The newest observation being dirty also marks it stale.
+New decisions on that stale graph are rejected; the graph must be recreated
+against current Git evidence. This is deliberative memory, not approval,
+authorization, merge safety, or a tool gate.
+
+Inspect one graph:
+
+```console
+cargo run -p aporic -- deliberation show --workspace /absolute/project/path --id GRAPH_ID
+```
+
 ## Offline evaluation
 
 Aporic does not call the OpenAI API or any other model endpoint. Its offline
@@ -243,6 +283,7 @@ cargo run -p aporic -- eval memory
 cargo run -p aporic -- eval runtime
 cargo run -p aporic -- eval git
 cargo run -p aporic -- eval tokens
+cargo run -p aporic -- eval deliberation
 ```
 
 State is stored in platform-native application data, not in the governed

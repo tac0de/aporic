@@ -795,6 +795,237 @@ pub struct GitSnapshotAudit {
     pub consistent: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum DeliberationNodeKind {
+    Question,
+    Premise,
+    Claim,
+    Objection,
+    Counterexample,
+    Falsifier,
+    ValueConstraint,
+    MaterialUnknown,
+    Proposal,
+    Revision,
+}
+
+impl DeliberationNodeKind {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Question => "question",
+            Self::Premise => "premise",
+            Self::Claim => "claim",
+            Self::Objection => "objection",
+            Self::Counterexample => "counterexample",
+            Self::Falsifier => "falsifier",
+            Self::ValueConstraint => "value_constraint",
+            Self::MaterialUnknown => "material_unknown",
+            Self::Proposal => "proposal",
+            Self::Revision => "revision",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum DeliberationEdgeKind {
+    Support,
+    Attack,
+    Undercut,
+    Dependency,
+    Falsification,
+    Revision,
+}
+
+impl DeliberationEdgeKind {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Support => "support",
+            Self::Attack => "attack",
+            Self::Undercut => "undercut",
+            Self::Dependency => "dependency",
+            Self::Falsification => "falsification",
+            Self::Revision => "revision",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DeliberationCreateRequest {
+    pub workspace: String,
+    pub title: String,
+    pub question: String,
+    pub git_snapshot_id: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DeliberationRelationRequest {
+    pub target_node_id: String,
+    pub kind: DeliberationEdgeKind,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DeliberationNodeAddRequest {
+    pub workspace: String,
+    pub deliberation_id: String,
+    pub kind: DeliberationNodeKind,
+    pub statement: String,
+    #[serde(default)]
+    pub material: bool,
+    #[serde(default)]
+    pub evidence_id: Option<String>,
+    #[serde(default)]
+    pub claim_id: Option<String>,
+    #[serde(default)]
+    pub relations: Vec<DeliberationRelationRequest>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DeliberationDecisionRequest {
+    pub workspace: String,
+    pub deliberation_id: String,
+    pub proposal_node_id: String,
+    pub summary: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DeliberationGetRequest {
+    pub workspace: String,
+    pub deliberation_id: String,
+    #[serde(default)]
+    pub node_after_sequence: Option<u64>,
+    #[serde(default)]
+    pub edge_after_sequence: Option<u64>,
+    #[serde(default)]
+    pub decision_after_sequence: Option<u64>,
+    #[serde(default)]
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DeliberationListRequest {
+    pub workspace: String,
+    #[serde(default)]
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Deliberation {
+    pub sequence: u64,
+    pub deliberation_id: String,
+    pub title: String,
+    pub question: String,
+    pub git_snapshot_id: String,
+    pub bound_head_commit: Option<String>,
+    pub bound_head_tree: Option<String>,
+    pub deliberation_sha256: String,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeliberationNode {
+    pub sequence: u64,
+    pub node_id: String,
+    pub deliberation_id: String,
+    pub kind: DeliberationNodeKind,
+    pub statement: String,
+    pub material: bool,
+    pub evidence_id: Option<String>,
+    pub claim_id: Option<String>,
+    pub node_sha256: String,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeliberationEdge {
+    pub sequence: u64,
+    pub edge_id: String,
+    pub deliberation_id: String,
+    pub source_node_id: String,
+    pub target_node_id: String,
+    pub kind: DeliberationEdgeKind,
+    pub edge_sha256: String,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeliberationDecision {
+    pub sequence: u64,
+    pub decision_id: String,
+    pub deliberation_id: String,
+    pub proposal_node_id: String,
+    pub summary: String,
+    pub open_material_issues: u64,
+    pub decision_sha256: String,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeliberationGraph {
+    pub deliberation: Deliberation,
+    pub nodes: Vec<DeliberationNode>,
+    pub edges: Vec<DeliberationEdge>,
+    pub decisions: Vec<DeliberationDecision>,
+    pub total_node_count: u64,
+    pub total_edge_count: u64,
+    pub total_decision_count: u64,
+    pub truncated: bool,
+    pub next_node_after_sequence: Option<u64>,
+    pub next_edge_after_sequence: Option<u64>,
+    pub next_decision_after_sequence: Option<u64>,
+    pub current_git_snapshot_id: Option<String>,
+    pub stale: bool,
+    pub open_material_node_ids: Vec<String>,
+    pub total_open_material_issue_count: u64,
+    pub open_material_issues_truncated: bool,
+    pub provisional_only: bool,
+    pub approval_proven: bool,
+    pub authority_notice: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeliberationSummary {
+    pub deliberation_id: String,
+    pub title: String,
+    pub git_snapshot_id: String,
+    pub current_git_snapshot_id: Option<String>,
+    pub stale: bool,
+    pub node_count: u64,
+    pub edge_count: u64,
+    pub decision_count: u64,
+    pub open_material_issue_count: u64,
+    pub created_at_unix_ms: i64,
+    pub provisional_only: bool,
+    pub approval_proven: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeliberationOutcome {
+    pub graph: DeliberationGraph,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeliberationAudit {
+    pub deliberation_count: u64,
+    pub node_count: u64,
+    pub edge_count: u64,
+    pub decision_count: u64,
+    pub digest_mismatch_count: u64,
+    pub cross_graph_edge_count: u64,
+    pub consistent: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OpenOutcome {
     pub session_id: String,
@@ -844,6 +1075,8 @@ pub struct HubStats {
     pub execution_receipt_count: u64,
     pub git_snapshot_count: u64,
     pub token_usage_receipt_count: u64,
+    pub deliberation_count: u64,
+    pub deliberation_decision_count: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -1356,5 +1589,9 @@ pub struct ProjectExport {
     pub capability_observations: Vec<CapabilityObservation>,
     pub git_snapshots: Vec<GitSnapshot>,
     pub token_usage_receipts: Vec<TokenUsageReceipt>,
+    pub deliberations: Vec<Deliberation>,
+    pub deliberation_nodes: Vec<DeliberationNode>,
+    pub deliberation_edges: Vec<DeliberationEdge>,
+    pub deliberation_decisions: Vec<DeliberationDecision>,
     pub events: Vec<ExportEvent>,
 }
