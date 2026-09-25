@@ -14,7 +14,7 @@ See [PRODUCT.md](PRODUCT.md) for the product objective and
 
 ## Current product surface
 
-The hub exposes twenty-three MCP tools in seven groups.
+The hub exposes twenty-six MCP tools in eight groups.
 
 Continuity:
 
@@ -68,6 +68,13 @@ Runtime observation:
   actually seen through configured hooks;
 - `aporic_hook_health`: report duplicates, unmatched tool lifecycles, unknown
   events/capabilities, and schema drift without claiming complete coverage.
+
+Git evidence and governance:
+
+- `aporic_git_observe`: run bounded, read-only, non-network Git metadata
+  inspection and append a commit-bound governance snapshot;
+- `aporic_git_snapshot_list` and `aporic_git_snapshot_get`: inspect prior
+  repository observations without treating findings as review or merge approval.
 
 MCP cannot execute a registered check or submit a receipt. A human or local
 automation invokes `aporic verify --spec SPEC_ID`; the Rust runner executes the
@@ -156,6 +163,31 @@ is available without a network exporter:
 cargo run -p aporic -- trace export --workspace /absolute/project/path
 ```
 
+## Git evidence and governance
+
+v0.9 treats Git state as local evidence rather than authority. A snapshot binds
+the observed HEAD commit/tree, branch, locally cached upstream relation,
+comparison base and merge base, dirty counts, changed paths, worktree metadata,
+remote names, signature presence, and successful Aporic receipts to one SHA-256
+digest. It stores metadata and paths, never diff contents.
+
+Git inspection uses fixed argv without a shell and disables optional locks,
+fsmonitor, external diff commands, submodule recursion, terminal prompts, and
+replace objects. It never fetches or mutates the repository. Consequently,
+`remote_state_fresh` and `approval_proven` are always false. An embedded
+signature is reported only as present; signer identity and trust are not
+verified. A successful receipt bound to HEAD proves only that one registered
+check succeeded at that commit, not that the check was adequate.
+
+The deterministic policy surfaces dirty or detached state, divergence from the
+locally cached tracking ref, unresolved bases, missing commit-bound receipts,
+governance-sensitive paths, and truncated inventories. Findings are advisory
+and cannot authorize a merge. Inspect and record the current repository state:
+
+```console
+cargo run -p aporic -- git inspect --workspace /absolute/project/path
+```
+
 The router is advisory and outside the behavioral kernel. It does not dispatch a
 model, grant authority, or turn a model review into evidence. See
 [model routing](docs/model-routing.md).
@@ -180,6 +212,7 @@ cargo run -p aporic -- eval simulate --actor contrarian
 cargo run -p aporic -- eval context
 cargo run -p aporic -- eval memory
 cargo run -p aporic -- eval runtime
+cargo run -p aporic -- eval git
 ```
 
 State is stored in platform-native application data, not in the governed
@@ -232,6 +265,7 @@ cargo test -p aporic --test offline_eval -- --nocapture
 cargo test -p aporic --test context_runtime -- --nocapture
 cargo test -p aporic --test memory_lifecycle -- --nocapture
 cargo test -p aporic --test runtime_trace -- --nocapture
+cargo test -p aporic --test git_governance -- --nocapture
 ```
 
 The Codex bridge template is under `integrations/codex/`. Nothing in the build

@@ -6,11 +6,12 @@ use crate::{
         CommandSpecOutcome, CommandSpecRequest, Consequence, ContextCapsule, CoordinatedTask,
         DissentAssessment, DissentRequest, EvidenceOutcome, EvidenceRequest, ExecutionFinish,
         ExecutionGetRequest, ExecutionListRequest, ExecutionOutcome, ExecutionReplayAudit,
-        ExecutionRun, ExecutionStart, HookHealthReport, HubStats, MemoryGetRequest, MemoryItem,
-        MemoryProjectionAudit, MemorySearchRequest, MemorySearchResult, ModelRoute,
-        ModelRouteRequest, OpenOutcome, OpenRequest, ProjectExport, RecallRequest,
-        ReconcileOutcome, ReconcileRequest, RecordOutcome, RecordRequest, RuntimeEvent,
-        RuntimeObservation, RuntimeProjectionAudit, RuntimeTraceGetRequest,
+        ExecutionRun, ExecutionStart, GitObserveRequest, GitSnapshot, GitSnapshotAudit,
+        GitSnapshotGetRequest, GitSnapshotListRequest, HookHealthReport, HubStats,
+        MemoryGetRequest, MemoryItem, MemoryProjectionAudit, MemorySearchRequest,
+        MemorySearchResult, ModelRoute, ModelRouteRequest, OpenOutcome, OpenRequest, ProjectExport,
+        RecallRequest, ReconcileOutcome, ReconcileRequest, RecordOutcome, RecordRequest,
+        RuntimeEvent, RuntimeObservation, RuntimeProjectionAudit, RuntimeTraceGetRequest,
         RuntimeTraceListRequest, RuntimeWorkspaceRequest, TaskCancelRequest, TaskClaimRequest,
         TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskOutcome, WorkComplexity,
         WorkKind,
@@ -110,6 +111,23 @@ impl Hub {
         request: &RuntimeWorkspaceRequest,
     ) -> Result<serde_json::Value> {
         self.store.export_runtime_otel(request)
+    }
+
+    pub fn observe_git(&self, request: &GitObserveRequest) -> Result<GitSnapshot> {
+        let draft = crate::git::capture(request)?;
+        self.store.record_git_snapshot(&draft)
+    }
+
+    pub fn list_git_snapshots(&self, request: &GitSnapshotListRequest) -> Result<Vec<GitSnapshot>> {
+        self.store.list_git_snapshots(request)
+    }
+
+    pub fn get_git_snapshot(&self, request: &GitSnapshotGetRequest) -> Result<GitSnapshot> {
+        self.store.get_git_snapshot(request)
+    }
+
+    pub fn audit_git_snapshots(&self) -> Result<GitSnapshotAudit> {
+        self.store.audit_git_snapshots()
     }
 
     pub fn record(&self, request: &RecordRequest) -> Result<RecordOutcome> {

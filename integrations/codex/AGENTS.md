@@ -16,6 +16,12 @@ Use `aporic_trace_list`/`aporic_trace_get` to inspect observed lifecycle events,
 telemetry. A missing observation is not proof that an action or capability did
 not exist, and shadow dispositions never grant, request, or deny authority.
 
+Use `aporic_git_observe` when an exact local repository-state receipt materially
+helps the task, then inspect earlier receipts with `aporic_git_snapshot_list` or
+`aporic_git_snapshot_get`. Git findings are advisory: local tracking refs may be
+stale, signature presence is not signer trust, successful checks do not prove
+adequacy, and no snapshot constitutes review approval or permission to merge.
+
 When a decision or constraint replaces an earlier one, set
 `supersedes_record_id`. An effect requires concrete evidence, and its
 verification must set `verifies_effect_id`; do not close the session as

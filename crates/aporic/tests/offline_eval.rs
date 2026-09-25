@@ -1,6 +1,7 @@
 use aporic::eval::{
     EvalTrial, StructuredAnswer, TrialProvenance, frontier_scenarios, grade, routing_eligible,
-    simulate, simulate_context_selection, simulate_memory_lifecycle, simulate_runtime_trace,
+    simulate, simulate_context_selection, simulate_git_governance, simulate_memory_lifecycle,
+    simulate_runtime_trace,
 };
 
 #[test]
@@ -10,6 +11,18 @@ fn calibrated_simulator_passes_without_becoming_model_evidence() {
     assert_eq!(report.passed as usize, frontier_scenarios().len());
     assert_eq!(report.network_or_model_calls, 0);
     assert!(!report.routing_eligible);
+}
+
+#[test]
+fn git_governance_simulation_detects_risks_without_mutation_or_approval() {
+    let report = simulate_git_governance();
+    assert_eq!(report.risks_detected, report.risks_expected);
+    assert_eq!(report.stale_remote_states_marked_unproven, 1);
+    assert_eq!(report.approvals_issued, 0);
+    assert_eq!(report.git_mutations, 0);
+    assert!(report.deterministic);
+    assert!(!report.routing_eligible);
+    assert_eq!(report.network_or_model_calls, 0);
 }
 
 #[test]

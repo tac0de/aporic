@@ -19,10 +19,11 @@ use crate::domain::{
     EpistemicClaim, EvidenceArtifact, EvidenceGrade, EvidenceKind, EvidenceOutcome,
     EvidenceRequest, ExecutionFinish, ExecutionGetRequest, ExecutionListRequest, ExecutionOutcome,
     ExecutionReceipt, ExecutionReplayAudit, ExecutionRun, ExecutionStart, ExecutionStatus,
-    ExportEvent, ExportSession, Handoff, HookHealthReport, HubStats, InfluenceClass, MemoryClass,
-    MemoryEdge, MemoryExposure, MemoryGetRequest, MemoryItem, MemoryLifecycle,
-    MemoryProjectionAudit, MemorySearchRequest, MemorySearchResult, OpenOutcome, OpenRequest,
-    OriginChannel, ProjectExport, RecallRequest, ReceiptArtifact, ReconcileOutcome,
+    ExportEvent, ExportSession, GitSnapshot, GitSnapshotAudit, GitSnapshotDraft,
+    GitSnapshotGetRequest, GitSnapshotListRequest, Handoff, HookHealthReport, HubStats,
+    InfluenceClass, MemoryClass, MemoryEdge, MemoryExposure, MemoryGetRequest, MemoryItem,
+    MemoryLifecycle, MemoryProjectionAudit, MemorySearchRequest, MemorySearchResult, OpenOutcome,
+    OpenRequest, OriginChannel, ProjectExport, RecallRequest, ReceiptArtifact, ReconcileOutcome,
     ReconcileRequest, RecordKind, RecordOutcome, RecordRequest, RuntimeEvent, RuntimeEventKind,
     RuntimeObservation, RuntimeOutcomeStatus, RuntimeProjectionAudit, RuntimeTraceGetRequest,
     RuntimeTraceListRequest, RuntimeWorkspaceRequest, ShadowDisposition, TaskCancelRequest,
@@ -38,6 +39,7 @@ const MIGRATION_5: &str = include_str!("../../../migrations/0005_verifiable_exec
 const MIGRATION_6: &str = include_str!("../../../migrations/0006_authority_bound_context.sql");
 const MIGRATION_7: &str = include_str!("../../../migrations/0007_memory_lifecycle.sql");
 const MIGRATION_8: &str = include_str!("../../../migrations/0008_runtime_trace.sql");
+const MIGRATION_9: &str = include_str!("../../../migrations/0009_git_governance.sql");
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -77,6 +79,7 @@ impl Store {
                 connection.execute_batch(MIGRATION_6)?;
                 connection.execute_batch(MIGRATION_7)?;
                 connection.execute_batch(MIGRATION_8)?;
+                connection.execute_batch(MIGRATION_9)?;
             }
             1 => {
                 connection.execute_batch(MIGRATION_2)?;
@@ -86,6 +89,7 @@ impl Store {
                 connection.execute_batch(MIGRATION_6)?;
                 connection.execute_batch(MIGRATION_7)?;
                 connection.execute_batch(MIGRATION_8)?;
+                connection.execute_batch(MIGRATION_9)?;
             }
             2 => {
                 connection.execute_batch(MIGRATION_3)?;
@@ -94,6 +98,7 @@ impl Store {
                 connection.execute_batch(MIGRATION_6)?;
                 connection.execute_batch(MIGRATION_7)?;
                 connection.execute_batch(MIGRATION_8)?;
+                connection.execute_batch(MIGRATION_9)?;
             }
             3 => {
                 connection.execute_batch(MIGRATION_4)?;
@@ -101,27 +106,35 @@ impl Store {
                 connection.execute_batch(MIGRATION_6)?;
                 connection.execute_batch(MIGRATION_7)?;
                 connection.execute_batch(MIGRATION_8)?;
+                connection.execute_batch(MIGRATION_9)?;
             }
             4 => {
                 connection.execute_batch(MIGRATION_5)?;
                 connection.execute_batch(MIGRATION_6)?;
                 connection.execute_batch(MIGRATION_7)?;
                 connection.execute_batch(MIGRATION_8)?;
+                connection.execute_batch(MIGRATION_9)?;
             }
             5 => {
                 connection.execute_batch(MIGRATION_6)?;
                 connection.execute_batch(MIGRATION_7)?;
                 connection.execute_batch(MIGRATION_8)?;
+                connection.execute_batch(MIGRATION_9)?;
             }
             6 => {
                 connection.execute_batch(MIGRATION_7)?;
                 connection.execute_batch(MIGRATION_8)?;
+                connection.execute_batch(MIGRATION_9)?;
             }
-            7 => connection.execute_batch(MIGRATION_8)?,
-            8 => {}
+            7 => {
+                connection.execute_batch(MIGRATION_8)?;
+                connection.execute_batch(MIGRATION_9)?;
+            }
+            8 => connection.execute_batch(MIGRATION_9)?,
+            9 => {}
             version => {
                 return Err(Error::Invalid(format!(
-                    "database schema version {version} is newer than supported version 8"
+                    "database schema version {version} is newer than supported version 9"
                 )));
             }
         }
@@ -1922,6 +1935,178 @@ impl Store {
         }))
     }
 
+    pub(crate) fn record_git_snapshot(&self, draft: &GitSnapshotDraft) -> Result<GitSnapshot> {
+        let workspace = canonical_workspace(&draft.workspace)?;
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let project_id = find_or_create_project(&transaction, &workspace, now)?;
+        let successful_receipt_bound = match draft.head_commit.as_deref() {
+            Some(head) => transaction.query_row(
+                "SELECT EXISTS(
+                    SELECT 1 FROM execution_receipts receipts
+                    JOIN execution_runs runs ON runs.run_id = receipts.run_id
+                    JOIN sessions ON sessions.session_id = runs.session_id
+                    WHERE sessions.project_id = ?1 AND runs.status = 'succeeded'
+                      AND receipts.git_head_after = ?2
+                 )",
+                params![project_id, head],
+                |row| row.get::<_, bool>(0),
+            )?,
+            None => false,
+        };
+        let findings = crate::git::assess_governance(draft, successful_receipt_bound);
+        let snapshot_id = Uuid::now_v7().to_string();
+        let mut snapshot = GitSnapshot {
+            sequence: 0,
+            snapshot_id,
+            repository_root: draft.repository_root.clone(),
+            head_commit: draft.head_commit.clone(),
+            head_tree: draft.head_tree.clone(),
+            branch: draft.branch.clone(),
+            detached: draft.detached,
+            upstream_ref: draft.upstream_ref.clone(),
+            base_ref: draft.base_ref.clone(),
+            base_commit: draft.base_commit.clone(),
+            merge_base: draft.merge_base.clone(),
+            ahead_count: draft.ahead_count,
+            behind_count: draft.behind_count,
+            remote_state_fresh: false,
+            dirty: draft.dirty,
+            staged_count: draft.staged_count,
+            unstaged_count: draft.unstaged_count,
+            untracked_count: draft.untracked_count,
+            local_branch_count: draft.local_branch_count,
+            head_parent_count: draft.head_parent_count,
+            head_has_signature: draft.head_has_signature,
+            successful_receipt_bound,
+            paths_truncated: draft.paths_truncated,
+            changed_paths: draft.changed_paths.clone(),
+            worktrees: draft.worktrees.clone(),
+            remotes: draft.remotes.clone(),
+            findings,
+            policy_version: crate::git::GIT_POLICY_VERSION,
+            snapshot_sha256: String::new(),
+            captured_at_unix_ms: now,
+            approval_proven: false,
+            authority_notice: git_authority_notice().to_owned(),
+        };
+        snapshot.snapshot_sha256 = git_snapshot_digest(&snapshot)?;
+        transaction.execute(
+            "INSERT INTO git_snapshots(
+                snapshot_id, project_id, repository_root, head_commit, head_tree, branch,
+                detached, upstream_ref, base_ref, base_commit, merge_base, ahead_count,
+                behind_count, remote_state_fresh, dirty, staged_count, unstaged_count,
+                untracked_count, local_branch_count, head_parent_count, head_has_signature,
+                successful_receipt_bound, paths_truncated, changed_paths_json, worktrees_json,
+                remotes_json, findings_json, policy_version, snapshot_sha256,
+                captured_at_unix_ms
+             ) VALUES (
+                ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, 0,
+                ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26,
+                ?27, ?28, ?29
+             )",
+            params![
+                snapshot.snapshot_id,
+                project_id,
+                snapshot.repository_root,
+                snapshot.head_commit,
+                snapshot.head_tree,
+                snapshot.branch,
+                snapshot.detached,
+                snapshot.upstream_ref,
+                snapshot.base_ref,
+                snapshot.base_commit,
+                snapshot.merge_base,
+                snapshot.ahead_count,
+                snapshot.behind_count,
+                snapshot.dirty,
+                snapshot.staged_count,
+                snapshot.unstaged_count,
+                snapshot.untracked_count,
+                snapshot.local_branch_count,
+                snapshot.head_parent_count,
+                snapshot.head_has_signature,
+                snapshot.successful_receipt_bound,
+                snapshot.paths_truncated,
+                serde_json::to_string(&snapshot.changed_paths)?,
+                serde_json::to_string(&snapshot.worktrees)?,
+                serde_json::to_string(&snapshot.remotes)?,
+                serde_json::to_string(&snapshot.findings)?,
+                snapshot.policy_version,
+                snapshot.snapshot_sha256,
+                snapshot.captured_at_unix_ms,
+            ],
+        )?;
+        snapshot.sequence = u64::try_from(transaction.last_insert_rowid())
+            .map_err(|_| Error::Invalid("Git snapshot sequence overflow".to_owned()))?;
+        transaction.commit()?;
+        Ok(snapshot)
+    }
+
+    pub fn list_git_snapshots(&self, request: &GitSnapshotListRequest) -> Result<Vec<GitSnapshot>> {
+        let workspace = canonical_workspace(&request.workspace)?;
+        let connection = self.connection()?;
+        let Some(project_id) = project_id_for_workspace(&connection, &workspace)? else {
+            return Ok(Vec::new());
+        };
+        let limit = request.limit.unwrap_or(50).clamp(1, 200);
+        let mut statement = connection.prepare(&format!(
+            "{} FROM git_snapshots WHERE project_id = ?1 ORDER BY sequence DESC LIMIT ?2",
+            git_snapshot_select()
+        ))?;
+        Ok(statement
+            .query_map(params![project_id, limit], git_snapshot_from_row)?
+            .collect::<std::result::Result<Vec<_>, _>>()?)
+    }
+
+    pub fn get_git_snapshot(&self, request: &GitSnapshotGetRequest) -> Result<GitSnapshot> {
+        require_text("snapshot_id", &request.snapshot_id)?;
+        let workspace = canonical_workspace(&request.workspace)?;
+        let connection = self.connection()?;
+        connection
+            .query_row(
+                &format!(
+                    "{} FROM git_snapshots JOIN projects USING(project_id)
+                     WHERE projects.workspace = ?1 AND git_snapshots.snapshot_id = ?2",
+                    git_snapshot_select()
+                ),
+                params![workspace, request.snapshot_id],
+                git_snapshot_from_row,
+            )
+            .optional()?
+            .ok_or_else(|| Error::NotFound(format!("Git snapshot {}", request.snapshot_id)))
+    }
+
+    pub fn audit_git_snapshots(&self) -> Result<GitSnapshotAudit> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(&format!(
+            "{} FROM git_snapshots ORDER BY sequence ASC",
+            git_snapshot_select()
+        ))?;
+        let rows = statement.query_map([], git_snapshot_from_row)?;
+        let mut snapshot_count = 0;
+        let mut digest_mismatch_count = 0;
+        let mut invalid_json_count = 0;
+        for row in rows {
+            snapshot_count += 1;
+            match row {
+                Ok(snapshot) => {
+                    if git_snapshot_digest(&snapshot)? != snapshot.snapshot_sha256 {
+                        digest_mismatch_count += 1;
+                    }
+                }
+                Err(_) => invalid_json_count += 1,
+            }
+        }
+        Ok(GitSnapshotAudit {
+            snapshot_count,
+            digest_mismatch_count,
+            invalid_json_count,
+            consistent: digest_mismatch_count == 0 && invalid_json_count == 0,
+        })
+    }
+
     pub fn stats(&self) -> Result<HubStats> {
         let connection = self.connection()?;
         Ok(HubStats {
@@ -1959,6 +2144,7 @@ impl Store {
                 "status = 'interrupted'",
             )?,
             execution_receipt_count: table_count(&connection, "execution_receipts", "1 = 1")?,
+            git_snapshot_count: table_count(&connection, "git_snapshots", "1 = 1")?,
         })
     }
 
@@ -2109,6 +2295,15 @@ impl Store {
                 .collect::<std::result::Result<Vec<_>, _>>()?
         };
         let capability_observations = load_capability_observations(&connection, &project_id)?;
+        let git_snapshots = {
+            let mut statement = connection.prepare(&format!(
+                "{} FROM git_snapshots WHERE project_id = ?1 ORDER BY sequence ASC",
+                git_snapshot_select()
+            ))?;
+            statement
+                .query_map([&project_id], git_snapshot_from_row)?
+                .collect::<std::result::Result<Vec<_>, _>>()?
+        };
 
         let events = {
             let mut statement = connection.prepare(
@@ -2156,7 +2351,7 @@ impl Store {
         };
 
         Ok(ProjectExport {
-            format_version: 6,
+            format_version: 7,
             exported_at_unix_ms: unix_millis()?,
             project_id,
             workspace,
@@ -2174,6 +2369,7 @@ impl Store {
             memory_exposures,
             runtime_events,
             capability_observations,
+            git_snapshots,
             events,
         })
     }
@@ -2261,6 +2457,99 @@ fn otel_hex_id(value: &str, len: usize) -> String {
 
 fn runtime_authority_notice() -> &'static str {
     "Observed capabilities and shadow decisions are telemetry, not permissions, grants, denials, or proof that every host action was observed."
+}
+
+fn git_authority_notice() -> &'static str {
+    "Git observations and governance findings are local, advisory evidence. They do not prove remote freshness, signer trust, review approval, code safety, or permission to merge."
+}
+
+fn git_snapshot_select() -> &'static str {
+    "SELECT git_snapshots.sequence, git_snapshots.snapshot_id,
+            git_snapshots.repository_root, git_snapshots.head_commit,
+            git_snapshots.head_tree, git_snapshots.branch, git_snapshots.detached,
+            git_snapshots.upstream_ref, git_snapshots.base_ref,
+            git_snapshots.base_commit, git_snapshots.merge_base,
+            git_snapshots.ahead_count, git_snapshots.behind_count,
+            git_snapshots.remote_state_fresh, git_snapshots.dirty,
+            git_snapshots.staged_count, git_snapshots.unstaged_count,
+            git_snapshots.untracked_count, git_snapshots.local_branch_count,
+            git_snapshots.head_parent_count, git_snapshots.head_has_signature,
+            git_snapshots.successful_receipt_bound, git_snapshots.paths_truncated,
+            git_snapshots.changed_paths_json, git_snapshots.worktrees_json,
+            git_snapshots.remotes_json, git_snapshots.findings_json,
+            git_snapshots.policy_version, git_snapshots.snapshot_sha256,
+            git_snapshots.captured_at_unix_ms"
+}
+
+fn git_snapshot_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<GitSnapshot> {
+    Ok(GitSnapshot {
+        sequence: row.get(0)?,
+        snapshot_id: row.get(1)?,
+        repository_root: row.get(2)?,
+        head_commit: row.get(3)?,
+        head_tree: row.get(4)?,
+        branch: row.get(5)?,
+        detached: row.get(6)?,
+        upstream_ref: row.get(7)?,
+        base_ref: row.get(8)?,
+        base_commit: row.get(9)?,
+        merge_base: row.get(10)?,
+        ahead_count: row.get(11)?,
+        behind_count: row.get(12)?,
+        remote_state_fresh: row.get(13)?,
+        dirty: row.get(14)?,
+        staged_count: row.get(15)?,
+        unstaged_count: row.get(16)?,
+        untracked_count: row.get(17)?,
+        local_branch_count: row.get(18)?,
+        head_parent_count: row.get(19)?,
+        head_has_signature: row.get(20)?,
+        successful_receipt_bound: row.get(21)?,
+        paths_truncated: row.get(22)?,
+        changed_paths: json_column(row, 23)?,
+        worktrees: json_column(row, 24)?,
+        remotes: json_column(row, 25)?,
+        findings: json_column(row, 26)?,
+        policy_version: row.get(27)?,
+        snapshot_sha256: row.get(28)?,
+        captured_at_unix_ms: row.get(29)?,
+        approval_proven: false,
+        authority_notice: git_authority_notice().to_owned(),
+    })
+}
+
+fn git_snapshot_digest(snapshot: &GitSnapshot) -> Result<String> {
+    let value = serde_json::json!({
+        "snapshot_id": snapshot.snapshot_id,
+        "repository_root": snapshot.repository_root,
+        "head_commit": snapshot.head_commit,
+        "head_tree": snapshot.head_tree,
+        "branch": snapshot.branch,
+        "detached": snapshot.detached,
+        "upstream_ref": snapshot.upstream_ref,
+        "base_ref": snapshot.base_ref,
+        "base_commit": snapshot.base_commit,
+        "merge_base": snapshot.merge_base,
+        "ahead_count": snapshot.ahead_count,
+        "behind_count": snapshot.behind_count,
+        "remote_state_fresh": snapshot.remote_state_fresh,
+        "dirty": snapshot.dirty,
+        "staged_count": snapshot.staged_count,
+        "unstaged_count": snapshot.unstaged_count,
+        "untracked_count": snapshot.untracked_count,
+        "local_branch_count": snapshot.local_branch_count,
+        "head_parent_count": snapshot.head_parent_count,
+        "head_has_signature": snapshot.head_has_signature,
+        "successful_receipt_bound": snapshot.successful_receipt_bound,
+        "paths_truncated": snapshot.paths_truncated,
+        "changed_paths": snapshot.changed_paths,
+        "worktrees": snapshot.worktrees,
+        "remotes": snapshot.remotes,
+        "findings": snapshot.findings,
+        "policy_version": snapshot.policy_version,
+        "captured_at_unix_ms": snapshot.captured_at_unix_ms,
+    });
+    Ok(format!("{:x}", Sha256::digest(serde_json::to_vec(&value)?)))
 }
 
 fn runtime_event_select() -> &'static str {

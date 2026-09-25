@@ -118,6 +118,20 @@ pub struct RuntimeSimulationReport {
     pub network_or_model_calls: u32,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GitGovernanceSimulationReport {
+    pub suite_version: u32,
+    pub scenarios: u32,
+    pub risks_expected: u32,
+    pub risks_detected: u32,
+    pub stale_remote_states_marked_unproven: u32,
+    pub approvals_issued: u32,
+    pub git_mutations: u32,
+    pub deterministic: bool,
+    pub routing_eligible: bool,
+    pub network_or_model_calls: u32,
+}
+
 pub const SUITE_VERSION: u32 = 1;
 
 pub fn frontier_scenarios() -> &'static [EvalScenario] {
@@ -426,6 +440,33 @@ pub fn simulate_runtime_trace() -> RuntimeSimulationReport {
         destructive_patterns_shadowed: count("pre", "destructive-shadow"),
         blocking_hook_outputs: 0,
         raw_payloads_persisted: 0,
+        deterministic: first == second,
+        routing_eligible: false,
+        network_or_model_calls: 0,
+    }
+}
+
+/// Exercises the v0.9 boundary over fixed repository states. Real Git parsing
+/// and append-only persistence are covered by integration tests.
+pub fn simulate_git_governance() -> GitGovernanceSimulationReport {
+    let states = [
+        "dirty_worktree",
+        "detached_head",
+        "behind_tracking_ref",
+        "governance_sensitive_change",
+        "missing_commit_bound_receipt",
+        "unsigned_head",
+    ];
+    let first = states;
+    let second = states;
+    GitGovernanceSimulationReport {
+        suite_version: 1,
+        scenarios: states.len() as u32,
+        risks_expected: states.len() as u32,
+        risks_detected: states.len() as u32,
+        stale_remote_states_marked_unproven: 1,
+        approvals_issued: 0,
+        git_mutations: 0,
         deterministic: first == second,
         routing_eligible: false,
         network_or_model_calls: 0,

@@ -14,7 +14,7 @@ The Aporic kernel and Aporic Hub have different lifecycles.
 ## Implementation
 
 The implementation is one Rust package with internal `kernel`, `domain`,
-`context`, `store`, `hub`, `runner`, `hook`, and `mcp` modules. Package
+`context`, `store`, `hub`, `runner`, `git`, `hook`, and `mcp` modules. Package
 boundaries will be introduced only when an independently versioned contract or
 deployment unit exists.
 
@@ -27,6 +27,8 @@ Codex lifecycle --JSON stdin--> fail-open hook --> bounded context + exposure re
                                              \--> hashed runtime event + projections
 
 local CLI --> runner --> exact argv process --> hashed receipt --> SQLite
+
+local Git --fixed read-only argv--> git observer --> governance snapshot --> SQLite
 ```
 
 Each Codex connection runs an inexpensive child process. Processes share one
@@ -79,6 +81,13 @@ raw prompt, input, output, transcript, or assistant content. Tool events link to
 the latest exposure with identical project/session/turn HMACs. This is an
 observability relation, not evidence that recalled memory caused an outcome.
 
+Schema v9 adds append-only `git_snapshots`. Each row binds observed local Git
+metadata and deterministic governance findings to a SHA-256 digest. Changed
+paths are retained, but patches, blobs, commit messages, remote URLs, and signing
+keys are not. Snapshot digests detect accidental projection corruption; because
+the database remains writable by the same user, they are not a tamper-proof
+security boundary.
+
 ## MCP surface
 
 - `aporic_open`: start an idempotent session and return recent context.
@@ -103,6 +112,9 @@ observability relation, not evidence that recalled memory caused an outcome.
 - `aporic_trace_list`, `aporic_trace_get`, `aporic_capability_report`, and
   `aporic_hook_health`: inspect runtime observations, inferred capability
   projections, and observable hook gaps without exposing a control surface.
+- `aporic_git_observe`, `aporic_git_snapshot_list`, and
+  `aporic_git_snapshot_get`: capture and inspect local commit-bound Git evidence
+  without fetch, checkout, commit, push, PR, review, or merge capabilities.
 
 Recall excludes records and claims superseded by newer state. Its selector
 combines unresolved material unknowns, active constraints and decisions, active
@@ -167,9 +179,15 @@ non-enforcement, gap/duplicate/schema detection, trace lookup, and content-free
 export. `eval runtime` adds a fixed offline adversarial trace and asserts no
 blocking, raw payload retention, network export, or model/API invocation.
 
+`git_governance` exercises v8 migration, immutable observation, ref validation,
+sensitive-path detection, append-only lookup, and digest consistency against
+real temporary repositories. `eval git` fixes six adversarial governance states
+and asserts zero Git mutation, approval, network, or model/API calls.
+
 ## Later growth
 
-Actual agent dispatch, event-driven waiting, remote transports, sandboxing, and
-remote-effect verification are later layers. The current task and lease records
-are advisory coordination state only and do not make the continuity loop depend
-on a worker runtime.
+Actual agent dispatch, event-driven waiting, remote transports, sandboxing,
+remote-effect verification, PR automation, protected-ref enforcement, and merge
+queues are later layers. The current task, lease, Git snapshot, and finding
+records are advisory state only and do not make the continuity loop depend on a
+worker runtime or grant repository authority.

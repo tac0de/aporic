@@ -16,6 +16,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
         {
             export_runtime_trace(workspace)
         }
+        [git, inspect, flag, workspace]
+            if git == "git" && inspect == "inspect" && flag == "--workspace" =>
+        {
+            inspect_git(workspace)
+        }
         [command, flag, spec_id] if command == "verify" && flag == "--spec" => {
             verify(spec_id).await
         }
@@ -27,6 +32,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         [eval, context] if eval == "eval" && context == "context" => simulate_context_eval(),
         [eval, memory] if eval == "eval" && memory == "memory" => simulate_memory_eval(),
         [eval, runtime] if eval == "eval" && runtime == "runtime" => simulate_runtime_eval(),
+        [eval, git] if eval == "eval" && git == "git" => simulate_git_eval(),
         [executions, reconcile, flag, seconds]
             if executions == "executions"
                 && reconcile == "reconcile"
@@ -40,7 +46,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         _ => {
             eprintln!(
-                "usage: aporic doctor | aporic export --workspace PATH | aporic trace export --workspace PATH | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic eval context | aporic eval memory | aporic eval runtime | aporic executions reconcile --stale-after SECONDS | aporic hook codex | aporic mcp serve --stdio"
+                "usage: aporic doctor | aporic export --workspace PATH | aporic trace export --workspace PATH | aporic git inspect --workspace PATH | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic eval context | aporic eval memory | aporic eval runtime | aporic eval git | aporic executions reconcile --stale-after SECONDS | aporic hook codex | aporic mcp serve --stdio"
             );
             std::process::exit(2);
         }
@@ -67,6 +73,14 @@ fn simulate_runtime_eval() -> Result<(), Box<dyn Error>> {
     println!(
         "{}",
         serde_json::to_string_pretty(&aporic::eval::simulate_runtime_trace())?
+    );
+    Ok(())
+}
+
+fn simulate_git_eval() -> Result<(), Box<dyn Error>> {
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&aporic::eval::simulate_git_governance())?
     );
     Ok(())
 }
@@ -127,9 +141,11 @@ fn doctor() -> Result<(), Box<dyn Error>> {
     let execution_replay = hub.audit_execution_replay()?;
     let memory_projection = hub.audit_memory_projection()?;
     let runtime_projection = hub.audit_runtime_projection()?;
+    let git_snapshots = hub.audit_git_snapshots()?;
     let replay_ok = execution_replay.mismatches.is_empty()
         && memory_projection.consistent
-        && runtime_projection.consistent;
+        && runtime_projection.consistent
+        && git_snapshots.consistent;
     println!(
         "{}",
         serde_json::to_string(&serde_json::json!({
@@ -140,7 +156,21 @@ fn doctor() -> Result<(), Box<dyn Error>> {
             "execution_replay": execution_replay,
             "memory_projection": memory_projection,
             "runtime_projection": runtime_projection
+            ,"git_snapshots": git_snapshots
         }))?
+    );
+    Ok(())
+}
+
+fn inspect_git(workspace: &str) -> Result<(), Box<dyn Error>> {
+    let database = default_database_path().map_err(std::io::Error::other)?;
+    let hub = Hub::open(database)?;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&hub.observe_git(&aporic::domain::GitObserveRequest {
+            workspace: workspace.to_owned(),
+            base_ref: None,
+        })?)?
     );
     Ok(())
 }

@@ -529,6 +529,134 @@ pub struct RuntimeProjectionAudit {
     pub consistent: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct GitObserveRequest {
+    pub workspace: String,
+    #[serde(default)]
+    pub base_ref: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct GitSnapshotListRequest {
+    pub workspace: String,
+    #[serde(default)]
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct GitSnapshotGetRequest {
+    pub workspace: String,
+    pub snapshot_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GovernanceSeverity {
+    Info,
+    Warning,
+    Critical,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GovernanceFinding {
+    pub code: String,
+    pub severity: GovernanceSeverity,
+    pub evidence: String,
+    pub requires_independent_review: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GitPathChange {
+    pub source: String,
+    pub status: String,
+    pub path: String,
+    pub previous_path: Option<String>,
+    pub governance_sensitive: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GitWorktreeObservation {
+    pub head_commit: Option<String>,
+    pub branch: Option<String>,
+    pub detached: bool,
+    pub locked: bool,
+    pub prunable: bool,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct GitSnapshotDraft {
+    pub workspace: String,
+    pub repository_root: String,
+    pub head_commit: Option<String>,
+    pub head_tree: Option<String>,
+    pub branch: Option<String>,
+    pub detached: bool,
+    pub upstream_ref: Option<String>,
+    pub base_ref: Option<String>,
+    pub base_commit: Option<String>,
+    pub merge_base: Option<String>,
+    pub ahead_count: Option<u64>,
+    pub behind_count: Option<u64>,
+    pub dirty: bool,
+    pub staged_count: u64,
+    pub unstaged_count: u64,
+    pub untracked_count: u64,
+    pub local_branch_count: u64,
+    pub head_parent_count: Option<u32>,
+    pub head_has_signature: bool,
+    pub paths_truncated: bool,
+    pub changed_paths: Vec<GitPathChange>,
+    pub worktrees: Vec<GitWorktreeObservation>,
+    pub remotes: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GitSnapshot {
+    pub sequence: u64,
+    pub snapshot_id: String,
+    pub repository_root: String,
+    pub head_commit: Option<String>,
+    pub head_tree: Option<String>,
+    pub branch: Option<String>,
+    pub detached: bool,
+    pub upstream_ref: Option<String>,
+    pub base_ref: Option<String>,
+    pub base_commit: Option<String>,
+    pub merge_base: Option<String>,
+    pub ahead_count: Option<u64>,
+    pub behind_count: Option<u64>,
+    pub remote_state_fresh: bool,
+    pub dirty: bool,
+    pub staged_count: u64,
+    pub unstaged_count: u64,
+    pub untracked_count: u64,
+    pub local_branch_count: u64,
+    pub head_parent_count: Option<u32>,
+    pub head_has_signature: bool,
+    pub successful_receipt_bound: bool,
+    pub paths_truncated: bool,
+    pub changed_paths: Vec<GitPathChange>,
+    pub worktrees: Vec<GitWorktreeObservation>,
+    pub remotes: Vec<String>,
+    pub findings: Vec<GovernanceFinding>,
+    pub policy_version: u32,
+    pub snapshot_sha256: String,
+    pub captured_at_unix_ms: i64,
+    pub approval_proven: bool,
+    pub authority_notice: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GitSnapshotAudit {
+    pub snapshot_count: u64,
+    pub digest_mismatch_count: u64,
+    pub invalid_json_count: u64,
+    pub consistent: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OpenOutcome {
     pub session_id: String,
@@ -576,6 +704,7 @@ pub struct HubStats {
     pub running_execution_count: u64,
     pub interrupted_execution_count: u64,
     pub execution_receipt_count: u64,
+    pub git_snapshot_count: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -1086,5 +1215,6 @@ pub struct ProjectExport {
     pub memory_exposures: Vec<MemoryExposure>,
     pub runtime_events: Vec<RuntimeEvent>,
     pub capability_observations: Vec<CapabilityObservation>,
+    pub git_snapshots: Vec<GitSnapshot>,
     pub events: Vec<ExportEvent>,
 }

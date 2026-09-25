@@ -32,11 +32,11 @@ saves.
 
 ## Current stage
 
-The product is in the runtime-observation stage. The product question is:
+The product is in the Git-evidence-and-governance stage. The product question is:
 
-> Can a local MCP hub connect recalled context to the capabilities and outcomes
-> actually observed at runtime, without becoming an authority or retaining
-> sensitive payloads?
+> Can a local hub bind repository state, verification, and governance risks to
+> exact Git objects without mutating Git or confusing local observations with
+> remote freshness, review approval, or merge authority?
 
 The first protocol slice is complete: an actual stdio MCP client can open a
 session, recall project context, record a durable item, close the session, and
@@ -97,6 +97,16 @@ manual evaluation.
   coverage.
 - The runtime trace can be exported locally in a content-free,
   OpenTelemetry-shaped format. v0.8 includes no network exporter.
+- Git observations use fixed-argv, read-only local commands to create append-only
+  snapshots bound to HEAD/tree/base metadata and a content digest. They never
+  fetch, checkout, commit, push, open a PR, or merge.
+- Locally cached tracking refs are explicitly stale-capable:
+  `remote_state_fresh` remains false without an attested remote observation.
+  Commit signature presence is not signer trust, a successful receipt is not
+  test adequacy, and `approval_proven` remains false.
+- v0.9 governance findings are deterministic advisory signals for dirty,
+  detached, divergent, unresolved-base, sensitive-path, missing-receipt, and
+  truncated-inventory states. They do not become an authorization kernel.
 
 ## Material unknowns
 
@@ -121,7 +131,7 @@ Observed on 2026-09-25:
 
 - the exact kernel candidate in the repository matches the installed candidate
   by SHA-256;
-- a real stdio MCP child process exposes all twenty-three tools and preserves a record
+- a real stdio MCP child process exposes all twenty-six tools and preserves a record
   across a server restart;
 - exact retries are idempotent and conflicting reuse of a key is rejected;
 - concurrent writers retain all tested sessions through SQLite WAL;
@@ -159,6 +169,12 @@ Observed on 2026-09-25:
 - the fixed runtime simulation covers lifecycle gaps, duplicate delivery,
   unknown schemas, and destructive shadow classification while asserting zero
   blocks, raw payload retention, network exports, and model calls.
+- the Git-governance suite migrates v8 state, proves observation leaves HEAD and
+  the working tree unchanged, rejects option-shaped refs, records digest-bound
+  append-only snapshots, detects governance-sensitive dirty changes, and never
+  claims remote freshness or approval.
+- the fixed Git simulation detects six risky states with zero Git mutations,
+  approvals, network calls, or model/API calls.
 
 Not yet established:
 
@@ -169,6 +185,8 @@ Not yet established:
 - actual agent dispatch or parallel worker execution.
 - real-world hook coverage and outcome accuracy across host versions; the
   current report detects observable gaps but cannot prove unobserved actions.
+- remote branch-protection/ruleset freshness, signer trust, independent human
+  approval, and semantic test adequacy; local Git metadata cannot prove them.
 - semantic adequacy of a successful test, OS-level isolation from same-user
   processes, child-process-tree containment, and trusted receipts for external
   APIs or remote effects.
