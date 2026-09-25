@@ -1,6 +1,6 @@
 use aporic::eval::{
     EvalTrial, StructuredAnswer, TrialProvenance, frontier_scenarios, grade, routing_eligible,
-    simulate, simulate_context_selection,
+    simulate, simulate_context_selection, simulate_memory_lifecycle,
 };
 
 #[test]
@@ -10,6 +10,18 @@ fn calibrated_simulator_passes_without_becoming_model_evidence() {
     assert_eq!(report.passed as usize, frontier_scenarios().len());
     assert_eq!(report.network_or_model_calls, 0);
     assert!(!report.routing_eligible);
+}
+
+#[test]
+fn memory_lifecycle_simulation_rejects_stale_and_poisoned_authority() {
+    let report = simulate_memory_lifecycle();
+    assert_eq!(report.stale_memories_selected, 0);
+    assert_eq!(report.gotchas_retained, report.gotchas_expected);
+    assert_eq!(report.unresolved_unknowns_preserved, 1);
+    assert_eq!(report.poison_authority_escalations, 0);
+    assert!(report.deterministic);
+    assert!(!report.routing_eligible);
+    assert_eq!(report.network_or_model_calls, 0);
 }
 
 #[test]

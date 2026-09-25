@@ -32,7 +32,7 @@ saves.
 
 ## Current stage
 
-The product is in the authority-bound-context stage. The product question is:
+The product is in the memory-lifecycle stage. The product question is:
 
 > Can a local MCP hub restore and preserve the minimum useful work context
 > across Codex tasks with less overhead than manually restating it?
@@ -73,13 +73,18 @@ manual evaluation.
 - Model routing is advisory and outside the kernel: Terra handles bounded work,
   Sol is the default for complex implementation, and Astra handles frontier or
   high-consequence ambiguous work.
-- Recalled memory has an explicit origin and influence class. Arbitrary stored
-  text remains historical data and cannot promote itself into authority or
+- Recalled memory has an explicit origin and influence class. Model-authored
+  free text remains untrusted data and cannot promote itself into authority or
   verified fact.
+- A rebuildable projection classifies memory as episodic, semantic, procedural,
+  gotcha, or unknown and preserves temporal validity plus supersession edges.
+- Retrieval is local FTS5 with deterministic limits; v0.7 has no embeddings,
+  vector database, learned memory manager, or model/API call.
 - Context selection is deterministic, byte-bounded, and auditable through a
   policy digest and per-item reason codes.
 - The optional Codex hook reads lifecycle events without calling a model API or
-  persisting prompts, transcripts, assistant messages, session IDs, or turn IDs.
+  persisting prompts, transcripts, or assistant messages. Session and turn IDs
+  are recorded only as installation-keyed HMACs in exposure receipts.
   Hook failure is advisory and fail-open.
 
 ## Material unknowns
@@ -94,7 +99,7 @@ manual evaluation.
 
 ## Deferred operational work
 
-Privacy controls, retention, import/restore, backup, remote authentication,
+User-facing retention policy, import/restore, backup, remote authentication,
 long-running agent scheduling, general-purpose tool execution, and remote-effect
 verification are intentionally deferred. They must be resolved before their
 corresponding capabilities are introduced.
@@ -105,7 +110,7 @@ Observed on 2026-09-25:
 
 - the exact kernel candidate in the repository matches the installed candidate
   by SHA-256;
-- a real stdio MCP child process exposes all seventeen tools and preserves a record
+- a real stdio MCP child process exposes all nineteen tools and preserves a record
   across a server restart;
 - exact retries are idempotent and conflicting reuse of a key is rejected;
 - concurrent writers retain all tested sessions through SQLite WAL;
@@ -130,8 +135,12 @@ Observed on 2026-09-25:
 - the authority-bound-context simulation migrates v5 records with
   non-authoritative defaults, produces byte-bounded deterministic capsules,
   suppresses superseded memory, preserves unresolved unknowns and active tasks,
-  labels injected instructions as historical data, and proves that hook prompt,
+  labels injected instructions as untrusted data, and proves that hook prompt,
   transcript, and assistant-message fields are not persisted.
+- the memory-lifecycle suite exercises deterministic FTS retrieval, time-bounded
+  supersession, untrusted-by-default model text, projection/FTS consistency,
+  HMAC-only exposure receipts, gotcha retention, unknown preservation, and zero
+  poison authority escalations without network or model calls.
 
 Not yet established:
 

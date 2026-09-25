@@ -1,6 +1,6 @@
 [package]
 name = "aporic"
-version = "0.6.0"
+version = "0.7.0"
 edition = "2024"
 rust-version = "1.89"
 publish = false
@@ -11,6 +11,7 @@ path = "src/bin/aporic.rs"
 
 [dependencies]
 directories = "6.0"
+hmac = "0.12"
 libc = "0.2"
 rmcp = { version = "3.4.0", features = [
     "client",

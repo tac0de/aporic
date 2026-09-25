@@ -204,6 +204,123 @@ pub struct ContextBudget {
     pub omitted_items: u32,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum MemoryClass {
+    Episodic,
+    Semantic,
+    Procedural,
+    Gotcha,
+    Unknown,
+}
+
+impl MemoryClass {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Episodic => "episodic",
+            Self::Semantic => "semantic",
+            Self::Procedural => "procedural",
+            Self::Gotcha => "gotcha",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MemoryLifecycle {
+    Active,
+    Superseded,
+    Quarantined,
+    Tombstoned,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct MemorySearchRequest {
+    pub workspace: String,
+    #[serde(default)]
+    pub query: String,
+    #[serde(default)]
+    pub classes: Vec<MemoryClass>,
+    #[serde(default)]
+    pub limit: Option<u32>,
+    #[serde(default)]
+    pub max_bytes: Option<u32>,
+    #[serde(default)]
+    pub as_of_unix_ms: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct MemoryGetRequest {
+    pub workspace: String,
+    pub memory_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MemoryItem {
+    pub memory_id: String,
+    pub source_kind: String,
+    pub source_id: String,
+    pub memory_class: MemoryClass,
+    pub content: String,
+    pub origin_channel: OriginChannel,
+    pub influence_class: InfluenceClass,
+    pub source_status: Option<String>,
+    pub lifecycle_state: MemoryLifecycle,
+    pub valid_from_unix_ms: i64,
+    pub valid_until_unix_ms: Option<i64>,
+    pub applicability: serde_json::Value,
+    pub selection_reasons: Vec<String>,
+    pub created_at_unix_ms: i64,
+    pub updated_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MemorySearchResult {
+    pub project_id: Option<String>,
+    pub workspace: String,
+    pub query_terms: Vec<String>,
+    pub items: Vec<MemoryItem>,
+    pub budget: ContextBudget,
+    pub warnings: Vec<String>,
+    pub policy_sha256: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MemoryProjectionAudit {
+    pub expected_source_count: u64,
+    pub item_count: u64,
+    pub active_count: u64,
+    pub superseded_count: u64,
+    pub untrusted_count: u64,
+    pub fts_count: u64,
+    pub source_consistent: bool,
+    pub consistent: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MemoryEdge {
+    pub edge_id: String,
+    pub from_memory_id: String,
+    pub to_memory_id: String,
+    pub relation: String,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MemoryExposure {
+    pub exposure_id: String,
+    pub event_kind: String,
+    pub host_session_hmac: Option<String>,
+    pub host_turn_hmac: Option<String>,
+    pub policy_sha256: String,
+    pub memory_ids: Vec<String>,
+    pub content_bytes: u32,
+    pub created_at_unix_ms: i64,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OpenOutcome {
     pub session_id: String,
@@ -756,5 +873,8 @@ pub struct ProjectExport {
     pub execution_runs: Vec<ExecutionRun>,
     pub execution_receipts: Vec<ExecutionReceipt>,
     pub receipt_artifacts: Vec<ReceiptArtifact>,
+    pub memory_items: Vec<MemoryItem>,
+    pub memory_edges: Vec<MemoryEdge>,
+    pub memory_exposures: Vec<MemoryExposure>,
     pub events: Vec<ExportEvent>,
 }

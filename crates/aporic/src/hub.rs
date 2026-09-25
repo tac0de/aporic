@@ -6,7 +6,8 @@ use crate::{
         CommandSpecRequest, Consequence, ContextCapsule, CoordinatedTask, DissentAssessment,
         DissentRequest, EvidenceOutcome, EvidenceRequest, ExecutionFinish, ExecutionGetRequest,
         ExecutionListRequest, ExecutionOutcome, ExecutionReplayAudit, ExecutionRun, ExecutionStart,
-        HubStats, ModelRoute, ModelRouteRequest, OpenOutcome, OpenRequest, ProjectExport,
+        HubStats, MemoryGetRequest, MemoryItem, MemoryProjectionAudit, MemorySearchRequest,
+        MemorySearchResult, ModelRoute, ModelRouteRequest, OpenOutcome, OpenRequest, ProjectExport,
         RecallRequest, ReconcileOutcome, ReconcileRequest, RecordOutcome, RecordRequest,
         TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest,
         TaskListRequest, TaskOutcome, WorkComplexity, WorkKind,
@@ -38,6 +39,37 @@ impl Hub {
 
     pub fn recall(&self, request: &RecallRequest) -> Result<ContextCapsule> {
         self.store.recall(request)
+    }
+
+    pub fn memory_search(&self, request: &MemorySearchRequest) -> Result<MemorySearchResult> {
+        self.store.memory_search(request)
+    }
+
+    pub fn memory_get(&self, request: &MemoryGetRequest) -> Result<MemoryItem> {
+        self.store.memory_get(request)
+    }
+
+    pub fn audit_memory_projection(&self) -> Result<MemoryProjectionAudit> {
+        self.store.audit_memory_projection()
+    }
+
+    pub(crate) fn record_memory_exposure(
+        &self,
+        workspace: &str,
+        event_kind: &str,
+        host_session_id: Option<&str>,
+        host_turn_id: Option<&str>,
+        memory_ids: &[String],
+        content_bytes: u32,
+    ) -> Result<()> {
+        self.store.record_memory_exposure(
+            workspace,
+            event_kind,
+            host_session_id,
+            host_turn_id,
+            memory_ids,
+            content_bytes,
+        )
     }
 
     pub fn record(&self, request: &RecordRequest) -> Result<RecordOutcome> {

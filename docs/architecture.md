@@ -23,7 +23,7 @@ Codex --stdio MCP--> mcp adapter --> hub services --> SQLite
                                       |
                                       +--> kernel invariants
 
-Codex lifecycle --JSON stdin--> fail-open hook --> bounded context read
+Codex lifecycle --JSON stdin--> fail-open hook --> bounded context + exposure receipt
 
 local CLI --> runner --> exact argv process --> hashed receipt --> SQLite
 ```
@@ -63,10 +63,19 @@ The event log preserves accepted state transitions and idempotent results. Read
 tables provide bounded context without replaying the whole log on every tool
 call. Tests replay events independently and compare the result with projections.
 
+Schema v7 adds a rebuildable `memory_items` projection, explicit relation edges,
+and a synchronized local FTS5 index. Active retrieval applies lifecycle and
+valid-time filters before deterministic class/rank/ID ordering. The source rows
+remain authoritative; the projection adds no permissions. Exposure receipts
+store selected IDs, byte counts, the policy digest, and installation-keyed HMACs
+for host session/turn correlation—never prompt or transcript contents.
+
 ## MCP surface
 
 - `aporic_open`: start an idempotent session and return recent context.
 - `aporic_recall`: retrieve a bounded project capsule.
+- `aporic_memory_search` and `aporic_memory_get`: inspect deterministic,
+  workspace-scoped memory without granting write or execution authority.
 - `aporic_record`: append one durable typed record.
 - `aporic_evidence_add`, `aporic_claim_assert`, and `aporic_dissent_assess`:
   enforce the evidence, certainty, unknown, and counterargument gates.
@@ -83,7 +92,7 @@ call. Tests replay events independently and compare the result with projections.
   contracts, dependency gates, non-overlapping write leases, and
   criterion-by-criterion verified proofs.
 
-Recall excludes records and claims superseded by newer state. Its v0.6 selector
+Recall excludes records and claims superseded by newer state. Its selector
 combines unresolved material unknowns, active constraints and decisions, active
 tasks, verified/observed claims, handoffs, and other recent records under a
 fixed item and UTF-8 content-byte budget. Objective and focus-path token overlap
@@ -92,11 +101,12 @@ make ties deterministic. Each item exposes its origin, influence class, and
 selection reasons. Historical effect/verification links remain readable, but
 new writes use the typed gate.
 
-The Codex hook adapter appends no hook input or domain event. Opening the local
+The Codex hook adapter appends no raw hook input or domain event. Opening the local
 store may still initialize or migrate its schema. The adapter ignores transcript
 and assistant-output fields, uses a submitted prompt only as an in-memory
 relevance query, emits model-visible text inside JSON data records under a
-data-not-instructions header, and returns an empty JSON object on errors. It does
+data-not-instructions header, and records only a privacy-preserving exposure
+receipt. It returns an empty JSON object on errors. It does
 not block tools, request permissions, invoke models, or modify Codex
 configuration.
 
@@ -125,6 +135,12 @@ task proof binding, interrupted-run reconciliation, export, and event replay.
 `context_runtime` simulates migration, deterministic budget enforcement,
 supersession, unknown/task retention, memory-injection labeling, fail-open hook
 behavior, and non-persistence of sensitive lifecycle fields.
+
+`memory_lifecycle` exercises FTS retrieval, explicit temporal supersession,
+untrusted-by-default text, bounded Hook output, HMAC-only exposure correlation,
+and projection/FTS consistency. `eval memory` adds an offline fixed-trace check
+for stale exclusion, gotcha retention, unknown preservation, determinism, and
+zero poison authority escalation.
 
 ## Later growth
 

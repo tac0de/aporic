@@ -4,6 +4,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
+use hmac::{Hmac, Mac};
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
 use serde::{Serialize, de::DeserializeOwned};
 use sha2::{Digest, Sha256};
@@ -17,11 +18,12 @@ use crate::domain::{
     DurableRecord, EpistemicClaim, EvidenceArtifact, EvidenceGrade, EvidenceKind, EvidenceOutcome,
     EvidenceRequest, ExecutionFinish, ExecutionGetRequest, ExecutionListRequest, ExecutionOutcome,
     ExecutionReceipt, ExecutionReplayAudit, ExecutionRun, ExecutionStart, ExecutionStatus,
-    ExportEvent, ExportSession, Handoff, HubStats, InfluenceClass, OpenOutcome, OpenRequest,
-    OriginChannel, ProjectExport, RecallRequest, ReceiptArtifact, ReconcileOutcome,
-    ReconcileRequest, RecordKind, RecordOutcome, RecordRequest, TaskCancelRequest,
-    TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskOutcome,
-    TaskStatus, workspace_file_claim,
+    ExportEvent, ExportSession, Handoff, HubStats, InfluenceClass, MemoryClass, MemoryEdge,
+    MemoryExposure, MemoryGetRequest, MemoryItem, MemoryLifecycle, MemoryProjectionAudit,
+    MemorySearchRequest, MemorySearchResult, OpenOutcome, OpenRequest, OriginChannel,
+    ProjectExport, RecallRequest, ReceiptArtifact, ReconcileOutcome, ReconcileRequest, RecordKind,
+    RecordOutcome, RecordRequest, TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest,
+    TaskCreateRequest, TaskListRequest, TaskOutcome, TaskStatus, workspace_file_claim,
 };
 
 const SCHEMA: &str = include_str!("../../../migrations/0001_initial.sql");
@@ -30,6 +32,7 @@ const MIGRATION_3: &str = include_str!("../../../migrations/0003_coordination.sq
 const MIGRATION_4: &str = include_str!("../../../migrations/0004_epistemic_gate.sql");
 const MIGRATION_5: &str = include_str!("../../../migrations/0005_verifiable_execution.sql");
 const MIGRATION_6: &str = include_str!("../../../migrations/0006_authority_bound_context.sql");
+const MIGRATION_7: &str = include_str!("../../../migrations/0007_memory_lifecycle.sql");
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -67,6 +70,7 @@ impl Store {
             0 => {
                 connection.execute_batch(SCHEMA)?;
                 connection.execute_batch(MIGRATION_6)?;
+                connection.execute_batch(MIGRATION_7)?;
             }
             1 => {
                 connection.execute_batch(MIGRATION_2)?;
@@ -74,27 +78,35 @@ impl Store {
                 connection.execute_batch(MIGRATION_4)?;
                 connection.execute_batch(MIGRATION_5)?;
                 connection.execute_batch(MIGRATION_6)?;
+                connection.execute_batch(MIGRATION_7)?;
             }
             2 => {
                 connection.execute_batch(MIGRATION_3)?;
                 connection.execute_batch(MIGRATION_4)?;
                 connection.execute_batch(MIGRATION_5)?;
                 connection.execute_batch(MIGRATION_6)?;
+                connection.execute_batch(MIGRATION_7)?;
             }
             3 => {
                 connection.execute_batch(MIGRATION_4)?;
                 connection.execute_batch(MIGRATION_5)?;
                 connection.execute_batch(MIGRATION_6)?;
+                connection.execute_batch(MIGRATION_7)?;
             }
             4 => {
                 connection.execute_batch(MIGRATION_5)?;
                 connection.execute_batch(MIGRATION_6)?;
+                connection.execute_batch(MIGRATION_7)?;
             }
-            5 => connection.execute_batch(MIGRATION_6)?,
-            6 => {}
+            5 => {
+                connection.execute_batch(MIGRATION_6)?;
+                connection.execute_batch(MIGRATION_7)?;
+            }
+            6 => connection.execute_batch(MIGRATION_7)?,
+            7 => {}
             version => {
                 return Err(Error::Invalid(format!(
-                    "database schema version {version} is newer than supported version 6"
+                    "database schema version {version} is newer than supported version 7"
                 )));
             }
         }
@@ -252,7 +264,7 @@ impl Store {
             supersedes_record_id: request.supersedes_record_id.clone(),
             verifies_effect_id: request.verifies_effect_id.clone(),
             origin_channel: OriginChannel::McpAgent,
-            influence_class: InfluenceClass::HistoricalContext,
+            influence_class: InfluenceClass::UntrustedContent,
             created_at_unix_ms: now,
         };
         transaction.execute(
@@ -1350,6 +1362,224 @@ impl Store {
         Ok(outcome)
     }
 
+    pub fn memory_search(&self, request: &MemorySearchRequest) -> Result<MemorySearchResult> {
+        let workspace = canonical_workspace(&request.workspace)?;
+        let connection = self.connection()?;
+        let project_id = connection
+            .query_row(
+                "SELECT project_id FROM projects WHERE workspace = ?1",
+                [&workspace],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        let terms = memory_query_terms(&request.query);
+        let limit = request.limit.unwrap_or(12).clamp(1, 50);
+        let max_bytes = request.max_bytes.unwrap_or(8_192).clamp(256, 65_536);
+        let Some(project_id) = project_id else {
+            return Ok(MemorySearchResult {
+                project_id: None,
+                workspace,
+                query_terms: terms,
+                items: Vec::new(),
+                budget: crate::domain::ContextBudget {
+                    max_items: limit,
+                    max_content_bytes: max_bytes,
+                    used_content_bytes: 0,
+                    omitted_items: 0,
+                },
+                warnings: vec!["project_not_found".to_owned()],
+                policy_sha256: crate::context::policy_sha256(),
+            });
+        };
+        let as_of = request.as_of_unix_ms.unwrap_or(unix_millis()?);
+        let mut candidates = if terms.is_empty() {
+            load_current_memory(&connection, &project_id, as_of)?
+        } else {
+            load_matching_memory(&connection, &project_id, as_of, &terms)?
+        };
+        if !request.classes.is_empty() {
+            candidates.retain(|item| request.classes.contains(&item.memory_class));
+        }
+        let candidate_count = candidates.len();
+        let mut items = Vec::new();
+        let mut used = 0usize;
+        for mut item in candidates {
+            if items.len() >= limit as usize {
+                break;
+            }
+            let bytes = item.content.len();
+            if used + bytes > max_bytes as usize {
+                continue;
+            }
+            item.selection_reasons.push(if terms.is_empty() {
+                "current_memory".to_owned()
+            } else {
+                "fts_match".to_owned()
+            });
+            item.selection_reasons
+                .push(format!("class:{}", item.memory_class.as_str()));
+            if item.influence_class == InfluenceClass::VerifiedFact {
+                item.selection_reasons.push("verified_fact".to_owned());
+            }
+            used += bytes;
+            items.push(item);
+        }
+        let selected = items.len();
+        let mut warnings = Vec::new();
+        if items.is_empty() {
+            warnings.push("no_matching_memory".to_owned());
+        }
+        if items
+            .iter()
+            .any(|item| item.memory_class == MemoryClass::Unknown)
+        {
+            warnings.push("contains_unresolved_unknown".to_owned());
+        }
+        Ok(MemorySearchResult {
+            project_id: Some(project_id),
+            workspace,
+            query_terms: terms,
+            items,
+            budget: crate::domain::ContextBudget {
+                max_items: limit,
+                max_content_bytes: max_bytes,
+                used_content_bytes: u32::try_from(used).unwrap_or(u32::MAX),
+                omitted_items: u32::try_from(candidate_count.saturating_sub(selected))
+                    .unwrap_or(u32::MAX),
+            },
+            warnings,
+            policy_sha256: crate::context::policy_sha256(),
+        })
+    }
+
+    pub fn memory_get(&self, request: &MemoryGetRequest) -> Result<MemoryItem> {
+        require_text("memory_id", &request.memory_id)?;
+        let workspace = canonical_workspace(&request.workspace)?;
+        let connection = self.connection()?;
+        connection
+            .query_row(
+                "SELECT memory_items.memory_id, memory_items.source_kind,
+                        memory_items.source_id, memory_items.memory_class,
+                        memory_items.content, memory_items.origin_channel,
+                        memory_items.influence_class, memory_items.source_status,
+                        memory_items.lifecycle_state, memory_items.valid_from_unix_ms,
+                        memory_items.valid_until_unix_ms, memory_items.applicability_json,
+                        memory_items.created_at_unix_ms, memory_items.updated_at_unix_ms
+                 FROM memory_items JOIN projects USING(project_id)
+                 WHERE projects.workspace = ?1 AND memory_items.memory_id = ?2",
+                params![workspace, request.memory_id],
+                memory_item_from_row,
+            )
+            .optional()?
+            .ok_or_else(|| Error::NotFound(format!("memory {}", request.memory_id)))
+    }
+
+    pub fn audit_memory_projection(&self) -> Result<MemoryProjectionAudit> {
+        let connection = self.connection()?;
+        let expected_source_count = connection.query_row(
+            "SELECT
+                (SELECT count(*) FROM records) +
+                (SELECT count(*) FROM claims) +
+                (SELECT count(*) FROM tasks) +
+                (SELECT count(*) FROM sessions
+                   WHERE status = 'handoff' AND summary IS NOT NULL AND next_action IS NOT NULL) +
+                (SELECT count(*) FROM execution_receipts)",
+            [],
+            |row| row.get::<_, u64>(0),
+        )?;
+        let item_count = table_count(&connection, "memory_items", "1 = 1")?;
+        let active_count = table_count(&connection, "memory_items", "lifecycle_state = 'active'")?;
+        let superseded_count = table_count(
+            &connection,
+            "memory_items",
+            "lifecycle_state = 'superseded'",
+        )?;
+        let untrusted_count = table_count(
+            &connection,
+            "memory_items",
+            "influence_class = 'untrusted_content'",
+        )?;
+        let fts_count = table_count(&connection, "memory_fts", "1 = 1")?;
+        let source_consistent = expected_source_count == item_count;
+        Ok(MemoryProjectionAudit {
+            expected_source_count,
+            item_count,
+            active_count,
+            superseded_count,
+            untrusted_count,
+            fts_count,
+            source_consistent,
+            consistent: source_consistent && item_count == fts_count,
+        })
+    }
+
+    pub(crate) fn record_memory_exposure(
+        &self,
+        workspace: &str,
+        event_kind: &str,
+        host_session_id: Option<&str>,
+        host_turn_id: Option<&str>,
+        memory_ids: &[String],
+        content_bytes: u32,
+    ) -> Result<()> {
+        let workspace = canonical_workspace(workspace)?;
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let project_id = transaction
+            .query_row(
+                "SELECT project_id FROM projects WHERE workspace = ?1",
+                [&workspace],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        let Some(project_id) = project_id else {
+            return Ok(());
+        };
+        let secret = transaction
+            .query_row(
+                "SELECT value FROM installation_secrets WHERE name = 'exposure_hmac_v1'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+            .unwrap_or_else(|| Uuid::now_v7().to_string());
+        transaction.execute(
+            "INSERT OR IGNORE INTO installation_secrets(name, value, created_at_unix_ms)
+             VALUES ('exposure_hmac_v1', ?1, ?2)",
+            params![secret, now],
+        )?;
+        let digest = |value: Option<&str>| -> Result<Option<String>> {
+            value
+                .map(|value| {
+                    let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes())
+                        .map_err(|_| Error::Invalid("invalid HMAC key".to_owned()))?;
+                    mac.update(value.as_bytes());
+                    Ok(format!("{:x}", mac.finalize().into_bytes()))
+                })
+                .transpose()
+        };
+        transaction.execute(
+            "INSERT INTO memory_exposures(
+                exposure_id, project_id, event_kind, host_session_hmac, host_turn_hmac,
+                policy_sha256, memory_ids_json, content_bytes, created_at_unix_ms
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                Uuid::now_v7().to_string(),
+                project_id,
+                event_kind,
+                digest(host_session_id)?,
+                digest(host_turn_id)?,
+                crate::context::policy_sha256(),
+                serde_json::to_string(memory_ids)?,
+                content_bytes,
+                now,
+            ],
+        )?;
+        transaction.commit()?;
+        Ok(())
+    }
+
     pub fn stats(&self) -> Result<HubStats> {
         let connection = self.connection()?;
         Ok(HubStats {
@@ -1464,6 +1694,69 @@ impl Store {
         let execution_runs = load_project_runs(&connection, &project_id, i64::MAX)?;
         let execution_receipts = load_project_receipts(&connection, &project_id)?;
         let receipt_artifacts = load_project_receipt_artifacts(&connection, &project_id)?;
+        let memory_items = {
+            let sql = format!(
+                "{} FROM memory_items WHERE project_id = ?1
+                 ORDER BY created_at_unix_ms ASC, memory_id ASC",
+                memory_select()
+            );
+            let mut statement = connection.prepare(&sql)?;
+            statement
+                .query_map([&project_id], memory_item_from_row)?
+                .collect::<std::result::Result<Vec<_>, _>>()?
+        };
+        let memory_edges = {
+            let mut statement = connection.prepare(
+                "SELECT edge_id, from_memory_id, to_memory_id, relation, created_at_unix_ms
+                 FROM memory_edges WHERE project_id = ?1
+                 ORDER BY created_at_unix_ms ASC, edge_id ASC",
+            )?;
+            statement
+                .query_map([&project_id], |row| {
+                    Ok(MemoryEdge {
+                        edge_id: row.get(0)?,
+                        from_memory_id: row.get(1)?,
+                        to_memory_id: row.get(2)?,
+                        relation: row.get(3)?,
+                        created_at_unix_ms: row.get(4)?,
+                    })
+                })?
+                .collect::<std::result::Result<Vec<_>, _>>()?
+        };
+        let memory_exposures = {
+            let mut statement = connection.prepare(
+                "SELECT exposure_id, event_kind, host_session_hmac, host_turn_hmac,
+                        policy_sha256, memory_ids_json, content_bytes, created_at_unix_ms
+                 FROM memory_exposures WHERE project_id = ?1
+                 ORDER BY created_at_unix_ms ASC, exposure_id ASC",
+            )?;
+            let rows = statement.query_map([&project_id], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    row.get::<_, String>(4)?,
+                    row.get::<_, String>(5)?,
+                    row.get::<_, u32>(6)?,
+                    row.get::<_, i64>(7)?,
+                ))
+            })?;
+            rows.map(|row| {
+                let (id, kind, session, turn, policy, ids, bytes, created) = row?;
+                Ok(MemoryExposure {
+                    exposure_id: id,
+                    event_kind: kind,
+                    host_session_hmac: session,
+                    host_turn_hmac: turn,
+                    policy_sha256: policy,
+                    memory_ids: serde_json::from_str(&ids)?,
+                    content_bytes: bytes,
+                    created_at_unix_ms: created,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?
+        };
 
         let events = {
             let mut statement = connection.prepare(
@@ -1511,7 +1804,7 @@ impl Store {
         };
 
         Ok(ProjectExport {
-            format_version: 4,
+            format_version: 5,
             exported_at_unix_ms: unix_millis()?,
             project_id,
             workspace,
@@ -1524,6 +1817,9 @@ impl Store {
             execution_runs,
             execution_receipts,
             receipt_artifacts,
+            memory_items,
+            memory_edges,
+            memory_exposures,
             events,
         })
     }
@@ -2840,6 +3136,131 @@ fn parse_record_kind(value: String) -> rusqlite::Result<RecordKind> {
         "effect" => Ok(RecordKind::Effect),
         "verification" => Ok(RecordKind::Verification),
         "material_unknown" => Ok(RecordKind::MaterialUnknown),
+        _ => Err(rusqlite::Error::InvalidQuery),
+    }
+}
+
+fn memory_query_terms(query: &str) -> Vec<String> {
+    let mut terms = query
+        .split(|character: char| {
+            !(character.is_alphanumeric() || character == '_' || character == '-')
+        })
+        .map(str::to_lowercase)
+        .filter(|term| term.chars().count() >= 2)
+        .collect::<Vec<_>>();
+    terms.sort();
+    terms.dedup();
+    terms.truncate(16);
+    terms
+}
+
+fn memory_select() -> &'static str {
+    "SELECT memory_items.memory_id, memory_items.source_kind,
+            memory_items.source_id, memory_items.memory_class,
+            memory_items.content, memory_items.origin_channel,
+            memory_items.influence_class, memory_items.source_status,
+            memory_items.lifecycle_state, memory_items.valid_from_unix_ms,
+            memory_items.valid_until_unix_ms, memory_items.applicability_json,
+            memory_items.created_at_unix_ms, memory_items.updated_at_unix_ms"
+}
+
+fn load_current_memory(
+    connection: &Connection,
+    project_id: &str,
+    as_of: i64,
+) -> Result<Vec<MemoryItem>> {
+    let sql = format!(
+        "{} FROM memory_items
+         WHERE project_id = ?1 AND lifecycle_state IN ('active', 'superseded')
+           AND valid_from_unix_ms <= ?2
+           AND (valid_until_unix_ms IS NULL OR valid_until_unix_ms > ?2)
+         ORDER BY CASE memory_class
+                    WHEN 'gotcha' THEN 0 WHEN 'unknown' THEN 1 WHEN 'semantic' THEN 2
+                    WHEN 'procedural' THEN 3 ELSE 4 END,
+                  updated_at_unix_ms DESC, memory_id ASC LIMIT 500",
+        memory_select()
+    );
+    let mut statement = connection.prepare(&sql)?;
+    Ok(statement
+        .query_map(params![project_id, as_of], memory_item_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?)
+}
+
+fn load_matching_memory(
+    connection: &Connection,
+    project_id: &str,
+    as_of: i64,
+    terms: &[String],
+) -> Result<Vec<MemoryItem>> {
+    let expression = terms
+        .iter()
+        .map(|term| format!("\"{}\"", term.replace('"', "\"\"")))
+        .collect::<Vec<_>>()
+        .join(" OR ");
+    let sql = format!(
+        "{} FROM memory_fts
+         JOIN memory_items ON memory_items.memory_id = memory_fts.memory_id
+         WHERE memory_fts MATCH ?1 AND memory_items.project_id = ?2
+           AND memory_items.lifecycle_state IN ('active', 'superseded')
+           AND memory_items.valid_from_unix_ms <= ?3
+           AND (memory_items.valid_until_unix_ms IS NULL OR memory_items.valid_until_unix_ms > ?3)
+         ORDER BY bm25(memory_fts),
+                  CASE memory_items.memory_class
+                    WHEN 'gotcha' THEN 0 WHEN 'unknown' THEN 1 WHEN 'semantic' THEN 2
+                    WHEN 'procedural' THEN 3 ELSE 4 END,
+                  memory_items.updated_at_unix_ms DESC, memory_items.memory_id ASC LIMIT 500",
+        memory_select()
+    );
+    let mut statement = connection.prepare(&sql)?;
+    Ok(statement
+        .query_map(params![expression, project_id, as_of], memory_item_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?)
+}
+
+fn memory_item_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<MemoryItem> {
+    let applicability_json = row.get::<_, String>(11)?;
+    Ok(MemoryItem {
+        memory_id: row.get(0)?,
+        source_kind: row.get(1)?,
+        source_id: row.get(2)?,
+        memory_class: parse_memory_class(row.get(3)?)?,
+        content: row.get(4)?,
+        origin_channel: parse_origin_channel(row.get(5)?)?,
+        influence_class: parse_influence_class(row.get(6)?)?,
+        source_status: row.get(7)?,
+        lifecycle_state: parse_memory_lifecycle(row.get(8)?)?,
+        valid_from_unix_ms: row.get(9)?,
+        valid_until_unix_ms: row.get(10)?,
+        applicability: serde_json::from_str(&applicability_json).map_err(|error| {
+            rusqlite::Error::FromSqlConversionFailure(
+                applicability_json.len(),
+                rusqlite::types::Type::Text,
+                Box::new(error),
+            )
+        })?,
+        selection_reasons: Vec::new(),
+        created_at_unix_ms: row.get(12)?,
+        updated_at_unix_ms: row.get(13)?,
+    })
+}
+
+fn parse_memory_class(value: String) -> rusqlite::Result<MemoryClass> {
+    match value.as_str() {
+        "episodic" => Ok(MemoryClass::Episodic),
+        "semantic" => Ok(MemoryClass::Semantic),
+        "procedural" => Ok(MemoryClass::Procedural),
+        "gotcha" => Ok(MemoryClass::Gotcha),
+        "unknown" => Ok(MemoryClass::Unknown),
+        _ => Err(rusqlite::Error::InvalidQuery),
+    }
+}
+
+fn parse_memory_lifecycle(value: String) -> rusqlite::Result<MemoryLifecycle> {
+    match value.as_str() {
+        "active" => Ok(MemoryLifecycle::Active),
+        "superseded" => Ok(MemoryLifecycle::Superseded),
+        "quarantined" => Ok(MemoryLifecycle::Quarantined),
+        "tombstoned" => Ok(MemoryLifecycle::Tombstoned),
         _ => Err(rusqlite::Error::InvalidQuery),
     }
 }

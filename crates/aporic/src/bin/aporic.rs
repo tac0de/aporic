@@ -20,6 +20,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             simulate_eval(actor)
         }
         [eval, context] if eval == "eval" && context == "context" => simulate_context_eval(),
+        [eval, memory] if eval == "eval" && memory == "memory" => simulate_memory_eval(),
         [executions, reconcile, flag, seconds]
             if executions == "executions"
                 && reconcile == "reconcile"
@@ -33,7 +34,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         _ => {
             eprintln!(
-                "usage: aporic doctor | aporic export --workspace PATH | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic eval context | aporic executions reconcile --stale-after SECONDS | aporic hook codex | aporic mcp serve --stdio"
+                "usage: aporic doctor | aporic export --workspace PATH | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic eval context | aporic eval memory | aporic executions reconcile --stale-after SECONDS | aporic hook codex | aporic mcp serve --stdio"
             );
             std::process::exit(2);
         }
@@ -44,6 +45,14 @@ fn simulate_context_eval() -> Result<(), Box<dyn Error>> {
     println!(
         "{}",
         serde_json::to_string_pretty(&aporic::eval::simulate_context_selection())?
+    );
+    Ok(())
+}
+
+fn simulate_memory_eval() -> Result<(), Box<dyn Error>> {
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&aporic::eval::simulate_memory_lifecycle())?
     );
     Ok(())
 }
@@ -102,7 +111,8 @@ fn doctor() -> Result<(), Box<dyn Error>> {
     let hub = Hub::open(&database)?;
     let stats = hub.stats()?;
     let execution_replay = hub.audit_execution_replay()?;
-    let replay_ok = execution_replay.mismatches.is_empty();
+    let memory_projection = hub.audit_memory_projection()?;
+    let replay_ok = execution_replay.mismatches.is_empty() && memory_projection.consistent;
     println!(
         "{}",
         serde_json::to_string(&serde_json::json!({
@@ -110,7 +120,8 @@ fn doctor() -> Result<(), Box<dyn Error>> {
             "kernel_sha256": aporic::kernel::digest(),
             "database": hub.database_path(),
             "stats": stats,
-            "execution_replay": execution_replay
+            "execution_replay": execution_replay,
+            "memory_projection": memory_projection
         }))?
     );
     Ok(())

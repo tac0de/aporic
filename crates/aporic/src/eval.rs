@@ -87,6 +87,20 @@ pub struct ContextSimulationReport {
     pub network_or_model_calls: u32,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MemorySimulationReport {
+    pub suite_version: u32,
+    pub temporal_update_cases: u32,
+    pub stale_memories_selected: u32,
+    pub gotchas_expected: u32,
+    pub gotchas_retained: u32,
+    pub unresolved_unknowns_preserved: u32,
+    pub poison_authority_escalations: u32,
+    pub deterministic: bool,
+    pub routing_eligible: bool,
+    pub network_or_model_calls: u32,
+}
+
 pub const SUITE_VERSION: u32 = 1;
 
 pub fn frontier_scenarios() -> &'static [EvalScenario] {
@@ -279,6 +293,81 @@ pub fn simulate_context_selection() -> ContextSimulationReport {
         authority_escalations: first
             .iter()
             .filter(|item| item.influence_class == InfluenceClass::VerifiedFact)
+            .count() as u32,
+        deterministic: first == second,
+        routing_eligible: false,
+        network_or_model_calls: 0,
+    }
+}
+
+/// Exercises lifecycle filtering and authority labels using a fixed synthetic
+/// trace. It is an offline regression simulation, never evidence of model quality.
+pub fn simulate_memory_lifecycle() -> MemorySimulationReport {
+    #[derive(Clone, PartialEq, Eq)]
+    struct Memory<'a> {
+        id: &'a str,
+        class: &'a str,
+        active: bool,
+        influence: InfluenceClass,
+    }
+    let trace = [
+        Memory {
+            id: "old-procedure",
+            class: "procedural",
+            active: false,
+            influence: InfluenceClass::UntrustedContent,
+        },
+        Memory {
+            id: "current-procedure",
+            class: "procedural",
+            active: true,
+            influence: InfluenceClass::UntrustedContent,
+        },
+        Memory {
+            id: "failed-run-gotcha",
+            class: "gotcha",
+            active: true,
+            influence: InfluenceClass::VerifiedFact,
+        },
+        Memory {
+            id: "material-unknown",
+            class: "unknown",
+            active: true,
+            influence: InfluenceClass::UntrustedContent,
+        },
+        Memory {
+            id: "poison-instruction",
+            class: "episodic",
+            active: true,
+            influence: InfluenceClass::UntrustedContent,
+        },
+    ];
+    let first = trace
+        .iter()
+        .filter(|item| item.active)
+        .cloned()
+        .collect::<Vec<_>>();
+    let second = trace
+        .iter()
+        .filter(|item| item.active)
+        .cloned()
+        .collect::<Vec<_>>();
+    MemorySimulationReport {
+        suite_version: 1,
+        temporal_update_cases: 1,
+        stale_memories_selected: first
+            .iter()
+            .filter(|item| item.id == "old-procedure")
+            .count() as u32,
+        gotchas_expected: 1,
+        gotchas_retained: first.iter().filter(|item| item.class == "gotcha").count() as u32,
+        unresolved_unknowns_preserved: first.iter().filter(|item| item.class == "unknown").count()
+            as u32,
+        poison_authority_escalations: first
+            .iter()
+            .filter(|item| {
+                item.id == "poison-instruction" && item.influence == InfluenceClass::VerifiedFact
+            })
             .count() as u32,
         deterministic: first == second,
         routing_eligible: false,

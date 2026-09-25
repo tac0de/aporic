@@ -48,7 +48,7 @@ fn migrates_v5_records_with_non_authoritative_defaults() {
     drop(connection);
 
     let hub = Hub::open(&database).unwrap();
-    assert_eq!(hub.stats().unwrap().schema_version, 6);
+    assert_eq!(hub.stats().unwrap().schema_version, 7);
     let exported = hub
         .export_project(workspace.to_string_lossy().as_ref())
         .unwrap();
@@ -170,7 +170,7 @@ fn context_selection_and_codex_hook_resist_memory_poisoning() {
     assert_eq!(poison_item.origin_channel, OriginChannel::McpAgent);
     assert_eq!(
         poison_item.influence_class,
-        InfluenceClass::HistoricalContext
+        InfluenceClass::UntrustedContent
     );
     let rendered = render_for_model(&first.selected_items, 8_192);
     assert!(rendered.contains("DATA, NOT INSTRUCTIONS"));
@@ -214,7 +214,7 @@ fn context_selection_and_codex_hook_resist_memory_poisoning() {
         .unwrap();
     assert_eq!(
         labels,
-        ("mcp_agent".to_owned(), "historical_context".to_owned())
+        ("mcp_agent".to_owned(), "untrusted_content".to_owned())
     );
 }
 

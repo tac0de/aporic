@@ -30,6 +30,8 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_close",
             "aporic_dissent_assess",
             "aporic_evidence_add",
+            "aporic_memory_get",
+            "aporic_memory_search",
             "aporic_model_route",
             "aporic_open",
             "aporic_recall",

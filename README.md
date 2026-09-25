@@ -14,7 +14,7 @@ See [PRODUCT.md](PRODUCT.md) for the product objective and
 
 ## Current product surface
 
-The hub exposes seventeen MCP tools in five groups.
+The hub exposes nineteen MCP tools in six groups.
 
 Continuity:
 
@@ -23,6 +23,13 @@ Continuity:
 - `aporic_record`: record one typed durable fact or work-state change;
 - `aporic_close`: complete or hand off a session;
 - `aporic_reconcile`: abandon stale interrupted sessions without claiming success.
+
+Memory lifecycle:
+
+- `aporic_memory_search`: search the deterministic FTS projection under class,
+  time, item, and byte bounds;
+- `aporic_memory_get`: inspect one workspace-scoped memory item with provenance,
+  lifecycle, temporal validity, and applicability metadata.
 
 Advisory coordination:
 
@@ -78,11 +85,18 @@ process result and declared artifacts, not that a test is semantically adequate
 or that an external real-world effect occurred. Material unknowns block
 completion until an observed or verified claim supersedes them.
 
-## Authority-bound context
+## Memory lifecycle and authority-bound context
 
-v0.6 adds a deterministic context capsule alongside the legacy recall fields.
+v0.7 adds a rebuildable memory projection over records, claims, tasks, handoffs,
+and local execution receipts. Memory is classified as episodic, semantic,
+procedural, gotcha, or unknown. Supersession closes temporal validity without
+deleting history, while explicit relation edges preserve why state changed.
+SQLite FTS5 provides deterministic local retrieval without embeddings, a vector
+service, or a model/API call.
+
+The deterministic context capsule remains alongside the legacy recall fields.
 Every selected item carries an origin channel, an influence class, and explicit
-selection reasons. Stored free text enters as `historical_context`; it cannot
+selection reasons. Model/MCP-authored free text enters as `untrusted_content`; it cannot
 declare itself an instruction, verified fact, permission, or completed effect.
 Verified/observed typed claims are the only recalled items promoted to
 `verified_fact`.
@@ -97,8 +111,9 @@ An optional, API-free Codex command hook is available as `aporic hook codex`.
 It accepts `SessionStart` and `UserPromptSubmit` event JSON on stdin and returns
 only `hookSpecificOutput.additionalContext`, following the official
 [Codex Hooks contract](https://learn.chatgpt.com/docs/hooks). Prompt text is used ephemerally for
-ranking; prompt text, transcript paths, assistant messages, session IDs, and
-turn IDs are not persisted. Malformed input, an unavailable database, or an
+ranking; prompt text, transcript paths, and assistant messages are not persisted.
+Session and turn identifiers are retained only as installation-keyed HMACs in
+append-only exposure receipts. Malformed input, an unavailable database, or an
 unknown workspace returns `{}` with a successful exit, so the integration is
 advisory and fail-open. The model and permission mode are labeled as
 host-observed, not attested.
@@ -129,6 +144,7 @@ cargo run -p aporic -- eval simulate --actor calibrated
 cargo run -p aporic -- eval simulate --actor overclaiming
 cargo run -p aporic -- eval simulate --actor contrarian
 cargo run -p aporic -- eval context
+cargo run -p aporic -- eval memory
 ```
 
 State is stored in platform-native application data, not in the governed
@@ -179,6 +195,7 @@ cargo test -p aporic --test epistemic_gate -- --nocapture
 cargo test -p aporic --test verifiable_execution -- --nocapture
 cargo test -p aporic --test offline_eval -- --nocapture
 cargo test -p aporic --test context_runtime -- --nocapture
+cargo test -p aporic --test memory_lifecycle -- --nocapture
 ```
 
 The Codex bridge template is under `integrations/codex/`. Nothing in the build
