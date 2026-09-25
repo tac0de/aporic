@@ -3,6 +3,13 @@
 The router uses typed task properties rather than prompt wording. Its output is
 a recommendation, never authorization, dispatch, or evidence.
 
+The current route table is a provisional static policy. Aporic never invokes a
+model or the OpenAI API. v0.5 can grade offline structured trials, but only a
+non-empty batch whose every result is host-attested is eligible to inform a
+future policy revision. Deterministic simulator output and operator/model
+reported identities are useful for testing and diagnosis, but cannot change the
+route table.
+
 | Route | Use |
 | --- | --- |
 | `gpt-5.6-terra` | Bounded, well-specified, low-to-medium consequence work |

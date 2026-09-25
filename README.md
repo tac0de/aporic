@@ -59,7 +59,10 @@ exact registered program and argv without a shell command string, captures only
 output hashes and byte counts, records Git/worktree snapshots and declared-file
 hashes, then issues a verified claim only for the expected exit code and complete
 artifact set. Failed, timed-out, interrupted, or incomplete runs cannot issue
-that claim.
+that claim. Output is hashed as a bounded-memory stream. On Unix, timeout cleanup
+targets the normal child process group. This is best-effort lifecycle cleanup,
+not a security sandbox: a hostile process that creates a new session or uses
+external effects is outside this guarantee.
 
 Coordination records do not launch agents, grant host authority, or block tools.
 They make parallel-work conflicts and unsupported completion claims visible at
@@ -78,6 +81,25 @@ completion until an observed or verified claim supersedes them.
 The router is advisory and outside the behavioral kernel. It does not dispatch a
 model, grant authority, or turn a model review into evidence. See
 [model routing](docs/model-routing.md).
+
+## Offline evaluation
+
+Aporic does not call the OpenAI API or any other model endpoint. Its v0.5
+evaluation core is deterministic and offline. It checks structured outcomes for
+false completion, unsupported certainty, preservation of unknowns, needless
+dissent, missing necessary dissent, and failed-tool overclaiming. Built-in
+actors test the grader itself; their scores are explicitly ineligible for model
+routing. Imported model names and results remain `reported` unless a host can
+attest their provenance, so a self-declared Astra, Sol, or Terra result cannot
+promote a routing rule.
+
+Run the offline grader simulation:
+
+```console
+cargo run -p aporic -- eval simulate --actor calibrated
+cargo run -p aporic -- eval simulate --actor overclaiming
+cargo run -p aporic -- eval simulate --actor contrarian
+```
 
 State is stored in platform-native application data, not in the governed
 workspace or `~/.codex`. Set `APORIC_DATABASE` to an explicit database path for
@@ -125,6 +147,7 @@ cargo test -p aporic --test coordination_failures -- --nocapture
 cargo test -p aporic --test long_horizon -- --nocapture
 cargo test -p aporic --test epistemic_gate -- --nocapture
 cargo test -p aporic --test verifiable_execution -- --nocapture
+cargo test -p aporic --test offline_eval -- --nocapture
 ```
 
 The Codex bridge template is under `integrations/codex/`. Nothing in the build

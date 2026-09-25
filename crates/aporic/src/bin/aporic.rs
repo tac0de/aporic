@@ -14,6 +14,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
         [command, flag, spec_id] if command == "verify" && flag == "--spec" => {
             verify(spec_id).await
         }
+        [eval, simulate, flag, actor]
+            if eval == "eval" && simulate == "simulate" && flag == "--actor" =>
+        {
+            simulate_eval(actor)
+        }
         [executions, reconcile, flag, seconds]
             if executions == "executions"
                 && reconcile == "reconcile"
@@ -26,11 +31,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         _ => {
             eprintln!(
-                "usage: aporic doctor | aporic export --workspace PATH | aporic verify --spec SPEC_ID | aporic executions reconcile --stale-after SECONDS | aporic mcp serve --stdio"
+                "usage: aporic doctor | aporic export --workspace PATH | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic executions reconcile --stale-after SECONDS | aporic mcp serve --stdio"
             );
             std::process::exit(2);
         }
     }
+}
+
+fn simulate_eval(actor: &str) -> Result<(), Box<dyn Error>> {
+    let report = aporic::eval::simulate(actor)
+        .ok_or_else(|| format!("unknown deterministic actor: {actor}"))?;
+    println!("{}", serde_json::to_string_pretty(&report)?);
+    Ok(())
 }
 
 async fn verify(spec_id: &str) -> Result<(), Box<dyn Error>> {

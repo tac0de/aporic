@@ -205,6 +205,44 @@ async fn failure_timeout_and_missing_artifact_never_issue_verified_claims() {
     );
 }
 
+#[cfg(unix)]
+#[tokio::test]
+async fn timeout_terminates_the_normal_child_process_group() {
+    use std::{thread, time::Duration};
+
+    let (_area, workspace, _database, hub, session_id) = setup("process group timeout");
+    let registered = register(
+        &hub,
+        &session_id,
+        executable(&["/bin/sh"]),
+        vec![
+            "-c".to_owned(),
+            "sleep 30 & echo $! > child.pid; wait".to_owned(),
+        ],
+        1,
+        Vec::new(),
+        "spec-process-group",
+    );
+    let outcome = hub.verify(&registered.spec.spec_id).await.unwrap();
+    assert_eq!(outcome.run.status, ExecutionStatus::TimedOut);
+
+    let child_pid = std::fs::read_to_string(workspace.join("child.pid"))
+        .unwrap()
+        .trim()
+        .parse::<i32>()
+        .unwrap();
+    let gone = (0..20).any(|_| {
+        let result = unsafe { libc::kill(child_pid, 0) };
+        if result == -1 && std::io::Error::last_os_error().raw_os_error() == Some(libc::ESRCH) {
+            true
+        } else {
+            thread::sleep(Duration::from_millis(50));
+            false
+        }
+    });
+    assert!(gone, "child process {child_pid} survived the timeout");
+}
+
 #[test]
 fn registration_rejects_paths_that_escape_the_workspace() {
     let (_area, _workspace, _database, hub, session_id) = setup("path confinement");

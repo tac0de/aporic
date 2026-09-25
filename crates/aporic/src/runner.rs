@@ -1,12 +1,17 @@
 use std::{
     env, fs,
     path::{Path, PathBuf},
-    process::Command as StdCommand,
+    process::{Command as StdCommand, Stdio},
     time::Duration,
 };
 
 use sha2::{Digest, Sha256};
-use tokio::{process::Command, time::timeout};
+use tokio::{
+    io::{AsyncRead, AsyncReadExt},
+    process::Command,
+    task::JoinHandle,
+    time::timeout,
+};
 
 use crate::{
     Hub,
@@ -23,49 +28,97 @@ pub async fn verify(hub: &Hub, spec_id: &str) -> Result<ExecutionOutcome> {
     let resolved_executable = resolve_executable(&spec.program, &cwd);
     let (git_head_before, worktree_state_before_sha256) = git_snapshot(&workspace);
 
-    let mut command = Command::new(&spec.program);
+    let Some(executable) = resolved_executable.as_deref() else {
+        let (git_head_after, worktree_state_after_sha256) = git_snapshot(&workspace);
+        let finish = ExecutionFinish {
+            run_id,
+            status: ExecutionStatus::Failed,
+            resolved_executable: None,
+            exit_code: None,
+            termination: "executable_not_found".to_owned(),
+            stdout_sha256: sha256(&[]),
+            stdout_bytes: 0,
+            stderr_sha256: sha256(&[]),
+            stderr_bytes: 0,
+            git_head_before,
+            git_head_after,
+            worktree_state_before_sha256,
+            worktree_state_after_sha256,
+            artifacts: Vec::new(),
+        };
+        return hub.finish_execution(&finish);
+    };
+
+    // Execute the path resolved before spawn so a later PATH change cannot
+    // select a different binary than the one named in the receipt.
+    let mut command = Command::new(executable);
     command
         .args(&spec.args)
         .current_dir(&cwd)
         .kill_on_drop(true)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .env_clear();
     copy_safe_environment(&mut command);
 
-    let execution = timeout(Duration::from_secs(spec.timeout_seconds), command.output()).await;
-    let (mut status, exit_code, termination, stdout, stderr) = match execution {
-        Ok(Ok(output)) => {
-            let exit_code = output.status.code();
-            let succeeded = exit_code == Some(spec.expected_exit_code);
-            (
-                if succeeded {
-                    ExecutionStatus::Succeeded
-                } else {
-                    ExecutionStatus::Failed
-                },
-                exit_code,
-                if output.status.code().is_some() {
-                    "exited"
-                } else {
-                    "signaled"
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        command.as_std_mut().process_group(0);
+    }
+
+    let (mut status, exit_code, mut termination, stdout_digest, stderr_digest) = match command
+        .spawn()
+    {
+        Ok(mut child) => {
+            let stdout = child.stdout.take().expect("piped stdout");
+            let stderr = child.stderr.take().expect("piped stderr");
+            let mut stdout_task = tokio::spawn(digest_stream(stdout));
+            let mut stderr_task = tokio::spawn(digest_stream(stderr));
+            let child_pid = child.id();
+            let waited = timeout(Duration::from_secs(spec.timeout_seconds), child.wait()).await;
+            let (status, exit_code, termination) = match waited {
+                Ok(Ok(output_status)) => {
+                    let exit_code = output_status.code();
+                    let succeeded = exit_code == Some(spec.expected_exit_code);
+                    (
+                        if succeeded {
+                            ExecutionStatus::Succeeded
+                        } else {
+                            ExecutionStatus::Failed
+                        },
+                        exit_code,
+                        if output_status.code().is_some() {
+                            "exited"
+                        } else {
+                            "signaled"
+                        }
+                        .to_owned(),
+                    )
                 }
-                .to_owned(),
-                output.stdout,
-                output.stderr,
-            )
+                Ok(Err(error)) => (ExecutionStatus::Failed, None, format!("wait_error:{error}")),
+                Err(_) => {
+                    kill_process_group(child_pid);
+                    let _ = child.kill().await;
+                    let _ = timeout(Duration::from_secs(2), child.wait()).await;
+                    (ExecutionStatus::TimedOut, None, "timeout".to_owned())
+                }
+            };
+            let (stdout_digest, stdout_complete) = collect_digest(&mut stdout_task).await;
+            let (stderr_digest, stderr_complete) = collect_digest(&mut stderr_task).await;
+            let termination = if stdout_complete && stderr_complete {
+                termination
+            } else {
+                format!("{termination}:output_pipe_unclosed")
+            };
+            (status, exit_code, termination, stdout_digest, stderr_digest)
         }
-        Ok(Err(error)) => (
+        Err(error) => (
             ExecutionStatus::Failed,
             None,
-            "spawn_error".to_owned(),
-            Vec::new(),
-            error.to_string().into_bytes(),
-        ),
-        Err(_) => (
-            ExecutionStatus::TimedOut,
-            None,
-            "timeout".to_owned(),
-            Vec::new(),
-            Vec::new(),
+            format!("spawn_error:{error}"),
+            empty_digest(),
+            empty_digest(),
         ),
     };
 
@@ -77,7 +130,10 @@ pub async fn verify(hub: &Hub, spec_id: &str) -> Result<ExecutionOutcome> {
             Err(_) => missing_artifact = true,
         }
     }
-    let termination = if status == ExecutionStatus::Succeeded && missing_artifact {
+    if status == ExecutionStatus::Succeeded && termination != "exited" {
+        status = ExecutionStatus::Failed;
+    }
+    termination = if status == ExecutionStatus::Succeeded && missing_artifact {
         status = ExecutionStatus::Failed;
         "missing_or_invalid_artifact".to_owned()
     } else {
@@ -90,10 +146,10 @@ pub async fn verify(hub: &Hub, spec_id: &str) -> Result<ExecutionOutcome> {
         resolved_executable,
         exit_code,
         termination,
-        stdout_sha256: sha256(&stdout),
-        stdout_bytes: stdout.len() as u64,
-        stderr_sha256: sha256(&stderr),
-        stderr_bytes: stderr.len() as u64,
+        stdout_sha256: stdout_digest.0,
+        stdout_bytes: stdout_digest.1,
+        stderr_sha256: stderr_digest.0,
+        stderr_bytes: stderr_digest.1,
         git_head_before,
         git_head_after,
         worktree_state_before_sha256,
@@ -102,6 +158,52 @@ pub async fn verify(hub: &Hub, spec_id: &str) -> Result<ExecutionOutcome> {
     };
     hub.finish_execution(&finish)
 }
+
+async fn digest_stream(mut stream: impl AsyncRead + Unpin) -> std::io::Result<(String, u64)> {
+    let mut hasher = Sha256::new();
+    let mut bytes = 0_u64;
+    let mut buffer = [0_u8; 16 * 1024];
+    loop {
+        let read = stream.read(&mut buffer).await?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..read]);
+        bytes = bytes.saturating_add(read as u64);
+    }
+    Ok((format!("{:x}", hasher.finalize()), bytes))
+}
+
+async fn collect_digest(
+    task: &mut JoinHandle<std::io::Result<(String, u64)>>,
+) -> ((String, u64), bool) {
+    match timeout(Duration::from_secs(2), &mut *task).await {
+        Ok(Ok(Ok(digest))) => (digest, true),
+        Ok(_) => (empty_digest(), false),
+        Err(_) => {
+            task.abort();
+            (empty_digest(), false)
+        }
+    }
+}
+
+fn empty_digest() -> (String, u64) {
+    (sha256(&[]), 0)
+}
+
+#[cfg(unix)]
+fn kill_process_group(pid: Option<u32>) {
+    if let Some(pid) = pid {
+        // Negative PID addresses the process group established immediately
+        // before spawn. This is best-effort containment, not an OS sandbox.
+        unsafe {
+            libc::kill(-(pid as i32), libc::SIGKILL);
+        }
+    }
+}
+
+#[cfg(not(unix))]
+fn kill_process_group(_pid: Option<u32>) {}
 
 fn copy_safe_environment(command: &mut Command) {
     for name in [

@@ -1,6 +1,6 @@
 [package]
 name = "aporic"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2024"
 rust-version = "1.89"
 publish = false
@@ -11,6 +11,7 @@ path = "src/bin/aporic.rs"
 
 [dependencies]
 directories = "6.0"
+libc = "0.2"
 rmcp = { version = "3.4.0", features = [
     "client",
     "schemars",
@@ -24,7 +25,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 sha2 = "0.10"
 thiserror = "2.0"
-tokio = { version = "1.0", features = ["io-std", "macros", "process", "rt-multi-thread", "time"] }
+tokio = { version = "1.0", features = ["io-std", "io-util", "macros", "process", "rt-multi-thread", "time"] }
 uuid = { version = "1.0", features = ["v7"] }
 
 [dev-dependencies]
