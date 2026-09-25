@@ -455,6 +455,12 @@ guides browser-based prototype review with Playwright CLI and distinguishes
 rendered evidence from subjective design judgment. The skill is an advisory
 Codex integration, not an executable Aporic capability.
 
+Product cells can appoint a backend engineering discipline. The repository's
+[backend practice skill](.agents/skills/aporic-backend/SKILL.md) covers Rust
+service contracts, SQLite data and search, local execution and external
+integrations, and operational reliability. It guides implementation and review;
+it does not create an independently running backend service.
+
 ## Offline evaluation
 
 Aporic does not call the OpenAI API or any other model endpoint. Its offline

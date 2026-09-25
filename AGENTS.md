@@ -35,9 +35,12 @@ Historical Git commits and tags are context, not current design authority.
   not timeless answers. Preserve meaningful revisions and counterarguments.
 - Before material changes, state the intended scope and acceptance checks.
 - Preserve unrelated user work and keep changes reversible.
-- For Aporic browser UI prototype or visual review work, use the repository's
-  `.agents/skills/aporic-ui-ux/SKILL.md` workflow and inspect the rendered UI
-  with Playwright CLI.
+- For any browser interaction in this project, use Playwright CLI by default.
+  Never use the Codex in-app browser. For UI prototype or visual review work,
+  also use `.agents/skills/aporic-ui-ux/SKILL.md` and inspect the rendered UI.
+- For substantive backend implementation or review, use
+  `.agents/skills/aporic-backend/SKILL.md` and the references relevant to the
+  affected service, data, integration, or reliability path.
 - Unless the human explicitly requests otherwise or an external block prevents
   it, completed implementation work includes mechanical verification, a commit,
   fast-forward integration into `main`, pushing `origin/main`, and deletion of
