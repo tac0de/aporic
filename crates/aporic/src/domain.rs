@@ -361,6 +361,9 @@ pub enum ProductCellDuty {
     PrototypeDelivery,
     UserResearch,
     TechnicalFeasibility,
+    InteractionDesign,
+    VisualDesign,
+    MotionDesign,
 }
 
 impl ProductCellDuty {
@@ -370,6 +373,9 @@ impl ProductCellDuty {
             Self::PrototypeDelivery => "prototype_delivery",
             Self::UserResearch => "user_research",
             Self::TechnicalFeasibility => "technical_feasibility",
+            Self::InteractionDesign => "interaction_design",
+            Self::VisualDesign => "visual_design",
+            Self::MotionDesign => "motion_design",
         }
     }
 }

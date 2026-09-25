@@ -449,6 +449,12 @@ separation plus the new Minister/Inspector separation keep assurance outside the
 delivery cell. Digests, event history, export, restart persistence, schema-16
 migration, and doctor audit cover both office appointments and product cells.
 
+Product cells can also appoint interaction, visual, and motion design disciplines.
+The repository's [UI/UX practice skill](.agents/skills/aporic-ui-ux/SKILL.md)
+guides browser-based prototype review with Playwright CLI and distinguishes
+rendered evidence from subjective design judgment. The skill is an advisory
+Codex integration, not an executable Aporic capability.
+
 ## Offline evaluation
 
 Aporic does not call the OpenAI API or any other model endpoint. Its offline

@@ -150,6 +150,30 @@ fn product_minister_and_multidisciplinary_cell_preserve_independent_oversight() 
         "agent.builder",
         "builder",
     );
+    let interaction_designer = appoint(
+        &hub,
+        &session_id,
+        Some(&task_id),
+        "delivery.worker",
+        "agent.interaction-designer",
+        "interaction-designer",
+    );
+    let visual_designer = appoint(
+        &hub,
+        &session_id,
+        Some(&task_id),
+        "delivery.worker",
+        "agent.visual-designer",
+        "visual-designer",
+    );
+    let motion_designer = appoint(
+        &hub,
+        &session_id,
+        Some(&task_id),
+        "delivery.worker",
+        "agent.motion-designer",
+        "motion-designer",
+    );
     appoint(
         &hub,
         &session_id,
@@ -175,11 +199,23 @@ fn product_minister_and_multidisciplinary_cell_preserve_independent_oversight() 
                 role_appointment_id: builder,
                 duty: ProductCellDuty::PrototypeDelivery,
             },
+            ProductCellMemberRequest {
+                role_appointment_id: interaction_designer,
+                duty: ProductCellDuty::InteractionDesign,
+            },
+            ProductCellMemberRequest {
+                role_appointment_id: visual_designer,
+                duty: ProductCellDuty::VisualDesign,
+            },
+            ProductCellMemberRequest {
+                role_appointment_id: motion_designer,
+                duty: ProductCellDuty::MotionDesign,
+            },
         ],
         idempotency_key: "cell".to_owned(),
     };
     let created = hub.create_product_cell(&request).unwrap();
-    assert_eq!(created.cell.members.len(), 2);
+    assert_eq!(created.cell.members.len(), 5);
     assert!(created.cell.active);
     assert!(created.cell.advisory);
     assert!(!created.cell.grants_authority);
@@ -219,6 +255,13 @@ fn product_minister_and_multidisciplinary_cell_preserve_independent_oversight() 
     assert_eq!(export.format_version, 14);
     assert_eq!(export.office_appointments.len(), 1);
     assert_eq!(export.product_cells.len(), 1);
+    assert_eq!(export.product_cells[0].members.len(), 5);
+    assert!(
+        export.product_cells[0]
+            .members
+            .iter()
+            .any(|member| member.duty == ProductCellDuty::MotionDesign)
+    );
     assert!(restarted.audit_government().unwrap().consistent);
 }
 
