@@ -6,25 +6,24 @@ deployment, authentication, or access control.
 
 ## Current development posture
 
-This repository ships Rust crates, schemas, role packages, and an optional local
-CLI. It does not install host hooks, ship an application plugin, intercept tool
-calls, add approval prompts, or control model selection. Host and platform
-permissions remain authoritative.
+This repository ships one Rust package with a local stdio MCP server and CLI.
+It does not install host hooks, intercept tool calls, add approval prompts,
+control model selection, launch workers, or grant host authority. Host and
+platform permissions remain authoritative.
 
 ## Recorded state
 
-The crates use bounded structured inputs, append-only records, deterministic
-replay, revision checks, and cooperative file locks. These mechanisms protect
+The hub uses bounded structured inputs, append-only events, idempotency keys,
+SQLite transactions, and deterministic projections. These mechanisms protect
 internal consistency; they do not authenticate callers or resist a malicious
-process running as the same user. Connection files, role packages, and ledgers
-should be protected with ordinary operating-system permissions.
+process running as the same user. Protect the application-data database with
+ordinary operating-system permissions.
 
-Project bindings reject state placed inside the governed workspace and detect
-changes to the bound Git remote. Continuity and effect records are observations,
-not proof that an external effect occurred.
-
-Markdown role instructions are hashed and carried as behavioral context. They
-are not parsed by the deterministic kernel and do not grant authority.
+Runtime state stays outside governed workspaces and `~/.codex`. Task leases and
+write scopes are advisory coordination records, not locks on the filesystem.
+Recorded evidence and verification are claims with provenance, not independent
+proof that an external effect occurred. Do not store secrets or raw conversation
+history in Aporic records.
 
 ## Reporting
 

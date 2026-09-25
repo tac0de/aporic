@@ -4,7 +4,7 @@ Aporic is a local-first agent-system hub whose practical objective is to reduce
 the time its owner spends restating context, coordinating independent work, and
 correcting unsupported completion claims.
 
-The active prototype is a modular Rust monolith in `crates/aporic`. Codex is the
+The active implementation is a modular Rust monolith in `crates/aporic`. Codex is the
 first client and connects through a local stdio MCP server. The exact behavioral
 kernel is stored in `canon/`; it constrains the evolving hub but does not contain
 transport, storage, host, or agent-runtime behavior.
@@ -12,16 +12,16 @@ transport, storage, host, or agent-runtime behavior.
 See [PRODUCT.md](PRODUCT.md) for the product objective and
 [architecture.md](docs/architecture.md) for the current boundaries.
 
-## First vertical slice
+## Current product surface
 
-The prototype currently exposes ten MCP tools in two groups.
+The hub exposes ten MCP tools in two groups.
 
 Continuity:
 
 - `aporic_open`: open an idempotent work session and receive bounded context;
 - `aporic_recall`: retrieve recent durable project context;
 - `aporic_record`: record one typed durable fact or work-state change;
-- `aporic_close`: complete or hand off a session.
+- `aporic_close`: complete or hand off a session;
 - `aporic_reconcile`: abandon stale interrupted sessions without claiming success.
 
 Advisory coordination:
@@ -82,15 +82,5 @@ cargo test -p aporic --test long_horizon -- --nocapture
 
 The Codex bridge template is under `integrations/codex/`. Nothing in the build
 installs or changes global Codex configuration.
-
-## Existing experiments
-
-The other workspace crates remain buildable design evidence while the new
-vertical slice is evaluated. They are not dependencies of `crates/aporic`, and
-their authorization, role, routing, and handoff APIs are not part of the active
-MCP contract.
-
-Historical snapshots under `archive/` are evidence only and are not built,
-installed, or treated as current instructions.
 
 Licensed under MIT or Apache-2.0.

@@ -1,13 +1,5 @@
 [workspace]
 members = [
     "crates/aporic",
-    "crates/aporic-boundary",
-    "crates/aporic-cli",
-    "crates/aporic-handoff",
-    "crates/aporic-host",
-    "crates/aporic-kernel",
-    "crates/aporic-projects",
-    "crates/aporic-roles",
-    "crates/aporic-routing",
 ]
 resolver = "3"

@@ -696,14 +696,6 @@ impl Store {
         Ok(outcome)
     }
 
-    pub fn event_count(&self) -> Result<u64> {
-        let connection = self.connection()?;
-        let count = connection.query_row("SELECT COUNT(*) FROM events", [], |row| {
-            row.get::<_, u64>(0)
-        })?;
-        Ok(count)
-    }
-
     pub fn stats(&self) -> Result<HubStats> {
         let connection = self.connection()?;
         Ok(HubStats {

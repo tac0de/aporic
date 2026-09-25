@@ -48,10 +48,6 @@ impl Hub {
         self.store.reconcile(request)
     }
 
-    pub fn event_count(&self) -> Result<u64> {
-        self.store.event_count()
-    }
-
     pub fn stats(&self) -> Result<HubStats> {
         self.store.stats()
     }

@@ -22,14 +22,13 @@ faster recovery across tasks, useful parallel work, and less rework. A feature
 fails when the time or attention required to operate it exceeds the work it
 saves.
 
-## Non-goals for the first vertical slice
+## Current non-goals
 
 - intercepting or authorizing host tool calls;
 - storing complete conversations or every tool result;
 - launching or supervising additional agents;
 - remote service operation, publication, or deployment;
-- a graphical interface;
-- compatibility with the current experimental Rust APIs.
+- a graphical interface.
 
 ## Current stage
 
@@ -47,11 +46,11 @@ manual evaluation.
 ## Constraints and decisions
 
 - Rust owns product logic.
-- The first implementation is a modular monolith, not a service mesh.
+- The implementation is a modular monolith, not a service mesh.
 - Runtime state lives outside both the governed project and `~/.codex`.
 - `~/.codex` will eventually contain only the Codex-owned configuration and a
   minimal Aporic bootstrap instruction.
-- The first integration is advisory and fail-open. MCP failure must be visible
+- The Codex integration is advisory and fail-open. MCP failure must be visible
   but must not silently narrow host permissions.
 - Important state changes are append-only events with transactionally updated
   read projections.
@@ -72,25 +71,26 @@ manual evaluation.
   noise.
 - Which agent runtime should back later delegation and scheduling.
 - Whether the observed efficiency gain justifies an always-running local
-  service after the stdio prototype.
+  service beyond the current stdio deployment.
 
 ## Deferred operational work
 
-Privacy controls, retention, export, backup, remote authentication, long-running
-agent scheduling, and controlled effect execution are intentionally deferred.
-They must be resolved before their corresponding capabilities are introduced.
+Privacy controls, retention, import/restore, backup, remote authentication,
+long-running agent scheduling, and controlled effect execution are intentionally
+deferred. They must be resolved before their corresponding capabilities are
+introduced.
 
-## Prototype evidence
+## Current evidence
 
 Observed on 2026-09-25:
 
 - the exact kernel candidate in the repository matches the installed candidate
   by SHA-256;
-- a real stdio MCP child process exposes all four tools and preserves a record
+- a real stdio MCP child process exposes all ten tools and preserves a record
   across a server restart;
 - exact retries are idempotent and conflicting reuse of a key is rejected;
 - concurrent writers retain all tested sessions through SQLite WAL;
-- the complete workspace test and clippy suites pass;
+- all 10 active workspace tests and the clippy suite pass;
 - a deterministic frontier-failure suite improves the enforced-property score
   from the v0.1 baseline of 1/5 to 5/5 for restart memory, stale-decision
   suppression, verified completion, duplicate-work rejection, and stale-session
@@ -100,10 +100,7 @@ Observed on 2026-09-25:
   expired-lease recovery plus cancellation without implied completion;
 - a long-horizon workload preserves one active decision across 30 revisions and
   six process restarts, completes 24 leased tasks, and rejects 77 injected stale,
-  duplicate, or unsupported state transitions;
-- an already initialized release database opens below the resolution of the
-  local `time` measurement, while first-time database creation was about 0.57
-  seconds and remains an optimization target.
+  duplicate, or unsupported state transitions.
 
 Not yet established:
 

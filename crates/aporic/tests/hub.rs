@@ -38,7 +38,7 @@ fn persists_context_across_hub_restarts_and_deduplicates_retries() {
     let record_request = RecordRequest {
         session_id: opened.session_id.clone(),
         kind: RecordKind::Decision,
-        content: "Use a local stdio MCP vertical slice first.".to_owned(),
+        content: "Use local stdio MCP as the first transport.".to_owned(),
         evidence: Some("Current product decision".to_owned()),
         supersedes_record_id: None,
         verifies_effect_id: None,
@@ -56,7 +56,7 @@ fn persists_context_across_hub_restarts_and_deduplicates_retries() {
         idempotency_key: "close-1".to_owned(),
     })
     .unwrap();
-    assert_eq!(hub.event_count().unwrap(), 3);
+    assert_eq!(hub.stats().unwrap().event_count, 3);
     drop(hub);
 
     let restarted = Hub::open(&database).unwrap();
@@ -75,9 +75,9 @@ fn persists_context_across_hub_restarts_and_deduplicates_retries() {
     assert_eq!(recalled.recent_records.len(), 1);
     assert_eq!(
         recalled.recent_records[0].content,
-        "Use a local stdio MCP vertical slice first."
+        "Use local stdio MCP as the first transport."
     );
-    assert_eq!(restarted.event_count().unwrap(), 3);
+    assert_eq!(restarted.stats().unwrap().event_count, 3);
 }
 
 #[test]
@@ -126,7 +126,7 @@ fn handoff_requires_a_next_action_and_closed_sessions_reject_new_records() {
         })
         .unwrap_err();
     assert!(error.to_string().contains("already completed"));
-    assert_eq!(hub.event_count().unwrap(), 2);
+    assert_eq!(hub.stats().unwrap().event_count, 2);
 }
 
 #[test]
@@ -163,7 +163,7 @@ fn concurrent_process_equivalent_writers_do_not_lose_sessions() {
         })
         .unwrap();
     assert_eq!(recalled.active_sessions.len(), 8);
-    assert_eq!(hub.event_count().unwrap(), 8);
+    assert_eq!(hub.stats().unwrap().event_count, 8);
 }
 
 #[test]

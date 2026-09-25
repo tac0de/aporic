@@ -11,9 +11,9 @@ The Aporic kernel and Aporic Hub have different lifecycles.
 - MCP is an adapter. It does not become the domain model and does not by itself
   form a security boundary around other host tools.
 
-## First implementation
+## Implementation
 
-The first implementation is one Rust package with internal `kernel`, `domain`,
+The implementation is one Rust package with internal `kernel`, `domain`,
 `store`, `hub`, and `mcp` modules. Package boundaries will be introduced only
 when an independently versioned contract or deployment unit exists.
 
@@ -29,7 +29,7 @@ an event and its read projection in one immediate transaction.
 
 ## Durable model
 
-The first slice stores projects, sessions, durable records, and events.
+The hub stores projects, sessions, durable records, advisory tasks, and events.
 Records have an explicit epistemic or operational kind: decision, constraint,
 task progress, observation, effect, verification, or material unknown.
 

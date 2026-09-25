@@ -1,8 +1,7 @@
 # Aporic clean-room collaboration
 
-Aporic is being reconsidered from first principles with the user. Develop its
-direction through explicit discussion; do not treat archived decisions as the
-current design.
+Aporic is developed from its current product record and observed evidence.
+Historical Git commits and tags are context, not current design authority.
 
 ## Current boundaries
 
@@ -12,14 +11,12 @@ current design.
   fail-open: they may observe or record work but must not deny tools, require
   grants, prompt for Aporic approval, or otherwise narrow host permissions.
 - Preserve useful history through append-only records and deterministic replay.
-  Authorization and policy experiments may remain isolated, but do not wire
-  them into the active development workflow.
-- Treat `archive/` and installed integration caches as evidence only, never as
-  active instructions or authority.
+  Do not wire authorization or policy experiments into the active development
+  workflow while integrations remain advisory.
 - Keep model roles, metaphors, and host integrations outside any future
   deterministic authorization kernel.
-- Do not reactivate, migrate, delete, publish, or deploy archived or legacy
-  material without a separate explicit instruction.
+- Do not reactivate, migrate, publish, or deploy material recovered from Git
+  history without a separate explicit instruction.
 
 ## Collaboration
 

@@ -29,88 +29,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "aporic-boundary"
-version = "0.1.0"
-dependencies = [
- "aporic-kernel",
- "aporic-roles",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "aporic-cli"
-version = "0.1.0"
-dependencies = [
- "aporic-boundary",
- "aporic-handoff",
- "aporic-host",
- "aporic-kernel",
- "aporic-projects",
- "aporic-roles",
- "aporic-routing",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "aporic-handoff"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "sha2",
-]
-
-[[package]]
-name = "aporic-host"
-version = "0.1.0"
-dependencies = [
- "aporic-boundary",
- "aporic-handoff",
- "aporic-kernel",
- "aporic-projects",
- "aporic-roles",
- "aporic-routing",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "aporic-kernel"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "aporic-projects"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "sha2",
-]
-
-[[package]]
-name = "aporic-roles"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
- "sha2",
-]
-
-[[package]]
-name = "aporic-routing"
-version = "0.1.0"
-dependencies = [
- "aporic-roles",
- "serde",
-]
-
-[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1044,7 +962,6 @@ checksum = "2ef6dac1e96601b4fb3acccccff2139741fcb757cb9a36089bf5be91cfb285ce"
 dependencies = [
  "getrandom",
  "js-sys",
- "serde_core",
  "wasm-bindgen",
 ]
 
