@@ -23,18 +23,21 @@ use crate::{
         ExperimentPortfolio, ExperimentSummary, ExperimentVariantAddRequest, GitObserveRequest,
         GitSnapshot, GitSnapshotAudit, GitSnapshotGetRequest, GitSnapshotListRequest,
         GovernmentAudit, GovernmentDefinition, GovernmentWorkspaceRequest, HookHealthReport,
-        HubStats, MemoryGetRequest, MemoryItem, MemoryProjectionAudit, MemorySearchRequest,
-        MemorySearchResult, ModelRoute, ModelRouteRequest, OfficeAppointment,
+        HubStats, ImprovementListRequest, ImprovementOutcome, ImprovementRequest,
+        ImprovementSubmitRequest, MemoryGetRequest, MemoryItem, MemoryProjectionAudit,
+        MemorySearchRequest, MemorySearchResult, ModelRoute, ModelRouteRequest, OfficeAppointment,
         OfficeAppointmentCreateRequest, OfficeAppointmentOutcome, OfficeAppointmentRevokeRequest,
         OpenOutcome, OpenRequest, OrchestrationAudit, OrchestrationOutcome,
         OrchestrationRunCreateRequest, OrchestrationRunGetRequest, OrchestrationRunListRequest,
         OrchestrationRunSummary, OrchestrationRunView, ProductCell, ProductCellCreateRequest,
-        ProductCellOutcome, ProjectExport, RecallRequest, ReconcileOutcome, ReconcileRequest,
-        RecordOutcome, RecordRequest, ResumeBrief, ResumeRequest, RoleAppointment,
-        RoleAppointmentAudit, RoleAppointmentCreateRequest, RoleAppointmentListRequest,
-        RoleAppointmentOutcome, RoleAppointmentRevokeRequest, RuntimeEvent, RuntimeObservation,
-        RuntimeProjectionAudit, RuntimeTraceGetRequest, RuntimeTraceListRequest,
-        RuntimeWorkspaceRequest, SecureCapabilityAudit, SecurityArtifactImport, SecurityAssessment,
+        ProductCellOutcome, ProjectExport, PrototypeBriefCreateRequest, PrototypeBriefOutcome,
+        PrototypeGetRequest, PrototypeReviewOutcome, PrototypeReviewRequest, PrototypeStatus,
+        RecallRequest, ReconcileOutcome, ReconcileRequest, RecordOutcome, RecordRequest,
+        ResumeBrief, ResumeRequest, RoleAppointment, RoleAppointmentAudit,
+        RoleAppointmentCreateRequest, RoleAppointmentListRequest, RoleAppointmentOutcome,
+        RoleAppointmentRevokeRequest, RuntimeEvent, RuntimeObservation, RuntimeProjectionAudit,
+        RuntimeTraceGetRequest, RuntimeTraceListRequest, RuntimeWorkspaceRequest,
+        SecureCapabilityAudit, SecurityArtifactImport, SecurityAssessment,
         SecurityAssessmentGetRequest, SecurityAssessmentListRequest, SecurityAssessmentOutcome,
         SecurityCoverage, SecurityImportRequest, ShadowEvaluationRequest, TaskCancelRequest,
         TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskOutcome,
@@ -675,6 +678,38 @@ impl Hub {
 
     pub fn create_task(&self, request: &TaskCreateRequest) -> Result<TaskOutcome> {
         self.store.create_task(request)
+    }
+
+    pub fn submit_improvement(
+        &self,
+        request: &ImprovementSubmitRequest,
+    ) -> Result<ImprovementOutcome> {
+        self.store.submit_improvement(request)
+    }
+
+    pub fn list_improvements(
+        &self,
+        request: &ImprovementListRequest,
+    ) -> Result<Vec<ImprovementRequest>> {
+        self.store.list_improvements(request)
+    }
+
+    pub fn create_prototype_brief(
+        &self,
+        request: &PrototypeBriefCreateRequest,
+    ) -> Result<PrototypeBriefOutcome> {
+        self.store.create_prototype_brief(request)
+    }
+
+    pub fn review_prototype(
+        &self,
+        request: &PrototypeReviewRequest,
+    ) -> Result<PrototypeReviewOutcome> {
+        self.store.review_prototype(request)
+    }
+
+    pub fn get_prototype(&self, request: &PrototypeGetRequest) -> Result<Option<PrototypeStatus>> {
+        self.store.get_prototype(request)
     }
 
     pub fn list_tasks(&self, request: &TaskListRequest) -> Result<Vec<CoordinatedTask>> {

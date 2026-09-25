@@ -2822,6 +2822,167 @@ pub struct TaskListRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct ImprovementSubmitRequest {
+    pub source_session_id: String,
+    pub source_evidence_id: String,
+    pub core_workspace: String,
+    pub objective: String,
+    pub acceptance_criteria: Vec<String>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ImprovementListRequest {
+    pub workspace: String,
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ImprovementRequest {
+    pub request_id: String,
+    pub source_workspace: String,
+    pub source_evidence_id: String,
+    pub source_evidence_grade: EvidenceGrade,
+    pub core_workspace: String,
+    pub task_id: String,
+    pub objective: String,
+    pub status: TaskStatus,
+    pub assigned_worker: Option<String>,
+    pub created_at_unix_ms: i64,
+    pub registration_only: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ImprovementOutcome {
+    pub request: ImprovementRequest,
+    pub duplicate: bool,
+    pub possible_duplicate: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PrototypeBriefCreateRequest {
+    pub workspace: String,
+    pub task_id: String,
+    pub target_user: String,
+    pub core_experience_hypothesis: String,
+    pub fidelity: String,
+    pub reuse_boundary: String,
+    pub technology_stack: String,
+    pub repository_boundary: String,
+    pub validation_method: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PrototypeBrief {
+    pub brief_id: String,
+    pub task_id: String,
+    pub target_user: String,
+    pub core_experience_hypothesis: String,
+    pub fidelity: String,
+    pub reuse_boundary: String,
+    pub technology_stack: String,
+    pub repository_boundary: String,
+    pub validation_method: String,
+    pub created_at_unix_ms: i64,
+    pub advisory: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PrototypeBriefOutcome {
+    pub brief: PrototypeBrief,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PrototypeReviewRequest {
+    pub workspace: String,
+    pub task_id: String,
+    #[serde(default)]
+    pub smoke_evidence_ids: Vec<String>,
+    #[serde(default)]
+    pub rule_evidence_ids: Vec<String>,
+    #[serde(default)]
+    pub user_play_evidence_ids: Vec<String>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PrototypeGetRequest {
+    pub workspace: String,
+    pub task_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PrototypeStatus {
+    pub brief: PrototypeBrief,
+    pub latest_review: Option<PrototypeReview>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PrototypeEvidenceState {
+    Unknown,
+    Reported,
+    Observed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PrototypeReview {
+    pub review_id: String,
+    pub brief_id: String,
+    pub task_id: String,
+    pub smoke_evidence_ids: Vec<String>,
+    pub rule_evidence_ids: Vec<String>,
+    pub user_play_evidence_ids: Vec<String>,
+    pub smoke: PrototypeEvidenceState,
+    pub rules: PrototypeEvidenceState,
+    pub user_value: PrototypeEvidenceState,
+    pub next_actions: Vec<String>,
+    pub created_at_unix_ms: i64,
+    pub advisory: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PrototypeReviewOutcome {
+    pub review: PrototypeReview,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RelatedWorkspaceHint {
+    pub path: String,
+    #[serde(default)]
+    pub labels: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RelatedWorkspaceRequest {
+    pub workspace: String,
+    pub concept: String,
+    #[serde(default)]
+    pub roots: Vec<String>,
+    #[serde(default)]
+    pub hints: Vec<RelatedWorkspaceHint>,
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RelatedWorkspaceCandidate {
+    pub path: String,
+    pub match_reason: String,
+    pub modified_at_unix_ms: Option<i64>,
+    pub historical_context_only: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct TaskClaimRequest {
     pub task_id: String,
     pub worker_id: String,
@@ -2915,6 +3076,12 @@ pub struct ProjectExport {
     pub office_appointments: Vec<OfficeAppointment>,
     pub product_cells: Vec<ProductCell>,
     pub accountability_cases: Vec<AccountabilityCase>,
+    #[serde(default)]
+    pub improvement_requests: Vec<ImprovementRequest>,
+    #[serde(default)]
+    pub prototype_briefs: Vec<PrototypeBrief>,
+    #[serde(default)]
+    pub prototype_reviews: Vec<PrototypeReview>,
     pub research_revisions: Vec<crate::research::ResearchRevision>,
     pub events: Vec<ExportEvent>,
 }

@@ -55,6 +55,8 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_git_snapshot_list",
             "aporic_government_get",
             "aporic_hook_health",
+            "aporic_improvement_list",
+            "aporic_improvement_submit",
             "aporic_memory_get",
             "aporic_memory_search",
             "aporic_model_route",
@@ -67,9 +69,13 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_orchestration_run_list",
             "aporic_product_cell_create",
             "aporic_product_cell_list",
+            "aporic_prototype_brief_create",
+            "aporic_prototype_get",
+            "aporic_prototype_review",
             "aporic_recall",
             "aporic_reconcile",
             "aporic_record",
+            "aporic_related_workspaces",
             "aporic_research_get",
             "aporic_research_search",
             "aporic_resume",
@@ -107,6 +113,20 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
     )
     .await?;
     assert_eq!(opened["ok"], true);
+    let related = call_json(
+        &client,
+        "aporic_related_workspaces",
+        json!({"workspace": workspace, "concept": "example", "roots": []}),
+    )
+    .await?;
+    assert_eq!(related["result"], json!([]));
+    let intake = call_json(
+        &client,
+        "aporic_improvement_list",
+        json!({"workspace": workspace}),
+    )
+    .await?;
+    assert_eq!(intake["result"], json!([]));
     let session_id = opened["result"]["session_id"]
         .as_str()
         .expect("open result has a session id")

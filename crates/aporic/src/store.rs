@@ -71,6 +71,7 @@ use crate::{
 };
 
 const SCHEMA: &str = include_str!("../../../migrations/0001_initial.sql");
+mod improvements;
 const MIGRATION_2: &str = include_str!("../../../migrations/0002_continuity_hardening.sql");
 const MIGRATION_3: &str = include_str!("../../../migrations/0003_coordination.sql");
 const MIGRATION_4: &str = include_str!("../../../migrations/0004_epistemic_gate.sql");
@@ -89,7 +90,8 @@ const MIGRATION_16: &str = include_str!("../../../migrations/0016_role_run_link.
 const MIGRATION_17: &str = include_str!("../../../migrations/0017_product_government.sql");
 const MIGRATION_18: &str = include_str!("../../../migrations/0018_external_research.sql");
 const MIGRATION_19: &str = include_str!("../../../migrations/0019_accountability.sql");
-const SCHEMA_VERSION: u32 = 19;
+const MIGRATION_20: &str = include_str!("../../../migrations/0020_improvements.sql");
+const SCHEMA_VERSION: u32 = 20;
 const MIGRATIONS: &[(u32, &str)] = &[
     (2, MIGRATION_2),
     (3, MIGRATION_3),
@@ -109,6 +111,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (17, MIGRATION_17),
     (18, MIGRATION_18),
     (19, MIGRATION_19),
+    (20, MIGRATION_20),
 ];
 
 #[derive(Debug, Error)]
@@ -5974,6 +5977,8 @@ impl Store {
                 .map(|id| load_accountability_case(&connection, id))
                 .collect::<Result<Vec<_>>>()?
         };
+        let (improvement_requests, prototype_briefs, prototype_reviews) =
+            improvements::export_improvement_data(&connection, &project_id)?;
 
         let events = {
             let mut statement = connection.prepare(
@@ -6037,7 +6042,7 @@ impl Store {
         };
 
         Ok(ProjectExport {
-            format_version: 15,
+            format_version: 16,
             exported_at_unix_ms: unix_millis()?,
             project_id,
             workspace,
@@ -6072,6 +6077,9 @@ impl Store {
             office_appointments,
             product_cells,
             accountability_cases,
+            improvement_requests,
+            prototype_briefs,
+            prototype_reviews,
             research_revisions: self.research_revisions(raw_workspace)?,
             events,
         })

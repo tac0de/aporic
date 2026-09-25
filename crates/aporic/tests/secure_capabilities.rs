@@ -85,7 +85,7 @@ fn migrates_v11_through_execution_governance() {
     drop(connection);
     assert_eq!(
         Hub::open(database).unwrap().stats().unwrap().schema_version,
-        19
+        20
     );
 }
 
@@ -382,7 +382,7 @@ fn imports_security_artifacts_without_claiming_safety_and_validates_backup() {
 
     let backup = area.path().join("backup.sqlite3");
     hub.backup_to(&backup).unwrap();
-    assert_eq!(Hub::validate_backup(&backup).unwrap(), 19);
+    assert_eq!(Hub::validate_backup(&backup).unwrap(), 20);
     assert!(
         hub.backup_to(&backup)
             .unwrap_err()

@@ -62,6 +62,29 @@ Advisory coordination:
   verified mechanical claim;
 - `aporic_task_cancel`: cancel without implying completion.
 
+Client feedback and prototype planning:
+
+- `aporic_improvement_submit` and `aporic_improvement_list`: submit a concise
+  evidence-referenced request from a client workspace to Aporic core and read
+  its queued or later task status. Registration does not start implementation;
+- `aporic_prototype_brief_create`, `aporic_prototype_review`, and
+  `aporic_prototype_get`: record an active task's target user, experience
+  hypothesis, fidelity, reuse and repository boundaries, technology plan, and
+  validation method; review smoke checks, rules, and observed play separately.
+  User value remains unknown without a current direct `.playtest.json` report;
+- `aporic_related_workspaces`: optionally inspect Git repository names and
+  explicit labels under supplied local roots. Empty roots disable discovery.
+  Results are historical context and do not copy or merge code.
+
+The playtest report is a JSON file in the task workspace with nonempty
+`target_user`, `observed_behavior`, and `session_date` fields and a positive
+`participant_count`. Register it with `aporic_evidence_add` as a workspace
+file before citing its evidence ID in `aporic_prototype_review`. The review
+records that an observation artifact exists; it does not judge whether the
+experience was enjoyable. Feedback intake accepts a concise, single-line
+objective and criteria plus a source evidence ID. It rejects obvious credential
+strings and stores no source conversation or evidence body in the core task.
+
 Accountability and repair:
 
 - `aporic_accountability_open`: record an evidence-labelled task failure as an

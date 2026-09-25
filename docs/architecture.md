@@ -204,6 +204,16 @@ that task's existing verified criterion proofs, while the original failure and
 all plan revisions remain readable. Open cases are summarized on `aporic_open`
 and do not narrow host permissions or change authorization decisions.
 
+Schema v20 adds cross-workspace improvement intake and task-bound prototype
+briefs/reviews. Intake creates a queued core task and retains only a source
+evidence reference, project paths, and bounded summary metadata. It does not
+dispatch work. Prototype reviews keep smoke, rule, and user-play evidence
+separate; an unrelated test log cannot count as a playtest report. The report
+must be a current, directly hashed `.playtest.json` artifact with a minimal
+observation record. These are advisory evidence classifications, not proof that
+a game is fun. Related local Git repository discovery is read-only, opt-in,
+limited to supplied roots, and does not persist or read repository contents.
+
 ## MCP surface
 
 - `aporic_open`: start an idempotent session and return recent context.
@@ -234,6 +244,14 @@ and do not narrow host permissions or change authorization decisions.
   `aporic_task_complete`, and `aporic_task_cancel`: maintain advisory task
   contracts, dependency gates, non-overlapping write leases, and
   criterion-by-criterion verified proofs.
+- `aporic_improvement_submit` and `aporic_improvement_list`: register bounded
+  evidence-referenced client feedback as a queued core task and read its live
+  status from either workspace.
+- `aporic_prototype_brief_create`, `aporic_prototype_review`, and
+  `aporic_prototype_get`: record an advisory task plan and distinguish functional,
+  rule, and user-play evidence without treating absent play as validation.
+- `aporic_related_workspaces`: inspect only metadata for explicitly configured
+  local roots and return historical candidates without cross-project mutation.
 - `aporic_accountability_open`, `aporic_accountability_plan`,
   `aporic_accountability_resolve`, and `aporic_accountability_list`: preserve
   evidence-labelled failure reports and repair obligations without changing
