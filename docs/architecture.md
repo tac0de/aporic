@@ -14,8 +14,8 @@ The Aporic kernel and Aporic Hub have different lifecycles.
 ## Implementation
 
 The implementation is one Rust package with internal `kernel`, `domain`,
-`context`, `store`, `hub`, `runner`, `git`, `git_process`, `bounded`, `recovery`,
-`hook`, and `mcp` modules. Package
+`context`, `government`, `store`, `hub`, `runner`, `git`, `git_process`,
+`bounded`, `recovery`, `hook`, and `mcp` modules. Package
 boundaries will be introduced only when an independently versioned contract or
 deployment unit exists.
 
@@ -35,6 +35,12 @@ host/local counts --> provenance gate --> token usage receipt --> efficiency rep
 
 Git snapshot + typed evidence --> public argument graph --> provisional decision
                                       \--> open aporia + staleness report
+
+human intent --> versioned government charter --> office appointment
+                                                \--> task-bound product cell
+                                                     \--> prototype evidence
+
+independent Inspector appointment ------------------> assurance report
 ```
 
 Each Codex connection runs an inexpensive child process. Processes share one
@@ -172,6 +178,16 @@ legacy runs retain their original digest. `aporic_resume` is a read-only
 selector over unfinished tasks, open sessions, and fresh handoffs; it reports
 ambiguity and does not execute the selected next action.
 
+Schema v17 adds immutable `office_appointments` and `product_cells`. The first
+versioned office is `product.experiment`, headed by one active session-scoped
+Steward appointment. A task may bind one product cell with an explicit problem,
+hypothesis, bounded success measures, and two to eight discipline assignments.
+Planning and prototype delivery are mandatory and must use distinct active
+Worker assignees for the same task. The minister cannot be a cell member or an
+Inspector; Worker/Inspector separation continues to apply. These records are
+advisory organization and accountability data, not agent dispatch, execution,
+approval, deployment, or host authority.
+
 ## MCP surface
 
 - `aporic_open`: start an idempotent session and return recent context.
@@ -181,6 +197,10 @@ ambiguity and does not execute the selected next action.
 - `aporic_roles_list`, `aporic_role_appoint`, `aporic_role_revoke`, and
   `aporic_role_appointments`: inspect duty contracts and record advisory
   assignments with optional catalog capability references.
+- `aporic_government_get`, `aporic_office_appoint`, `aporic_office_revoke`,
+  `aporic_office_appointments`, `aporic_product_cell_create`, and
+  `aporic_product_cell_list`: inspect the government charter and record the
+  Product Experiment Ministry's accountable, multidisciplinary advisory cells.
 - `aporic_memory_search` and `aporic_memory_get`: inspect deterministic,
   workspace-scoped memory without granting write or execution authority.
 - `aporic_record`: append one durable typed record.

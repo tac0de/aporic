@@ -283,6 +283,158 @@ pub struct RoleAppointmentAudit {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GovernmentDefinition {
+    pub government_id: String,
+    pub version: u32,
+    pub title: String,
+    pub authority_source: String,
+    pub executive_role_id: String,
+    pub offices: Vec<OfficeDefinition>,
+    pub advisory: bool,
+    pub grants_authority: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OfficeDefinition {
+    pub office_id: String,
+    pub version: u32,
+    pub title: String,
+    pub head_title: String,
+    pub responsibility: String,
+    pub output_contract: String,
+    pub head_role_id: String,
+    pub cell_based: bool,
+    pub advisory: bool,
+    pub grants_authority: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OfficeAppointmentCreateRequest {
+    pub session_id: String,
+    pub office_id: String,
+    pub office_version: u32,
+    pub role_appointment_id: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OfficeAppointmentRevokeRequest {
+    pub office_appointment_id: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct GovernmentWorkspaceRequest {
+    pub workspace: String,
+    #[serde(default)]
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OfficeAppointment {
+    pub office_appointment_id: String,
+    pub session_id: String,
+    pub office_id: String,
+    pub office_version: u32,
+    pub role_appointment_id: String,
+    pub assignee_id: String,
+    pub appointment_sha256: String,
+    pub created_at_unix_ms: i64,
+    pub revoked_at_unix_ms: Option<i64>,
+    pub advisory: bool,
+    pub grants_authority: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OfficeAppointmentOutcome {
+    pub appointment: OfficeAppointment,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ProductCellDuty {
+    ProductPlanning,
+    PrototypeDelivery,
+    UserResearch,
+    TechnicalFeasibility,
+}
+
+impl ProductCellDuty {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::ProductPlanning => "product_planning",
+            Self::PrototypeDelivery => "prototype_delivery",
+            Self::UserResearch => "user_research",
+            Self::TechnicalFeasibility => "technical_feasibility",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProductCellMemberRequest {
+    pub role_appointment_id: String,
+    pub duty: ProductCellDuty,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProductCellCreateRequest {
+    pub session_id: String,
+    pub task_id: String,
+    pub office_appointment_id: String,
+    pub title: String,
+    pub problem_statement: String,
+    pub hypothesis: String,
+    pub success_measures: Vec<String>,
+    pub members: Vec<ProductCellMemberRequest>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProductCellMember {
+    pub role_appointment_id: String,
+    pub assignee_id: String,
+    pub duty: ProductCellDuty,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProductCell {
+    pub cell_id: String,
+    pub session_id: String,
+    pub task_id: String,
+    pub office_appointment_id: String,
+    pub title: String,
+    pub problem_statement: String,
+    pub hypothesis: String,
+    pub success_measures: Vec<String>,
+    pub members: Vec<ProductCellMember>,
+    pub cell_sha256: String,
+    pub created_at_unix_ms: i64,
+    pub active: bool,
+    pub advisory: bool,
+    pub grants_authority: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProductCellOutcome {
+    pub cell: ProductCell,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GovernmentAudit {
+    pub office_appointment_count: u64,
+    pub product_cell_count: u64,
+    pub invalid_count: u64,
+    pub consistent: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ContextCapsule {
     pub project_id: Option<String>,
     pub workspace: String,
@@ -2640,5 +2792,7 @@ pub struct ProjectExport {
     pub advisory_role_reports: Vec<AdvisoryRoleReport>,
     pub shadow_evaluations: Vec<ShadowEvaluation>,
     pub role_appointments: Vec<RoleAppointment>,
+    pub office_appointments: Vec<OfficeAppointment>,
+    pub product_cells: Vec<ProductCell>,
     pub events: Vec<ExportEvent>,
 }

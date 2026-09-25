@@ -48,14 +48,20 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_git_observe",
             "aporic_git_snapshot_get",
             "aporic_git_snapshot_list",
+            "aporic_government_get",
             "aporic_hook_health",
             "aporic_memory_get",
             "aporic_memory_search",
             "aporic_model_route",
+            "aporic_office_appoint",
+            "aporic_office_appointments",
+            "aporic_office_revoke",
             "aporic_open",
             "aporic_orchestration_run_create",
             "aporic_orchestration_run_get",
             "aporic_orchestration_run_list",
+            "aporic_product_cell_create",
+            "aporic_product_cell_list",
             "aporic_recall",
             "aporic_reconcile",
             "aporic_record",
@@ -104,6 +110,12 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
     assert_eq!(resumed["result"]["selected"]["source"], "open_session");
     let roles = call_json(&client, "aporic_roles_list", json!({})).await?;
     assert_eq!(roles["result"].as_array().unwrap().len(), 4);
+    let government = call_json(&client, "aporic_government_get", json!({})).await?;
+    assert_eq!(
+        government["result"]["offices"][0]["office_id"],
+        "product.experiment"
+    );
+    assert_eq!(government["result"]["grants_authority"], false);
 
     let recorded = call_json(
         &client,

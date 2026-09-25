@@ -20,11 +20,14 @@ use crate::{
         ExperimentListRequest, ExperimentMeasurementAddRequest, ExperimentOutcome,
         ExperimentPortfolio, ExperimentSummary, ExperimentVariantAddRequest, GitObserveRequest,
         GitSnapshot, GitSnapshotAudit, GitSnapshotGetRequest, GitSnapshotListRequest,
-        HookHealthReport, HubStats, MemoryGetRequest, MemoryItem, MemoryProjectionAudit,
-        MemorySearchRequest, MemorySearchResult, ModelRoute, ModelRouteRequest, OpenOutcome,
-        OpenRequest, OrchestrationAudit, OrchestrationOutcome, OrchestrationRunCreateRequest,
-        OrchestrationRunGetRequest, OrchestrationRunListRequest, OrchestrationRunSummary,
-        OrchestrationRunView, ProjectExport, RecallRequest, ReconcileOutcome, ReconcileRequest,
+        GovernmentAudit, GovernmentDefinition, GovernmentWorkspaceRequest, HookHealthReport,
+        HubStats, MemoryGetRequest, MemoryItem, MemoryProjectionAudit, MemorySearchRequest,
+        MemorySearchResult, ModelRoute, ModelRouteRequest, OfficeAppointment,
+        OfficeAppointmentCreateRequest, OfficeAppointmentOutcome, OfficeAppointmentRevokeRequest,
+        OpenOutcome, OpenRequest, OrchestrationAudit, OrchestrationOutcome,
+        OrchestrationRunCreateRequest, OrchestrationRunGetRequest, OrchestrationRunListRequest,
+        OrchestrationRunSummary, OrchestrationRunView, ProductCell, ProductCellCreateRequest,
+        ProductCellOutcome, ProjectExport, RecallRequest, ReconcileOutcome, ReconcileRequest,
         RecordOutcome, RecordRequest, ResumeBrief, ResumeRequest, RoleAppointment,
         RoleAppointmentAudit, RoleAppointmentCreateRequest, RoleAppointmentListRequest,
         RoleAppointmentOutcome, RoleAppointmentRevokeRequest, RuntimeEvent, RuntimeObservation,
@@ -105,6 +108,49 @@ impl Hub {
 
     pub fn audit_role_appointments(&self) -> Result<RoleAppointmentAudit> {
         self.store.audit_role_appointments()
+    }
+
+    pub fn government_definition(&self) -> GovernmentDefinition {
+        crate::government::definition()
+    }
+
+    pub fn create_office_appointment(
+        &self,
+        request: &OfficeAppointmentCreateRequest,
+    ) -> Result<OfficeAppointmentOutcome> {
+        self.store.create_office_appointment(request)
+    }
+
+    pub fn revoke_office_appointment(
+        &self,
+        request: &OfficeAppointmentRevokeRequest,
+    ) -> Result<OfficeAppointmentOutcome> {
+        self.store.revoke_office_appointment(request)
+    }
+
+    pub fn list_office_appointments(
+        &self,
+        request: &GovernmentWorkspaceRequest,
+    ) -> Result<Vec<OfficeAppointment>> {
+        self.store.list_office_appointments(request)
+    }
+
+    pub fn create_product_cell(
+        &self,
+        request: &ProductCellCreateRequest,
+    ) -> Result<ProductCellOutcome> {
+        self.store.create_product_cell(request)
+    }
+
+    pub fn list_product_cells(
+        &self,
+        request: &GovernmentWorkspaceRequest,
+    ) -> Result<Vec<ProductCell>> {
+        self.store.list_product_cells(request)
+    }
+
+    pub fn audit_government(&self) -> Result<GovernmentAudit> {
+        self.store.audit_government()
     }
 
     pub fn memory_search(&self, request: &MemorySearchRequest) -> Result<MemorySearchResult> {

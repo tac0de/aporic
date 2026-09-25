@@ -14,7 +14,7 @@ See [PRODUCT.md](PRODUCT.md) for the product objective and
 
 ## Current product surface
 
-The hub exposes fifty-five MCP tools in fifteen groups.
+The hub exposes sixty-one MCP tools in sixteen groups.
 
 Continuity:
 
@@ -32,6 +32,18 @@ Advisory roles:
 - `aporic_role_appoint`, `aporic_role_revoke`, and
   `aporic_role_appointments`: record and inspect bounded assignments. Optional
   catalog capability references are associations, not executable grants.
+
+Advisory government composition:
+
+- `aporic_government_get`: inspect the versioned Aporic government and
+  Product Experiment Ministry charter;
+- `aporic_office_appoint`, `aporic_office_revoke`, and
+  `aporic_office_appointments`: bind one active product minister to an existing
+  session-scoped Steward appointment without granting authority;
+- `aporic_product_cell_create` and `aporic_product_cell_list`: record one
+  immutable, task-bound multidisciplinary cell with distinct planning and
+  prototype-delivery assignees, explicit problem, hypothesis, and success
+  measures.
 
 Memory lifecycle:
 
@@ -419,6 +431,23 @@ session, otherwise a handoff newer than the latest completed session. Multiple
 unfinished candidates yield `ambiguous`; no eligible candidate yields `none`.
 The client then inspects live Git and the chosen task or handoff before acting.
 Historical text never becomes a new instruction by being selected.
+
+## v0.17 advisory government composition
+
+v0.17 adds a versioned Aporic government charter whose authority source remains
+the current human instruction. Its first office is the Product Experiment
+Ministry. One active minister per session must be backed by an active,
+session-scoped Steward appointment. Ministry appointments are advisory records:
+they do not dispatch an assignee, approve a prototype, deploy software, or alter
+host permissions.
+
+Each active task can have one immutable product cell. A cell records the problem,
+hypothesis, success measures, and two to eight appointed disciplines. Product
+planning and prototype delivery are mandatory, use distinct delivery-worker
+assignees, and cannot be performed by the minister. Existing Worker/Inspector
+separation plus the new Minister/Inspector separation keep assurance outside the
+delivery cell. Digests, event history, export, restart persistence, schema-16
+migration, and doctor audit cover both office appointments and product cells.
 
 ## Offline evaluation
 

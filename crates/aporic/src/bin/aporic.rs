@@ -126,13 +126,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
 fn backup(target: &str) -> Result<(), Box<dyn Error>> {
     let database = default_database_path().map_err(std::io::Error::other)?;
     let hub = Hub::open(database)?;
+    let schema_version = hub.stats()?.schema_version;
     hub.backup_to(Path::new(target))?;
     println!(
         "{}",
         serde_json::to_string(&serde_json::json!({
             "ok": true,
             "backup": fs::canonicalize(target)?,
-            "schema_version": 14,
+            "schema_version": schema_version,
         }))?
     );
     Ok(())
@@ -321,6 +322,7 @@ fn doctor() -> Result<(), Box<dyn Error>> {
     let deliberations = hub.audit_deliberations()?;
     let secure_capabilities = hub.audit_secure_capabilities()?;
     let role_appointments = hub.audit_role_appointments()?;
+    let government = hub.audit_government()?;
     let orchestration = hub.audit_orchestration()?;
     let replay_ok = execution_replay.mismatches.is_empty()
         && memory_projection.consistent
@@ -330,6 +332,7 @@ fn doctor() -> Result<(), Box<dyn Error>> {
         && deliberations.consistent
         && secure_capabilities.consistent
         && role_appointments.consistent
+        && government.consistent
         && orchestration.consistent;
     println!(
         "{}",
@@ -346,6 +349,7 @@ fn doctor() -> Result<(), Box<dyn Error>> {
             "deliberations": deliberations,
             "secure_capabilities": secure_capabilities,
             "role_appointments": role_appointments,
+            "government": government,
             "orchestration": orchestration,
             "sandbox": aporic::sandbox_backend_status()
         }))?

@@ -205,10 +205,17 @@ fn upgrades_existing_role_schema_without_recreating_appointments() {
     drop(hub);
     let database = area.path().join("aporic.sqlite3");
     let connection = rusqlite::Connection::open(&database).unwrap();
-    connection.execute_batch("ALTER TABLE orchestration_runs DROP COLUMN role_appointment_id; PRAGMA user_version = 15;").unwrap();
+    connection
+        .execute_batch(
+            "DROP TABLE product_cells;
+             DROP TABLE office_appointments;
+             ALTER TABLE orchestration_runs DROP COLUMN role_appointment_id;
+             PRAGMA user_version = 15;",
+        )
+        .unwrap();
     drop(connection);
     let upgraded = Hub::open(database).unwrap();
-    assert_eq!(upgraded.stats().unwrap().schema_version, 16);
+    assert_eq!(upgraded.stats().unwrap().schema_version, 17);
     assert_eq!(
         upgraded
             .list_role_appointments(&RoleAppointmentListRequest {

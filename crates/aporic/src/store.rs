@@ -41,20 +41,23 @@ use crate::{
         ExperimentListRequest, ExperimentMeasurement, ExperimentMeasurementAddRequest,
         ExperimentOutcome, ExperimentPortfolio, ExperimentSummary, ExperimentVariant,
         ExperimentVariantAddRequest, ExportEvent, ExportSession, GitSnapshot, GitSnapshotAudit,
-        GitSnapshotDraft, GitSnapshotGetRequest, GitSnapshotListRequest, Handoff, HookHealthReport,
-        HubStats, InfluenceClass, MemoryClass, MemoryEdge, MemoryExposure, MemoryGetRequest,
-        MemoryItem, MemoryLifecycle, MemoryProjectionAudit, MemorySearchRequest,
-        MemorySearchResult, OpenOutcome, OpenRequest, OrchestrationAudit, OrchestrationOutcome,
-        OrchestrationRun, OrchestrationRunCreateRequest, OrchestrationRunGetRequest,
-        OrchestrationRunListRequest, OrchestrationRunStatus, OrchestrationRunSummary,
-        OrchestrationRunView, OriginChannel, PredictedTaskOutcome, ProjectExport, RecallRequest,
-        ReceiptArtifact, ReconcileOutcome, ReconcileRequest, RecordKind, RecordOutcome,
-        RecordRequest, ResumeBrief, ResumeCandidate, ResumeRequest, ResumeStatus, RoleAppointment,
-        RoleAppointmentAudit, RoleAppointmentCreateRequest, RoleAppointmentListRequest,
-        RoleAppointmentOutcome, RoleAppointmentRevokeRequest, RoleCapabilityRef, RuntimeEvent,
-        RuntimeEventKind, RuntimeObservation, RuntimeOutcomeStatus, RuntimeProjectionAudit,
-        RuntimeTraceGetRequest, RuntimeTraceListRequest, RuntimeWorkspaceRequest,
-        SandboxEnforcement, SecureCapabilityAudit, SecurityArtifactImport, SecurityAssessment,
+        GitSnapshotDraft, GitSnapshotGetRequest, GitSnapshotListRequest, GovernmentAudit,
+        GovernmentWorkspaceRequest, Handoff, HookHealthReport, HubStats, InfluenceClass,
+        MemoryClass, MemoryEdge, MemoryExposure, MemoryGetRequest, MemoryItem, MemoryLifecycle,
+        MemoryProjectionAudit, MemorySearchRequest, MemorySearchResult, OfficeAppointment,
+        OfficeAppointmentCreateRequest, OfficeAppointmentOutcome, OfficeAppointmentRevokeRequest,
+        OpenOutcome, OpenRequest, OrchestrationAudit, OrchestrationOutcome, OrchestrationRun,
+        OrchestrationRunCreateRequest, OrchestrationRunGetRequest, OrchestrationRunListRequest,
+        OrchestrationRunStatus, OrchestrationRunSummary, OrchestrationRunView, OriginChannel,
+        PredictedTaskOutcome, ProductCell, ProductCellCreateRequest, ProductCellMember,
+        ProductCellOutcome, ProjectExport, RecallRequest, ReceiptArtifact, ReconcileOutcome,
+        ReconcileRequest, RecordKind, RecordOutcome, RecordRequest, ResumeBrief, ResumeCandidate,
+        ResumeRequest, ResumeStatus, RoleAppointment, RoleAppointmentAudit,
+        RoleAppointmentCreateRequest, RoleAppointmentListRequest, RoleAppointmentOutcome,
+        RoleAppointmentRevokeRequest, RoleCapabilityRef, RuntimeEvent, RuntimeEventKind,
+        RuntimeObservation, RuntimeOutcomeStatus, RuntimeProjectionAudit, RuntimeTraceGetRequest,
+        RuntimeTraceListRequest, RuntimeWorkspaceRequest, SandboxEnforcement,
+        SecureCapabilityAudit, SecurityArtifactImport, SecurityAssessment,
         SecurityAssessmentGetRequest, SecurityAssessmentListRequest, SecurityAssessmentOutcome,
         SecurityCoverage, ShadowDisposition, ShadowEvaluation, ShadowEvaluationRequest,
         TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest,
@@ -80,7 +83,8 @@ const MIGRATION_13: &str = include_str!("../../../migrations/0013_execution_gove
 const MIGRATION_14: &str = include_str!("../../../migrations/0014_advisory_orchestration.sql");
 const MIGRATION_15: &str = include_str!("../../../migrations/0015_roles.sql");
 const MIGRATION_16: &str = include_str!("../../../migrations/0016_role_run_link.sql");
-const SCHEMA_VERSION: u32 = 16;
+const MIGRATION_17: &str = include_str!("../../../migrations/0017_product_government.sql");
+const SCHEMA_VERSION: u32 = 17;
 const MIGRATIONS: &[(u32, &str)] = &[
     (2, MIGRATION_2),
     (3, MIGRATION_3),
@@ -97,6 +101,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (14, MIGRATION_14),
     (15, MIGRATION_15),
     (16, MIGRATION_16),
+    (17, MIGRATION_17),
 ];
 
 #[derive(Debug, Error)]
@@ -485,6 +490,19 @@ impl Store {
             [&request.session_id],
             |row| row.get(0),
         )?;
+        if request.role_id == "oversight.inspector" {
+            let office_conflict: u64 = transaction.query_row(
+                "SELECT COUNT(*) FROM office_appointments
+                 WHERE session_id = ?1 AND assignee_id = ?2 AND revoked_at_unix_ms IS NULL",
+                params![request.session_id, request.assignee_id],
+                |row| row.get(0),
+            )?;
+            if office_conflict > 0 {
+                return Err(Error::Conflict(
+                    "an office head and inspector must have different assignees".to_owned(),
+                ));
+            }
+        }
         let mut unique_refs = std::collections::BTreeSet::new();
         for reference in &request.capability_refs {
             require_identifier("capability_id", &reference.capability_id, 128)?;
@@ -662,6 +680,378 @@ impl Store {
             .count() as u64;
         Ok(RoleAppointmentAudit {
             appointment_count: ids.len() as u64,
+            invalid_count,
+            consistent: invalid_count == 0,
+        })
+    }
+
+    pub fn create_office_appointment(
+        &self,
+        request: &OfficeAppointmentCreateRequest,
+    ) -> Result<OfficeAppointmentOutcome> {
+        require_text("session_id", &request.session_id)?;
+        require_text("role_appointment_id", &request.role_appointment_id)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        let office = crate::government::office(&request.office_id, request.office_version)
+            .ok_or_else(|| Error::Invalid("unknown office or office version".to_owned()))?;
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<OfficeAppointmentOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "office_appointment_created",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        require_open_session(&transaction, &request.session_id)?;
+        let project_id: String = transaction.query_row(
+            "SELECT project_id FROM sessions WHERE session_id = ?1",
+            [&request.session_id],
+            |row| row.get(0),
+        )?;
+        let role = load_role_appointment(&transaction, &request.role_appointment_id)?;
+        if role.session_id != request.session_id
+            || role.task_id.is_some()
+            || role.role_id != office.head_role_id
+            || role.revoked_at_unix_ms.is_some()
+        {
+            return Err(Error::Conflict(
+                "office head requires an active matching session-scoped role appointment"
+                    .to_owned(),
+            ));
+        }
+        let inspector_conflict: u64 = transaction.query_row(
+            "SELECT COUNT(*) FROM role_appointments
+             WHERE session_id = ?1 AND role_id = 'oversight.inspector'
+               AND assignee_id = ?2 AND revoked_at_unix_ms IS NULL",
+            params![request.session_id, role.assignee_id],
+            |row| row.get(0),
+        )?;
+        if inspector_conflict > 0 {
+            return Err(Error::Conflict(
+                "an office head and inspector must have different assignees".to_owned(),
+            ));
+        }
+        let active_head: u64 = transaction.query_row(
+            "SELECT COUNT(*) FROM office_appointments
+             WHERE session_id = ?1 AND office_id = ?2 AND revoked_at_unix_ms IS NULL",
+            params![request.session_id, request.office_id],
+            |row| row.get(0),
+        )?;
+        if active_head > 0 {
+            return Err(Error::Conflict(
+                "the office already has an active head in this session".to_owned(),
+            ));
+        }
+        let office_appointment_id = Uuid::now_v7().to_string();
+        let digest = office_appointment_digest(&office_appointment_id, request, &role.assignee_id)?;
+        transaction.execute(
+            "INSERT INTO office_appointments(
+                office_appointment_id, project_id, session_id, office_id, office_version,
+                role_appointment_id, assignee_id, appointment_sha256, created_at_unix_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                office_appointment_id,
+                project_id,
+                request.session_id,
+                request.office_id,
+                request.office_version,
+                request.role_appointment_id,
+                role.assignee_id,
+                digest,
+                now,
+            ],
+        )?;
+        let outcome = OfficeAppointmentOutcome {
+            appointment: load_office_appointment(&transaction, &office_appointment_id)?,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &office_appointment_id,
+            "office_appointment_created",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn revoke_office_appointment(
+        &self,
+        request: &OfficeAppointmentRevokeRequest,
+    ) -> Result<OfficeAppointmentOutcome> {
+        require_text("office_appointment_id", &request.office_appointment_id)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<OfficeAppointmentOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "office_appointment_revoked",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        let appointment = load_office_appointment(&transaction, &request.office_appointment_id)?;
+        if appointment.revoked_at_unix_ms.is_some() {
+            return Err(Error::Conflict(
+                "office appointment is already revoked".to_owned(),
+            ));
+        }
+        transaction.execute(
+            "UPDATE office_appointments SET revoked_at_unix_ms = ?1
+             WHERE office_appointment_id = ?2",
+            params![now, request.office_appointment_id],
+        )?;
+        let outcome = OfficeAppointmentOutcome {
+            appointment: load_office_appointment(&transaction, &request.office_appointment_id)?,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &request.office_appointment_id,
+            "office_appointment_revoked",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn list_office_appointments(
+        &self,
+        request: &GovernmentWorkspaceRequest,
+    ) -> Result<Vec<OfficeAppointment>> {
+        let workspace = canonical_workspace(&request.workspace)?;
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT office_appointment_id FROM office_appointments
+             WHERE project_id = (SELECT project_id FROM projects WHERE workspace = ?1)
+             ORDER BY created_at_unix_ms DESC, office_appointment_id DESC LIMIT ?2",
+        )?;
+        let ids = statement
+            .query_map(
+                params![
+                    workspace,
+                    i64::from(request.limit.unwrap_or(50).clamp(1, 200))
+                ],
+                |row| row.get::<_, String>(0),
+            )?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        ids.iter()
+            .map(|id| load_office_appointment(&connection, id))
+            .collect()
+    }
+
+    pub fn create_product_cell(
+        &self,
+        request: &ProductCellCreateRequest,
+    ) -> Result<ProductCellOutcome> {
+        require_text("session_id", &request.session_id)?;
+        require_text("task_id", &request.task_id)?;
+        require_text("office_appointment_id", &request.office_appointment_id)?;
+        require_bounded_public_text("title", &request.title, 256)?;
+        require_bounded_public_text("problem_statement", &request.problem_statement, 4096)?;
+        require_bounded_public_text("hypothesis", &request.hypothesis, 4096)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        if request.success_measures.is_empty() || request.success_measures.len() > 8 {
+            return Err(Error::Invalid(
+                "a product cell requires between 1 and 8 success measures".to_owned(),
+            ));
+        }
+        require_texts("success_measures", &request.success_measures)?;
+        for measure in &request.success_measures {
+            require_bounded_public_text("success_measure", measure, 1024)?;
+        }
+        if !(2..=8).contains(&request.members.len()) {
+            return Err(Error::Invalid(
+                "a product cell requires between 2 and 8 members".to_owned(),
+            ));
+        }
+        let duties = request
+            .members
+            .iter()
+            .map(|member| member.duty.as_str())
+            .collect::<std::collections::BTreeSet<_>>();
+        if !duties.contains("product_planning") || !duties.contains("prototype_delivery") {
+            return Err(Error::Invalid(
+                "a product cell requires product planning and prototype delivery disciplines"
+                    .to_owned(),
+            ));
+        }
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<ProductCellOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "product_cell_created",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        require_open_session(&transaction, &request.session_id)?;
+        let project_id: String = transaction.query_row(
+            "SELECT project_id FROM sessions WHERE session_id = ?1",
+            [&request.session_id],
+            |row| row.get(0),
+        )?;
+        let task = load_task(&transaction, &request.task_id)?
+            .ok_or_else(|| Error::NotFound(format!("task {}", request.task_id)))?;
+        if task.project_id != project_id
+            || task.session_id != request.session_id
+            || matches!(task.status, TaskStatus::Completed | TaskStatus::Cancelled)
+        {
+            return Err(Error::Conflict(
+                "a product cell requires an active task in the same session".to_owned(),
+            ));
+        }
+        let office = load_office_appointment(&transaction, &request.office_appointment_id)?;
+        if office.session_id != request.session_id
+            || office.office_id != crate::government::PRODUCT_EXPERIMENT_OFFICE_ID
+            || office.revoked_at_unix_ms.is_some()
+        {
+            return Err(Error::Conflict(
+                "a product cell requires the active product experiment minister for its session"
+                    .to_owned(),
+            ));
+        }
+        let mut resolved_members = Vec::with_capacity(request.members.len());
+        let mut role_ids = std::collections::BTreeSet::new();
+        let mut assignees = std::collections::BTreeSet::new();
+        for member in &request.members {
+            if !role_ids.insert(&member.role_appointment_id) {
+                return Err(Error::Invalid(
+                    "duplicate product cell role appointment".to_owned(),
+                ));
+            }
+            let role = load_role_appointment(&transaction, &member.role_appointment_id)?;
+            if role.session_id != request.session_id
+                || role.task_id.as_deref() != Some(request.task_id.as_str())
+                || role.role_id != "delivery.worker"
+                || role.revoked_at_unix_ms.is_some()
+            {
+                return Err(Error::Conflict(
+                    "product cell members require active delivery-worker appointments for the same task"
+                        .to_owned(),
+                ));
+            }
+            if role.assignee_id == office.assignee_id {
+                return Err(Error::Conflict(
+                    "the product minister and product cell members must have different assignees"
+                        .to_owned(),
+                ));
+            }
+            assignees.insert(role.assignee_id.clone());
+            resolved_members.push(ProductCellMember {
+                role_appointment_id: role.appointment_id,
+                assignee_id: role.assignee_id,
+                duty: member.duty.clone(),
+            });
+        }
+        if assignees.len() < 2 {
+            return Err(Error::Conflict(
+                "a multidisciplinary product cell requires at least two distinct assignees"
+                    .to_owned(),
+            ));
+        }
+        let cell_id = Uuid::now_v7().to_string();
+        let digest = product_cell_digest(&cell_id, request, &resolved_members)?;
+        transaction.execute(
+            "INSERT INTO product_cells(
+                cell_id, project_id, session_id, task_id, office_appointment_id, title,
+                problem_statement, hypothesis, success_measures_json, members_json,
+                cell_sha256, created_at_unix_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            params![
+                cell_id,
+                project_id,
+                request.session_id,
+                request.task_id,
+                request.office_appointment_id,
+                request.title,
+                request.problem_statement,
+                request.hypothesis,
+                serde_json::to_string(&request.success_measures)?,
+                serde_json::to_string(&resolved_members)?,
+                digest,
+                now,
+            ],
+        )?;
+        let outcome = ProductCellOutcome {
+            cell: load_product_cell(&transaction, &cell_id)?,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &cell_id,
+            "product_cell_created",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn list_product_cells(
+        &self,
+        request: &GovernmentWorkspaceRequest,
+    ) -> Result<Vec<ProductCell>> {
+        let workspace = canonical_workspace(&request.workspace)?;
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT cell_id FROM product_cells
+             WHERE project_id = (SELECT project_id FROM projects WHERE workspace = ?1)
+             ORDER BY created_at_unix_ms DESC, cell_id DESC LIMIT ?2",
+        )?;
+        let ids = statement
+            .query_map(
+                params![
+                    workspace,
+                    i64::from(request.limit.unwrap_or(50).clamp(1, 200))
+                ],
+                |row| row.get::<_, String>(0),
+            )?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        ids.iter()
+            .map(|id| load_product_cell(&connection, id))
+            .collect()
+    }
+
+    pub fn audit_government(&self) -> Result<GovernmentAudit> {
+        let connection = self.connection()?;
+        let office_ids = connection
+            .prepare("SELECT office_appointment_id FROM office_appointments ORDER BY sequence")?
+            .query_map([], |row| row.get::<_, String>(0))?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let cell_ids = connection
+            .prepare("SELECT cell_id FROM product_cells ORDER BY sequence")?
+            .query_map([], |row| row.get::<_, String>(0))?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let invalid_count = office_ids
+            .iter()
+            .filter(|id| load_office_appointment(&connection, id).is_err())
+            .count() as u64
+            + cell_ids
+                .iter()
+                .filter(|id| load_product_cell(&connection, id).is_err())
+                .count() as u64;
+        Ok(GovernmentAudit {
+            office_appointment_count: office_ids.len() as u64,
+            product_cell_count: cell_ids.len() as u64,
             invalid_count,
             consistent: invalid_count == 0,
         })
@@ -5187,6 +5577,29 @@ impl Store {
                 .map(|id| load_role_appointment(&connection, id))
                 .collect::<Result<Vec<_>>>()?
         };
+        let office_appointments = {
+            let mut statement = connection.prepare(
+                "SELECT office_appointment_id FROM office_appointments
+                 WHERE project_id = ?1 ORDER BY sequence ASC",
+            )?;
+            let ids = statement
+                .query_map([&project_id], |row| row.get::<_, String>(0))?
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            ids.iter()
+                .map(|id| load_office_appointment(&connection, id))
+                .collect::<Result<Vec<_>>>()?
+        };
+        let product_cells = {
+            let mut statement = connection.prepare(
+                "SELECT cell_id FROM product_cells WHERE project_id = ?1 ORDER BY sequence ASC",
+            )?;
+            let ids = statement
+                .query_map([&project_id], |row| row.get::<_, String>(0))?
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            ids.iter()
+                .map(|id| load_product_cell(&connection, id))
+                .collect::<Result<Vec<_>>>()?
+        };
 
         let events = {
             let mut statement = connection.prepare(
@@ -5211,6 +5624,10 @@ impl Store {
                      SELECT run_id FROM orchestration_runs WHERE project_id = ?1
                  ) OR stream_id IN (
                      SELECT appointment_id FROM role_appointments WHERE project_id = ?1
+                 ) OR stream_id IN (
+                     SELECT office_appointment_id FROM office_appointments WHERE project_id = ?1
+                 ) OR stream_id IN (
+                     SELECT cell_id FROM product_cells WHERE project_id = ?1
                  )
                  ORDER BY sequence ASC",
             )?;
@@ -5244,7 +5661,7 @@ impl Store {
         };
 
         Ok(ProjectExport {
-            format_version: 12,
+            format_version: 13,
             exported_at_unix_ms: unix_millis()?,
             project_id,
             workspace,
@@ -5276,6 +5693,8 @@ impl Store {
             advisory_role_reports,
             shadow_evaluations,
             role_appointments,
+            office_appointments,
+            product_cells,
             events,
         })
     }
@@ -5364,6 +5783,209 @@ fn load_role_appointment(connection: &Connection, id: &str) -> Result<RoleAppoin
         ));
     }
     Ok(appointment)
+}
+
+fn office_appointment_digest(
+    id: &str,
+    request: &OfficeAppointmentCreateRequest,
+    assignee_id: &str,
+) -> Result<String> {
+    digest_json(&serde_json::json!({
+        "office_appointment_id": id,
+        "session_id": request.session_id,
+        "office_id": request.office_id,
+        "office_version": request.office_version,
+        "role_appointment_id": request.role_appointment_id,
+        "assignee_id": assignee_id,
+    }))
+}
+
+fn load_office_appointment(connection: &Connection, id: &str) -> Result<OfficeAppointment> {
+    let appointment = connection
+        .query_row(
+            "SELECT office_appointment_id, session_id, office_id, office_version,
+                    role_appointment_id, assignee_id, appointment_sha256,
+                    created_at_unix_ms, revoked_at_unix_ms
+             FROM office_appointments WHERE office_appointment_id = ?1",
+            [id],
+            |row| {
+                Ok(OfficeAppointment {
+                    office_appointment_id: row.get(0)?,
+                    session_id: row.get(1)?,
+                    office_id: row.get(2)?,
+                    office_version: row.get(3)?,
+                    role_appointment_id: row.get(4)?,
+                    assignee_id: row.get(5)?,
+                    appointment_sha256: row.get(6)?,
+                    created_at_unix_ms: row.get(7)?,
+                    revoked_at_unix_ms: row.get(8)?,
+                    advisory: true,
+                    grants_authority: false,
+                })
+            },
+        )
+        .optional()?
+        .ok_or_else(|| Error::NotFound(format!("office appointment {id}")))?;
+    if crate::government::office(&appointment.office_id, appointment.office_version).is_none() {
+        return Err(Error::Conflict(
+            "office appointment references an unknown office definition".to_owned(),
+        ));
+    }
+    let role = load_role_appointment(connection, &appointment.role_appointment_id)?;
+    let office = crate::government::office(&appointment.office_id, appointment.office_version)
+        .expect("office definition checked above");
+    if role.session_id != appointment.session_id
+        || role.task_id.is_some()
+        || role.role_id != office.head_role_id
+        || role.assignee_id != appointment.assignee_id
+    {
+        return Err(Error::Conflict(
+            "office appointment role binding mismatch".to_owned(),
+        ));
+    }
+    let expected = digest_json(&serde_json::json!({
+        "office_appointment_id": appointment.office_appointment_id,
+        "session_id": appointment.session_id,
+        "office_id": appointment.office_id,
+        "office_version": appointment.office_version,
+        "role_appointment_id": appointment.role_appointment_id,
+        "assignee_id": appointment.assignee_id,
+    }))?;
+    if expected != appointment.appointment_sha256 {
+        return Err(Error::Conflict(
+            "office appointment digest mismatch".to_owned(),
+        ));
+    }
+    Ok(appointment)
+}
+
+fn product_cell_digest(
+    id: &str,
+    request: &ProductCellCreateRequest,
+    members: &[ProductCellMember],
+) -> Result<String> {
+    digest_json(&serde_json::json!({
+        "cell_id": id,
+        "session_id": request.session_id,
+        "task_id": request.task_id,
+        "office_appointment_id": request.office_appointment_id,
+        "title": request.title,
+        "problem_statement": request.problem_statement,
+        "hypothesis": request.hypothesis,
+        "success_measures": request.success_measures,
+        "members": members,
+    }))
+}
+
+fn load_product_cell(connection: &Connection, id: &str) -> Result<ProductCell> {
+    let mut cell = connection
+        .query_row(
+            "SELECT cell_id, session_id, task_id, office_appointment_id, title,
+                    problem_statement, hypothesis, success_measures_json, members_json,
+                    cell_sha256, created_at_unix_ms
+             FROM product_cells WHERE cell_id = ?1",
+            [id],
+            |row| {
+                let success_measures = serde_json::from_str::<Vec<String>>(
+                    &row.get::<_, String>(7)?,
+                )
+                .map_err(|error| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        7,
+                        rusqlite::types::Type::Text,
+                        Box::new(error),
+                    )
+                })?;
+                let members =
+                    serde_json::from_str::<Vec<ProductCellMember>>(&row.get::<_, String>(8)?)
+                        .map_err(|error| {
+                            rusqlite::Error::FromSqlConversionFailure(
+                                8,
+                                rusqlite::types::Type::Text,
+                                Box::new(error),
+                            )
+                        })?;
+                Ok(ProductCell {
+                    cell_id: row.get(0)?,
+                    session_id: row.get(1)?,
+                    task_id: row.get(2)?,
+                    office_appointment_id: row.get(3)?,
+                    title: row.get(4)?,
+                    problem_statement: row.get(5)?,
+                    hypothesis: row.get(6)?,
+                    success_measures,
+                    members,
+                    cell_sha256: row.get(9)?,
+                    created_at_unix_ms: row.get(10)?,
+                    active: false,
+                    advisory: true,
+                    grants_authority: false,
+                })
+            },
+        )
+        .optional()?
+        .ok_or_else(|| Error::NotFound(format!("product cell {id}")))?;
+    let expected = digest_json(&serde_json::json!({
+        "cell_id": cell.cell_id,
+        "session_id": cell.session_id,
+        "task_id": cell.task_id,
+        "office_appointment_id": cell.office_appointment_id,
+        "title": cell.title,
+        "problem_statement": cell.problem_statement,
+        "hypothesis": cell.hypothesis,
+        "success_measures": cell.success_measures,
+        "members": cell.members,
+    }))?;
+    if expected != cell.cell_sha256 {
+        return Err(Error::Conflict("product cell digest mismatch".to_owned()));
+    }
+    let office = load_office_appointment(connection, &cell.office_appointment_id)?;
+    if office.session_id != cell.session_id
+        || office.office_id != crate::government::PRODUCT_EXPERIMENT_OFFICE_ID
+    {
+        return Err(Error::Conflict(
+            "product cell office binding mismatch".to_owned(),
+        ));
+    }
+    let duties = cell
+        .members
+        .iter()
+        .map(|member| member.duty.as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    let assignees = cell
+        .members
+        .iter()
+        .map(|member| member.assignee_id.as_str())
+        .collect::<std::collections::BTreeSet<_>>();
+    if cell.members.len() < 2
+        || !duties.contains("product_planning")
+        || !duties.contains("prototype_delivery")
+        || assignees.len() < 2
+        || assignees.contains(office.assignee_id.as_str())
+    {
+        return Err(Error::Conflict(
+            "product cell multidisciplinary composition mismatch".to_owned(),
+        ));
+    }
+    let mut composition_active = office.revoked_at_unix_ms.is_none();
+    for member in &cell.members {
+        let role = load_role_appointment(connection, &member.role_appointment_id)?;
+        if role.session_id != cell.session_id
+            || role.task_id.as_deref() != Some(cell.task_id.as_str())
+            || role.role_id != "delivery.worker"
+            || role.assignee_id != member.assignee_id
+        {
+            return Err(Error::Conflict(
+                "product cell member role binding mismatch".to_owned(),
+            ));
+        }
+        composition_active &= role.revoked_at_unix_ms.is_none();
+    }
+    let task = load_task(connection, &cell.task_id)?
+        .ok_or_else(|| Error::NotFound(format!("task {}", cell.task_id)))?;
+    cell.active =
+        composition_active && !matches!(task.status, TaskStatus::Completed | TaskStatus::Cancelled);
+    Ok(cell)
 }
 
 fn is_sha256(value: &str) -> bool {
