@@ -49,6 +49,9 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_task_complete",
             "aporic_task_create",
             "aporic_task_list",
+            "aporic_token_efficiency_report",
+            "aporic_token_usage_list",
+            "aporic_token_usage_record",
             "aporic_trace_get",
             "aporic_trace_list"
         ]

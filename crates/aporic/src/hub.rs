@@ -13,8 +13,10 @@ use crate::{
         RecallRequest, ReconcileOutcome, ReconcileRequest, RecordOutcome, RecordRequest,
         RuntimeEvent, RuntimeObservation, RuntimeProjectionAudit, RuntimeTraceGetRequest,
         RuntimeTraceListRequest, RuntimeWorkspaceRequest, TaskCancelRequest, TaskClaimRequest,
-        TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskOutcome, WorkComplexity,
-        WorkKind,
+        TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskOutcome,
+        TokenEfficiencyReport, TokenEfficiencyReportRequest, TokenUsageAudit,
+        TokenUsageListRequest, TokenUsageOutcome, TokenUsageReceipt, TokenUsageRecordRequest,
+        WorkComplexity, WorkKind,
     },
     kernel,
     store::{Result, Store},
@@ -128,6 +130,31 @@ impl Hub {
 
     pub fn audit_git_snapshots(&self) -> Result<GitSnapshotAudit> {
         self.store.audit_git_snapshots()
+    }
+
+    pub fn record_token_usage(
+        &self,
+        request: &TokenUsageRecordRequest,
+    ) -> Result<TokenUsageOutcome> {
+        self.store.record_token_usage(request)
+    }
+
+    pub fn list_token_usage(
+        &self,
+        request: &TokenUsageListRequest,
+    ) -> Result<Vec<TokenUsageReceipt>> {
+        self.store.list_token_usage(request)
+    }
+
+    pub fn token_efficiency_report(
+        &self,
+        request: &TokenEfficiencyReportRequest,
+    ) -> Result<TokenEfficiencyReport> {
+        self.store.token_efficiency_report(request)
+    }
+
+    pub fn audit_token_usage(&self) -> Result<TokenUsageAudit> {
+        self.store.audit_token_usage()
     }
 
     pub fn record(&self, request: &RecordRequest) -> Result<RecordOutcome> {

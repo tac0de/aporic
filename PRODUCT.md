@@ -32,11 +32,11 @@ saves.
 
 ## Current stage
 
-The product is in the Git-evidence-and-governance stage. The product question is:
+The product is in the measured token-efficiency and context-control stage. The
+product question is:
 
-> Can a local hub bind repository state, verification, and governance risks to
-> exact Git objects without mutating Git or confusing local observations with
-> remote freshness, review approval, or merge authority?
+> Can a local hub reduce context and total campaign usage while preserving
+> material constraints, unknowns, direct evidence, and verified task success?
 
 The first protocol slice is complete: an actual stdio MCP client can open a
 session, recall project context, record a durable item, close the session, and
@@ -107,6 +107,15 @@ manual evaluation.
 - v0.9 governance findings are deterministic advisory signals for dirty,
   detached, divergent, unresolved-base, sensitive-path, missing-receipt, and
   truncated-inventory states. They do not become an authorization kernel.
+- v0.10 token counts retain their provenance. Host-reported and local-tokenizer
+  counts, conservative UTF-8 byte upper bounds, and unknown counts are never
+  merged into a false-precision total.
+- Cached input tokens remain input tokens. Cost or latency savings from caching
+  are not presented as context-token reduction.
+- Usage outcomes become verified only by binding to a matching direct Aporic
+  claim or execution state in the same workspace.
+- Exact duplicate context content is removed only after safety-priority sorting;
+  budget reports disclose duplicate, oversized, and item-limit omissions.
 
 ## Material unknowns
 
@@ -114,6 +123,8 @@ manual evaluation.
   friction to trivial work.
 - How much deterministic context selection reduces omission and restatement in
   model-driven workloads, beyond the current structural simulations.
+- Whether host environments expose complete and trustworthy token counts for
+  all Astra, Sol, and Terra work, including hidden reasoning and cached input.
 - Which agent runtime should back later delegation and scheduling.
 - Whether the observed efficiency gain justifies an always-running local
   service beyond the current stdio deployment.
@@ -131,7 +142,7 @@ Observed on 2026-09-25:
 
 - the exact kernel candidate in the repository matches the installed candidate
   by SHA-256;
-- a real stdio MCP child process exposes all twenty-six tools and preserves a record
+- a real stdio MCP child process exposes all twenty-nine tools and preserves a record
   across a server restart;
 - exact retries are idempotent and conflicting reuse of a key is rejected;
 - concurrent writers retain all tested sessions through SQLite WAL;
@@ -175,6 +186,13 @@ Observed on 2026-09-25:
   claims remote freshness or approval.
 - the fixed Git simulation detects six risky states with zero Git mutations,
   approvals, network calls, or model/API calls.
+- the token-efficiency suite migrates v9 state, rejects unknown-provenance token
+  claims and invented verification references, keeps cached input separate,
+  detects digest corruption, and exports append-only usage receipts.
+- the fixed token simulation reduces its duplicate-bearing context fixture from
+  206 to 107 UTF-8 bytes while retaining all three essential items and the
+  unresolved unknown; it makes zero exact token claims, network calls, or model
+  calls.
 
 Not yet established:
 
@@ -182,6 +200,8 @@ Not yet established:
   deterministic and long-horizon regression suites;
 - reduced restatement or coordination cost across a model-driven synthetic
   workload;
+- a real reduction in provider-reported tokens per verified success; current
+  byte simulation is structural evidence only;
 - actual agent dispatch or parallel worker execution.
 - real-world hook coverage and outcome accuracy across host versions; the
   current report detects observable gaps but cannot prove unobserved actions.

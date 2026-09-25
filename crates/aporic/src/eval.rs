@@ -132,6 +132,22 @@ pub struct GitGovernanceSimulationReport {
     pub network_or_model_calls: u32,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TokenEfficiencySimulationReport {
+    pub suite_version: u32,
+    pub baseline_context_bytes: u64,
+    pub optimized_context_bytes: u64,
+    pub context_byte_reduction_percent: f64,
+    pub duplicate_items_removed: u32,
+    pub essential_items_expected: u32,
+    pub essential_items_retained: u32,
+    pub unresolved_unknowns_retained: u32,
+    pub exact_token_claims_from_byte_estimates: u32,
+    pub deterministic: bool,
+    pub routing_eligible: bool,
+    pub network_or_model_calls: u32,
+}
+
 pub const SUITE_VERSION: u32 = 1;
 
 pub fn frontier_scenarios() -> &'static [EvalScenario] {
@@ -467,6 +483,104 @@ pub fn simulate_git_governance() -> GitGovernanceSimulationReport {
         stale_remote_states_marked_unproven: 1,
         approvals_issued: 0,
         git_mutations: 0,
+        deterministic: first == second,
+        routing_eligible: false,
+        network_or_model_calls: 0,
+    }
+}
+
+/// Compares full, duplicate-bearing context with deterministic content-addressed
+/// selection. Byte counts are explicitly not presented as provider token counts.
+pub fn simulate_token_efficiency() -> TokenEfficiencySimulationReport {
+    let candidate = |id: &str, priority: u8, content: &str, reason: &str| Candidate {
+        item_type: "simulation".to_owned(),
+        item_id: id.to_owned(),
+        origin_channel: OriginChannel::McpAgent,
+        influence_class: InfluenceClass::HistoricalContext,
+        status: None,
+        content: content.to_owned(),
+        reason: reason.to_owned(),
+        priority,
+        created_at_unix_ms: 1,
+    };
+    let candidates = vec![
+        candidate(
+            "constraint",
+            0,
+            "never claim completion without evidence",
+            "constraint",
+        ),
+        candidate(
+            "unknown",
+            0,
+            "remote verification remains unknown",
+            "unknown",
+        ),
+        candidate(
+            "decision",
+            2,
+            "use deterministic context budgets",
+            "decision",
+        ),
+        candidate(
+            "duplicate-a",
+            7,
+            "use deterministic context budgets",
+            "record",
+        ),
+        candidate(
+            "duplicate-b",
+            7,
+            "use deterministic context budgets",
+            "record",
+        ),
+        candidate("noise", 7, "old unrelated transcript fragment", "record"),
+    ];
+    let baseline_context_bytes = candidates
+        .iter()
+        .map(|item| item.content.len() as u64)
+        .sum::<u64>();
+    let first = select(
+        candidates.clone(),
+        Some("context budgets verification"),
+        &[],
+        3,
+        4096,
+    );
+    let second = select(
+        candidates,
+        Some("context budgets verification"),
+        &[],
+        3,
+        4096,
+    );
+    let essential = ["constraint", "unknown", "decision"];
+    let retained = first
+        .0
+        .iter()
+        .filter(|item| essential.contains(&item.item_id.as_str()))
+        .count() as u32;
+    let optimized_context_bytes = u64::from(first.1.used_content_bytes);
+    let reduction = if baseline_context_bytes == 0 {
+        0.0
+    } else {
+        100.0 * (baseline_context_bytes - optimized_context_bytes) as f64
+            / baseline_context_bytes as f64
+    };
+    TokenEfficiencySimulationReport {
+        suite_version: 1,
+        baseline_context_bytes,
+        optimized_context_bytes,
+        context_byte_reduction_percent: reduction,
+        duplicate_items_removed: first.1.deduplicated_items,
+        essential_items_expected: essential.len() as u32,
+        essential_items_retained: retained,
+        unresolved_unknowns_retained: first
+            .0
+            .iter()
+            .filter(|item| item.item_id == "unknown")
+            .count() as u32,
+        exact_token_claims_from_byte_estimates: 0,
         deterministic: first == second,
         routing_eligible: false,
         network_or_model_calls: 0,

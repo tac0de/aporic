@@ -28,7 +28,9 @@ use crate::domain::{
     RuntimeObservation, RuntimeOutcomeStatus, RuntimeProjectionAudit, RuntimeTraceGetRequest,
     RuntimeTraceListRequest, RuntimeWorkspaceRequest, ShadowDisposition, TaskCancelRequest,
     TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskOutcome,
-    TaskStatus, workspace_file_claim,
+    TaskStatus, TokenCountSource, TokenEfficiencyReport, TokenEfficiencyReportRequest,
+    TokenUsageAudit, TokenUsageListRequest, TokenUsageOutcome, TokenUsageReceipt,
+    TokenUsageRecordRequest, UsageOutcome, workspace_file_claim,
 };
 
 const SCHEMA: &str = include_str!("../../../migrations/0001_initial.sql");
@@ -40,6 +42,7 @@ const MIGRATION_6: &str = include_str!("../../../migrations/0006_authority_bound
 const MIGRATION_7: &str = include_str!("../../../migrations/0007_memory_lifecycle.sql");
 const MIGRATION_8: &str = include_str!("../../../migrations/0008_runtime_trace.sql");
 const MIGRATION_9: &str = include_str!("../../../migrations/0009_git_governance.sql");
+const MIGRATION_10: &str = include_str!("../../../migrations/0010_token_efficiency.sql");
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -80,6 +83,7 @@ impl Store {
                 connection.execute_batch(MIGRATION_7)?;
                 connection.execute_batch(MIGRATION_8)?;
                 connection.execute_batch(MIGRATION_9)?;
+                connection.execute_batch(MIGRATION_10)?;
             }
             1 => {
                 connection.execute_batch(MIGRATION_2)?;
@@ -90,6 +94,7 @@ impl Store {
                 connection.execute_batch(MIGRATION_7)?;
                 connection.execute_batch(MIGRATION_8)?;
                 connection.execute_batch(MIGRATION_9)?;
+                connection.execute_batch(MIGRATION_10)?;
             }
             2 => {
                 connection.execute_batch(MIGRATION_3)?;
@@ -99,6 +104,7 @@ impl Store {
                 connection.execute_batch(MIGRATION_7)?;
                 connection.execute_batch(MIGRATION_8)?;
                 connection.execute_batch(MIGRATION_9)?;
+                connection.execute_batch(MIGRATION_10)?;
             }
             3 => {
                 connection.execute_batch(MIGRATION_4)?;
@@ -107,6 +113,7 @@ impl Store {
                 connection.execute_batch(MIGRATION_7)?;
                 connection.execute_batch(MIGRATION_8)?;
                 connection.execute_batch(MIGRATION_9)?;
+                connection.execute_batch(MIGRATION_10)?;
             }
             4 => {
                 connection.execute_batch(MIGRATION_5)?;
@@ -114,27 +121,35 @@ impl Store {
                 connection.execute_batch(MIGRATION_7)?;
                 connection.execute_batch(MIGRATION_8)?;
                 connection.execute_batch(MIGRATION_9)?;
+                connection.execute_batch(MIGRATION_10)?;
             }
             5 => {
                 connection.execute_batch(MIGRATION_6)?;
                 connection.execute_batch(MIGRATION_7)?;
                 connection.execute_batch(MIGRATION_8)?;
                 connection.execute_batch(MIGRATION_9)?;
+                connection.execute_batch(MIGRATION_10)?;
             }
             6 => {
                 connection.execute_batch(MIGRATION_7)?;
                 connection.execute_batch(MIGRATION_8)?;
                 connection.execute_batch(MIGRATION_9)?;
+                connection.execute_batch(MIGRATION_10)?;
             }
             7 => {
                 connection.execute_batch(MIGRATION_8)?;
                 connection.execute_batch(MIGRATION_9)?;
+                connection.execute_batch(MIGRATION_10)?;
             }
-            8 => connection.execute_batch(MIGRATION_9)?,
-            9 => {}
+            8 => {
+                connection.execute_batch(MIGRATION_9)?;
+                connection.execute_batch(MIGRATION_10)?;
+            }
+            9 => connection.execute_batch(MIGRATION_10)?,
+            10 => {}
             version => {
                 return Err(Error::Invalid(format!(
-                    "database schema version {version} is newer than supported version 9"
+                    "database schema version {version} is newer than supported version 10"
                 )));
             }
         }
@@ -1414,6 +1429,12 @@ impl Store {
                     max_content_bytes: max_bytes,
                     used_content_bytes: 0,
                     omitted_items: 0,
+                    candidate_items: 0,
+                    deduplicated_items: 0,
+                    oversized_items: 0,
+                    item_limit_items: 0,
+                    conservative_input_token_upper_bound: 0,
+                    token_estimate_source: "conservative_utf8_byte_upper_bound".to_owned(),
                 },
                 warnings: vec!["project_not_found".to_owned()],
                 policy_sha256: crate::context::policy_sha256(),
@@ -1431,12 +1452,23 @@ impl Store {
         let candidate_count = candidates.len();
         let mut items = Vec::new();
         let mut used = 0usize;
+        let mut seen_content = std::collections::BTreeSet::new();
+        let mut deduplicated = 0usize;
+        let mut oversized = 0usize;
+        let mut item_limited = 0usize;
         for mut item in candidates {
             if items.len() >= limit as usize {
-                break;
+                item_limited += 1;
+                continue;
+            }
+            let content_sha256 = format!("{:x}", Sha256::digest(item.content.as_bytes()));
+            if !seen_content.insert(content_sha256) {
+                deduplicated += 1;
+                continue;
             }
             let bytes = item.content.len();
             if used + bytes > max_bytes as usize {
+                oversized += 1;
                 continue;
             }
             item.selection_reasons.push(if terms.is_empty() {
@@ -1474,6 +1506,12 @@ impl Store {
                 used_content_bytes: u32::try_from(used).unwrap_or(u32::MAX),
                 omitted_items: u32::try_from(candidate_count.saturating_sub(selected))
                     .unwrap_or(u32::MAX),
+                candidate_items: u32::try_from(candidate_count).unwrap_or(u32::MAX),
+                deduplicated_items: u32::try_from(deduplicated).unwrap_or(u32::MAX),
+                oversized_items: u32::try_from(oversized).unwrap_or(u32::MAX),
+                item_limit_items: u32::try_from(item_limited).unwrap_or(u32::MAX),
+                conservative_input_token_upper_bound: u32::try_from(used).unwrap_or(u32::MAX),
+                token_estimate_source: "conservative_utf8_byte_upper_bound".to_owned(),
             },
             warnings,
             policy_sha256: crate::context::policy_sha256(),
@@ -2107,6 +2145,277 @@ impl Store {
         })
     }
 
+    pub fn record_token_usage(
+        &self,
+        request: &TokenUsageRecordRequest,
+    ) -> Result<TokenUsageOutcome> {
+        require_text("scope_kind", &request.scope_kind)?;
+        require_text("scope_id", &request.scope_id)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        if request.scope_kind.len() > 64 || request.scope_id.len() > 512 {
+            return Err(Error::Invalid(
+                "usage scope_kind or scope_id exceeds its bounded length".to_owned(),
+            ));
+        }
+        let counts = [
+            request.input_tokens,
+            request.output_tokens,
+            request.cached_input_tokens,
+            request.reasoning_tokens,
+            request.context_bytes,
+        ];
+        if counts
+            .iter()
+            .flatten()
+            .any(|value| *value > i64::MAX as u64)
+        {
+            return Err(Error::Invalid(
+                "usage count exceeds SQLite range".to_owned(),
+            ));
+        }
+        if request.cached_input_tokens.unwrap_or(0) > request.input_tokens.unwrap_or(0) {
+            return Err(Error::Invalid(
+                "cached_input_tokens cannot exceed input_tokens".to_owned(),
+            ));
+        }
+        if matches!(
+            request.outcome,
+            UsageOutcome::VerifiedSuccess | UsageOutcome::VerifiedFailure
+        ) && request
+            .verification_ref
+            .as_deref()
+            .is_none_or(|value| value.trim().is_empty())
+        {
+            return Err(Error::Invalid(
+                "verified usage outcomes require verification_ref".to_owned(),
+            ));
+        }
+        match request.source_kind {
+            TokenCountSource::HostReported | TokenCountSource::LocalTokenizer => {
+                if request.input_tokens.is_none()
+                    && request.output_tokens.is_none()
+                    && request.reasoning_tokens.is_none()
+                {
+                    return Err(Error::Invalid(
+                        "measured usage requires at least one token count".to_owned(),
+                    ));
+                }
+            }
+            TokenCountSource::ConservativeByteUpperBound => {
+                if request.context_bytes.is_none() || request.input_tokens.is_some() {
+                    return Err(Error::Invalid(
+                        "byte upper-bound usage requires context_bytes and must not claim input_tokens"
+                            .to_owned(),
+                    ));
+                }
+            }
+            TokenCountSource::Unknown => {
+                if counts[..4].iter().any(Option::is_some) {
+                    return Err(Error::Invalid(
+                        "unknown token provenance cannot carry token counts".to_owned(),
+                    ));
+                }
+            }
+        }
+
+        let workspace = canonical_workspace(&request.workspace)?;
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<TokenUsageOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "token_usage_recorded",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        let project_id = find_or_create_project(&transaction, &workspace, now)?;
+        if let Some(session_id) = request.session_id.as_deref() {
+            let owner = transaction
+                .query_row(
+                    "SELECT project_id FROM sessions WHERE session_id = ?1",
+                    [session_id],
+                    |row| row.get::<_, String>(0),
+                )
+                .optional()?
+                .ok_or_else(|| Error::NotFound(format!("session {session_id}")))?;
+            if owner != project_id {
+                return Err(Error::Conflict(
+                    "usage session belongs to another workspace".to_owned(),
+                ));
+            }
+        }
+        if let Some(reference) = request.verification_ref.as_deref() {
+            let reference_valid = match request.outcome {
+                UsageOutcome::VerifiedSuccess => transaction.query_row(
+                    "SELECT EXISTS(
+                        SELECT 1 FROM execution_runs runs
+                        JOIN sessions ON sessions.session_id = runs.session_id
+                        LEFT JOIN execution_receipts receipts ON receipts.run_id = runs.run_id
+                        WHERE sessions.project_id = ?1 AND runs.status = 'succeeded'
+                          AND (runs.run_id = ?2 OR receipts.receipt_id = ?2)
+                        UNION ALL
+                        SELECT 1 FROM claims
+                        JOIN sessions ON sessions.session_id = claims.session_id
+                        WHERE sessions.project_id = ?1 AND claims.status = 'verified'
+                          AND claims.claim_id = ?2
+                    )",
+                    params![project_id, reference],
+                    |row| row.get::<_, bool>(0),
+                )?,
+                UsageOutcome::VerifiedFailure => transaction.query_row(
+                    "SELECT EXISTS(
+                        SELECT 1 FROM execution_runs runs
+                        JOIN sessions ON sessions.session_id = runs.session_id
+                        WHERE sessions.project_id = ?1
+                          AND runs.status IN ('failed', 'timed_out', 'interrupted')
+                          AND runs.run_id = ?2
+                    )",
+                    params![project_id, reference],
+                    |row| row.get::<_, bool>(0),
+                )?,
+                UsageOutcome::Unverified => true,
+            };
+            if !reference_valid {
+                return Err(Error::Conflict(
+                    "verification_ref is not a matching Aporic-direct outcome in this workspace"
+                        .to_owned(),
+                ));
+            }
+        }
+        let mut receipt = TokenUsageReceipt {
+            sequence: 0,
+            receipt_id: Uuid::now_v7().to_string(),
+            session_id: request.session_id.clone(),
+            scope_kind: request.scope_kind.trim().to_owned(),
+            scope_id: request.scope_id.trim().to_owned(),
+            model: request
+                .model
+                .as_deref()
+                .map(str::trim)
+                .filter(|v| !v.is_empty())
+                .map(str::to_owned),
+            source_kind: request.source_kind.clone(),
+            input_tokens: request.input_tokens,
+            output_tokens: request.output_tokens,
+            cached_input_tokens: request.cached_input_tokens,
+            reasoning_tokens: request.reasoning_tokens,
+            context_bytes: request.context_bytes,
+            outcome: request.outcome.clone(),
+            verification_ref: request.verification_ref.clone(),
+            receipt_sha256: String::new(),
+            recorded_at_unix_ms: now,
+        };
+        receipt.receipt_sha256 = token_usage_digest(&receipt)?;
+        transaction.execute(
+            "INSERT INTO token_usage_receipts(
+                receipt_id, project_id, session_id, scope_kind, scope_id, model, source_kind,
+                input_tokens, output_tokens, cached_input_tokens, reasoning_tokens,
+                context_bytes, outcome, verification_ref, receipt_sha256, recorded_at_unix_ms
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+            params![
+                receipt.receipt_id,
+                project_id,
+                receipt.session_id,
+                receipt.scope_kind,
+                receipt.scope_id,
+                receipt.model,
+                receipt.source_kind.as_str(),
+                receipt.input_tokens,
+                receipt.output_tokens,
+                receipt.cached_input_tokens,
+                receipt.reasoning_tokens,
+                receipt.context_bytes,
+                receipt.outcome.as_str(),
+                receipt.verification_ref,
+                receipt.receipt_sha256,
+                receipt.recorded_at_unix_ms,
+            ],
+        )?;
+        receipt.sequence = u64::try_from(transaction.last_insert_rowid())
+            .map_err(|_| Error::Invalid("usage receipt sequence overflow".to_owned()))?;
+        let outcome = TokenUsageOutcome {
+            receipt,
+            duplicate: false,
+        };
+        let stream_id = request.session_id.as_deref().unwrap_or(&project_id);
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            stream_id,
+            "token_usage_recorded",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn list_token_usage(
+        &self,
+        request: &TokenUsageListRequest,
+    ) -> Result<Vec<TokenUsageReceipt>> {
+        let workspace = canonical_workspace(&request.workspace)?;
+        let connection = self.connection()?;
+        let Some(project_id) = project_id_for_workspace(&connection, &workspace)? else {
+            return Ok(Vec::new());
+        };
+        let limit = request.limit.unwrap_or(100).clamp(1, 500);
+        let mut statement = connection.prepare(&format!(
+            "{} FROM token_usage_receipts WHERE project_id = ?1 ORDER BY sequence DESC LIMIT ?2",
+            token_usage_select()
+        ))?;
+        Ok(statement
+            .query_map(params![project_id, limit], token_usage_from_row)?
+            .collect::<std::result::Result<Vec<_>, _>>()?)
+    }
+
+    pub fn token_efficiency_report(
+        &self,
+        request: &TokenEfficiencyReportRequest,
+    ) -> Result<TokenEfficiencyReport> {
+        let workspace = canonical_workspace(&request.workspace)?;
+        let connection = self.connection()?;
+        let Some(project_id) = project_id_for_workspace(&connection, &workspace)? else {
+            return Ok(empty_token_efficiency_report());
+        };
+        let mut statement = connection.prepare(&format!(
+            "{} FROM token_usage_receipts WHERE project_id = ?1 ORDER BY sequence ASC",
+            token_usage_select()
+        ))?;
+        let receipts = statement
+            .query_map([project_id], token_usage_from_row)?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        Ok(build_token_efficiency_report(&receipts))
+    }
+
+    pub fn audit_token_usage(&self) -> Result<TokenUsageAudit> {
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(&format!(
+            "{} FROM token_usage_receipts ORDER BY sequence ASC",
+            token_usage_select()
+        ))?;
+        let receipts = statement
+            .query_map([], token_usage_from_row)?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let digest_mismatch_count = receipts
+            .iter()
+            .filter(|receipt| {
+                token_usage_digest(receipt)
+                    .map(|digest| digest != receipt.receipt_sha256)
+                    .unwrap_or(true)
+            })
+            .count() as u64;
+        Ok(TokenUsageAudit {
+            receipt_count: receipts.len() as u64,
+            digest_mismatch_count,
+            consistent: digest_mismatch_count == 0,
+        })
+    }
+
     pub fn stats(&self) -> Result<HubStats> {
         let connection = self.connection()?;
         Ok(HubStats {
@@ -2145,6 +2454,7 @@ impl Store {
             )?,
             execution_receipt_count: table_count(&connection, "execution_receipts", "1 = 1")?,
             git_snapshot_count: table_count(&connection, "git_snapshots", "1 = 1")?,
+            token_usage_receipt_count: table_count(&connection, "token_usage_receipts", "1 = 1")?,
         })
     }
 
@@ -2304,6 +2614,15 @@ impl Store {
                 .query_map([&project_id], git_snapshot_from_row)?
                 .collect::<std::result::Result<Vec<_>, _>>()?
         };
+        let token_usage_receipts = {
+            let mut statement = connection.prepare(&format!(
+                "{} FROM token_usage_receipts WHERE project_id = ?1 ORDER BY sequence ASC",
+                token_usage_select()
+            ))?;
+            statement
+                .query_map([&project_id], token_usage_from_row)?
+                .collect::<std::result::Result<Vec<_>, _>>()?
+        };
 
         let events = {
             let mut statement = connection.prepare(
@@ -2351,7 +2670,7 @@ impl Store {
         };
 
         Ok(ProjectExport {
-            format_version: 7,
+            format_version: 8,
             exported_at_unix_ms: unix_millis()?,
             project_id,
             workspace,
@@ -2370,6 +2689,7 @@ impl Store {
             runtime_events,
             capability_observations,
             git_snapshots,
+            token_usage_receipts,
             events,
         })
     }
@@ -2550,6 +2870,178 @@ fn git_snapshot_digest(snapshot: &GitSnapshot) -> Result<String> {
         "captured_at_unix_ms": snapshot.captured_at_unix_ms,
     });
     Ok(format!("{:x}", Sha256::digest(serde_json::to_vec(&value)?)))
+}
+
+fn token_usage_select() -> &'static str {
+    "SELECT token_usage_receipts.sequence, token_usage_receipts.receipt_id,
+            token_usage_receipts.session_id, token_usage_receipts.scope_kind,
+            token_usage_receipts.scope_id, token_usage_receipts.model,
+            token_usage_receipts.source_kind, token_usage_receipts.input_tokens,
+            token_usage_receipts.output_tokens, token_usage_receipts.cached_input_tokens,
+            token_usage_receipts.reasoning_tokens, token_usage_receipts.context_bytes,
+            token_usage_receipts.outcome, token_usage_receipts.verification_ref,
+            token_usage_receipts.receipt_sha256, token_usage_receipts.recorded_at_unix_ms"
+}
+
+fn token_usage_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<TokenUsageReceipt> {
+    Ok(TokenUsageReceipt {
+        sequence: row.get(0)?,
+        receipt_id: row.get(1)?,
+        session_id: row.get(2)?,
+        scope_kind: row.get(3)?,
+        scope_id: row.get(4)?,
+        model: row.get(5)?,
+        source_kind: parse_token_count_source(row.get(6)?)?,
+        input_tokens: row.get(7)?,
+        output_tokens: row.get(8)?,
+        cached_input_tokens: row.get(9)?,
+        reasoning_tokens: row.get(10)?,
+        context_bytes: row.get(11)?,
+        outcome: parse_usage_outcome(row.get(12)?)?,
+        verification_ref: row.get(13)?,
+        receipt_sha256: row.get(14)?,
+        recorded_at_unix_ms: row.get(15)?,
+    })
+}
+
+fn token_usage_digest(receipt: &TokenUsageReceipt) -> Result<String> {
+    let value = serde_json::json!({
+        "receipt_id": receipt.receipt_id,
+        "session_id": receipt.session_id,
+        "scope_kind": receipt.scope_kind,
+        "scope_id": receipt.scope_id,
+        "model": receipt.model,
+        "source_kind": receipt.source_kind,
+        "input_tokens": receipt.input_tokens,
+        "output_tokens": receipt.output_tokens,
+        "cached_input_tokens": receipt.cached_input_tokens,
+        "reasoning_tokens": receipt.reasoning_tokens,
+        "context_bytes": receipt.context_bytes,
+        "outcome": receipt.outcome,
+        "verification_ref": receipt.verification_ref,
+        "recorded_at_unix_ms": receipt.recorded_at_unix_ms,
+    });
+    Ok(format!("{:x}", Sha256::digest(serde_json::to_vec(&value)?)))
+}
+
+fn empty_token_efficiency_report() -> TokenEfficiencyReport {
+    TokenEfficiencyReport {
+        receipt_count: 0,
+        host_reported_receipts: 0,
+        local_tokenizer_receipts: 0,
+        estimated_receipts: 0,
+        unknown_receipts: 0,
+        measured_input_tokens: 0,
+        measured_output_tokens: 0,
+        measured_reasoning_tokens: 0,
+        cached_input_tokens: 0,
+        estimated_input_token_upper_bound: 0,
+        verified_successes: 0,
+        verified_failures: 0,
+        measured_verified_successes: 0,
+        measured_tokens_per_verified_success: None,
+        measurement_complete: false,
+        warnings: vec!["no_usage_receipts".to_owned()],
+    }
+}
+
+fn build_token_efficiency_report(receipts: &[TokenUsageReceipt]) -> TokenEfficiencyReport {
+    if receipts.is_empty() {
+        return empty_token_efficiency_report();
+    }
+    let mut report = TokenEfficiencyReport {
+        receipt_count: receipts.len() as u64,
+        host_reported_receipts: 0,
+        local_tokenizer_receipts: 0,
+        estimated_receipts: 0,
+        unknown_receipts: 0,
+        measured_input_tokens: 0,
+        measured_output_tokens: 0,
+        measured_reasoning_tokens: 0,
+        cached_input_tokens: 0,
+        estimated_input_token_upper_bound: 0,
+        verified_successes: 0,
+        verified_failures: 0,
+        measured_verified_successes: 0,
+        measured_tokens_per_verified_success: None,
+        measurement_complete: false,
+        warnings: Vec::new(),
+    };
+    let mut unverified = 0u64;
+    for receipt in receipts {
+        let measured = matches!(
+            receipt.source_kind,
+            TokenCountSource::HostReported | TokenCountSource::LocalTokenizer
+        );
+        match receipt.source_kind {
+            TokenCountSource::HostReported => report.host_reported_receipts += 1,
+            TokenCountSource::LocalTokenizer => report.local_tokenizer_receipts += 1,
+            TokenCountSource::ConservativeByteUpperBound => {
+                report.estimated_receipts += 1;
+                report.estimated_input_token_upper_bound = report
+                    .estimated_input_token_upper_bound
+                    .saturating_add(receipt.context_bytes.unwrap_or(0));
+            }
+            TokenCountSource::Unknown => report.unknown_receipts += 1,
+        }
+        if measured {
+            report.measured_input_tokens = report
+                .measured_input_tokens
+                .saturating_add(receipt.input_tokens.unwrap_or(0));
+            report.measured_output_tokens = report
+                .measured_output_tokens
+                .saturating_add(receipt.output_tokens.unwrap_or(0));
+            report.measured_reasoning_tokens = report
+                .measured_reasoning_tokens
+                .saturating_add(receipt.reasoning_tokens.unwrap_or(0));
+            report.cached_input_tokens = report
+                .cached_input_tokens
+                .saturating_add(receipt.cached_input_tokens.unwrap_or(0));
+        }
+        match receipt.outcome {
+            UsageOutcome::VerifiedSuccess => {
+                report.verified_successes += 1;
+                if measured {
+                    report.measured_verified_successes += 1;
+                }
+            }
+            UsageOutcome::VerifiedFailure => report.verified_failures += 1,
+            UsageOutcome::Unverified => unverified += 1,
+        }
+    }
+    let measured_total = report
+        .measured_input_tokens
+        .saturating_add(report.measured_output_tokens)
+        .saturating_add(report.measured_reasoning_tokens);
+    if report.measured_verified_successes > 0 {
+        report.measured_tokens_per_verified_success =
+            Some(measured_total as f64 / report.measured_verified_successes as f64);
+    }
+    if report.estimated_receipts > 0 {
+        report
+            .warnings
+            .push("estimated_tokens_are_not_provider_counts".to_owned());
+    }
+    if report.unknown_receipts > 0 {
+        report
+            .warnings
+            .push("unknown_token_provenance_present".to_owned());
+    }
+    if unverified > 0 {
+        report
+            .warnings
+            .push("unverified_outcomes_present".to_owned());
+    }
+    if report.verified_successes != report.measured_verified_successes {
+        report
+            .warnings
+            .push("some_verified_successes_lack_measured_tokens".to_owned());
+    }
+    report.measurement_complete = report.unknown_receipts == 0
+        && report.estimated_receipts == 0
+        && unverified == 0
+        && report.verified_successes == report.measured_verified_successes;
+    report
 }
 
 fn runtime_event_select() -> &'static str {
@@ -4120,6 +4612,25 @@ fn parse_influence_class(value: String) -> rusqlite::Result<InfluenceClass> {
         "verified_fact" => Ok(InfluenceClass::VerifiedFact),
         "historical_context" => Ok(InfluenceClass::HistoricalContext),
         "untrusted_content" => Ok(InfluenceClass::UntrustedContent),
+        _ => Err(rusqlite::Error::InvalidQuery),
+    }
+}
+
+fn parse_token_count_source(value: String) -> rusqlite::Result<TokenCountSource> {
+    match value.as_str() {
+        "host_reported" => Ok(TokenCountSource::HostReported),
+        "local_tokenizer" => Ok(TokenCountSource::LocalTokenizer),
+        "conservative_byte_upper_bound" => Ok(TokenCountSource::ConservativeByteUpperBound),
+        "unknown" => Ok(TokenCountSource::Unknown),
+        _ => Err(rusqlite::Error::InvalidQuery),
+    }
+}
+
+fn parse_usage_outcome(value: String) -> rusqlite::Result<UsageOutcome> {
+    match value.as_str() {
+        "unverified" => Ok(UsageOutcome::Unverified),
+        "verified_success" => Ok(UsageOutcome::VerifiedSuccess),
+        "verified_failure" => Ok(UsageOutcome::VerifiedFailure),
         _ => Err(rusqlite::Error::InvalidQuery),
     }
 }

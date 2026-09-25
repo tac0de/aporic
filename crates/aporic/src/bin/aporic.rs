@@ -33,6 +33,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         [eval, memory] if eval == "eval" && memory == "memory" => simulate_memory_eval(),
         [eval, runtime] if eval == "eval" && runtime == "runtime" => simulate_runtime_eval(),
         [eval, git] if eval == "eval" && git == "git" => simulate_git_eval(),
+        [eval, tokens] if eval == "eval" && tokens == "tokens" => simulate_token_eval(),
+        [tokens, report, flag, workspace]
+            if tokens == "tokens" && report == "report" && flag == "--workspace" =>
+        {
+            token_report(workspace)
+        }
         [executions, reconcile, flag, seconds]
             if executions == "executions"
                 && reconcile == "reconcile"
@@ -46,7 +52,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         _ => {
             eprintln!(
-                "usage: aporic doctor | aporic export --workspace PATH | aporic trace export --workspace PATH | aporic git inspect --workspace PATH | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic eval context | aporic eval memory | aporic eval runtime | aporic eval git | aporic executions reconcile --stale-after SECONDS | aporic hook codex | aporic mcp serve --stdio"
+                "usage: aporic doctor | aporic export --workspace PATH | aporic trace export --workspace PATH | aporic git inspect --workspace PATH | aporic tokens report --workspace PATH | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic eval context | aporic eval memory | aporic eval runtime | aporic eval git | aporic eval tokens | aporic executions reconcile --stale-after SECONDS | aporic hook codex | aporic mcp serve --stdio"
             );
             std::process::exit(2);
         }
@@ -81,6 +87,28 @@ fn simulate_git_eval() -> Result<(), Box<dyn Error>> {
     println!(
         "{}",
         serde_json::to_string_pretty(&aporic::eval::simulate_git_governance())?
+    );
+    Ok(())
+}
+
+fn simulate_token_eval() -> Result<(), Box<dyn Error>> {
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&aporic::eval::simulate_token_efficiency())?
+    );
+    Ok(())
+}
+
+fn token_report(workspace: &str) -> Result<(), Box<dyn Error>> {
+    let database = default_database_path().map_err(std::io::Error::other)?;
+    let hub = Hub::open(database)?;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&hub.token_efficiency_report(
+            &aporic::domain::TokenEfficiencyReportRequest {
+                workspace: workspace.to_owned(),
+            },
+        )?)?
     );
     Ok(())
 }
@@ -142,10 +170,12 @@ fn doctor() -> Result<(), Box<dyn Error>> {
     let memory_projection = hub.audit_memory_projection()?;
     let runtime_projection = hub.audit_runtime_projection()?;
     let git_snapshots = hub.audit_git_snapshots()?;
+    let token_usage = hub.audit_token_usage()?;
     let replay_ok = execution_replay.mismatches.is_empty()
         && memory_projection.consistent
         && runtime_projection.consistent
-        && git_snapshots.consistent;
+        && git_snapshots.consistent
+        && token_usage.consistent;
     println!(
         "{}",
         serde_json::to_string(&serde_json::json!({
@@ -156,7 +186,8 @@ fn doctor() -> Result<(), Box<dyn Error>> {
             "execution_replay": execution_replay,
             "memory_projection": memory_projection,
             "runtime_projection": runtime_projection
-            ,"git_snapshots": git_snapshots
+            ,"git_snapshots": git_snapshots,
+            "token_usage": token_usage
         }))?
     );
     Ok(())

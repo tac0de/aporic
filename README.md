@@ -14,7 +14,7 @@ See [PRODUCT.md](PRODUCT.md) for the product objective and
 
 ## Current product surface
 
-The hub exposes twenty-six MCP tools in eight groups.
+The hub exposes twenty-nine MCP tools in nine groups.
 
 Continuity:
 
@@ -75,6 +75,13 @@ Git evidence and governance:
   inspection and append a commit-bound governance snapshot;
 - `aporic_git_snapshot_list` and `aporic_git_snapshot_get`: inspect prior
   repository observations without treating findings as review or merge approval.
+
+Token efficiency:
+
+- `aporic_token_usage_record`: append a provenance-labelled usage receipt;
+- `aporic_token_usage_list`: inspect bounded, append-only usage history;
+- `aporic_token_efficiency_report`: separate measured counts, conservative
+  estimates, cached input, and verified outcomes.
 
 MCP cannot execute a registered check or submit a receipt. A human or local
 automation invokes `aporic verify --spec SPEC_ID`; the Rust runner executes the
@@ -188,6 +195,28 @@ and cannot authorize a merge. Inspect and record the current repository state:
 cargo run -p aporic -- git inspect --workspace /absolute/project/path
 ```
 
+## Token efficiency and context control
+
+v0.10 records host-reported, local-tokenizer, conservative byte-upper-bound,
+and unknown usage as different provenance classes. Cached input remains part of
+input usage and is reported separately; it is never presented as removed
+context. A verified success or failure must bind to a matching Aporic-direct
+verified claim or execution outcome from the same workspace. Arbitrary model or
+operator text cannot establish the denominator for “tokens per verified
+success.”
+
+Context and memory selection now remove exact duplicate content after safety
+priority sorting. Every budget reports candidate, duplicate, oversized, and
+item-limit counts. UTF-8 bytes are exposed only as a conservative token upper
+bound, not as a provider tokenizer result. Usage receipts are digest-bound and
+included in project export and `doctor` consistency checks.
+
+Inspect locally recorded efficiency evidence:
+
+```console
+cargo run -p aporic -- tokens report --workspace /absolute/project/path
+```
+
 The router is advisory and outside the behavioral kernel. It does not dispatch a
 model, grant authority, or turn a model review into evidence. See
 [model routing](docs/model-routing.md).
@@ -213,6 +242,7 @@ cargo run -p aporic -- eval context
 cargo run -p aporic -- eval memory
 cargo run -p aporic -- eval runtime
 cargo run -p aporic -- eval git
+cargo run -p aporic -- eval tokens
 ```
 
 State is stored in platform-native application data, not in the governed
@@ -266,6 +296,7 @@ cargo test -p aporic --test context_runtime -- --nocapture
 cargo test -p aporic --test memory_lifecycle -- --nocapture
 cargo test -p aporic --test runtime_trace -- --nocapture
 cargo test -p aporic --test git_governance -- --nocapture
+cargo test -p aporic --test token_efficiency -- --nocapture
 ```
 
 The Codex bridge template is under `integrations/codex/`. Nothing in the build

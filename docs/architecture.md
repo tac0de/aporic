@@ -29,6 +29,8 @@ Codex lifecycle --JSON stdin--> fail-open hook --> bounded context + exposure re
 local CLI --> runner --> exact argv process --> hashed receipt --> SQLite
 
 local Git --fixed read-only argv--> git observer --> governance snapshot --> SQLite
+
+host/local counts --> provenance gate --> token usage receipt --> efficiency report
 ```
 
 Each Codex connection runs an inexpensive child process. Processes share one
@@ -88,6 +90,15 @@ keys are not. Snapshot digests detect accidental projection corruption; because
 the database remains writable by the same user, they are not a tamper-proof
 security boundary.
 
+Schema v10 adds append-only `token_usage_receipts`. Each receipt keeps the
+counting source, input/output/reasoning counts, cached-input subset, context
+bytes, outcome status, verification reference, and a canonical digest. A
+verified outcome must resolve to matching Aporic-direct state in the same
+workspace. Reports aggregate measured counts separately from conservative byte
+upper bounds and unknowns. They expose measured tokens per verified success
+only when a measured verified denominator exists, and mark the overall report
+incomplete when estimates, unknown provenance, or unverified outcomes remain.
+
 ## MCP surface
 
 - `aporic_open`: start an idempotent session and return recent context.
@@ -115,6 +126,9 @@ security boundary.
 - `aporic_git_observe`, `aporic_git_snapshot_list`, and
   `aporic_git_snapshot_get`: capture and inspect local commit-bound Git evidence
   without fetch, checkout, commit, push, PR, review, or merge capabilities.
+- `aporic_token_usage_record`, `aporic_token_usage_list`, and
+  `aporic_token_efficiency_report`: append and inspect provenance-labelled usage
+  without calling a model API or converting estimates into exact counts.
 
 Recall excludes records and claims superseded by newer state. Its selector
 combines unresolved material unknowns, active constraints and decisions, active
@@ -124,6 +138,12 @@ only rank items within the higher-level safety priority; recency and stable IDs
 make ties deterministic. Each item exposes its origin, influence class, and
 selection reasons. Historical effect/verification links remain readable, but
 new writes use the typed gate.
+
+After ranking, identical content is selected once and lower-priority duplicates
+are omitted. Context budgets disclose candidate, duplicate, oversized, and
+item-limit counts. The conservative input-token upper bound equals selected
+UTF-8 bytes; its source label prevents consumers from mistaking it for a
+provider tokenizer count.
 
 The Codex hook adapter appends no raw hook payload. Opening the local store may
 still initialize or migrate its schema. For session and prompt events, it uses a
@@ -183,6 +203,13 @@ blocking, raw payload retention, network export, or model/API invocation.
 sensitive-path detection, append-only lookup, and digest consistency against
 real temporary repositories. `eval git` fixes six adversarial governance states
 and asserts zero Git mutation, approval, network, or model/API calls.
+
+`token_efficiency` exercises v9 migration, provenance validation, idempotent
+append-only receipts, direct verification binding, cache/input separation,
+digest corruption detection, export, deterministic context deduplication, and
+unknown retention. `eval tokens` compares a duplicate-bearing byte baseline
+with the bounded selector and explicitly emits no exact token claim from byte
+estimates.
 
 ## Later growth
 

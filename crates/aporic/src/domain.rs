@@ -202,6 +202,144 @@ pub struct ContextBudget {
     pub max_content_bytes: u32,
     pub used_content_bytes: u32,
     pub omitted_items: u32,
+    pub candidate_items: u32,
+    pub deduplicated_items: u32,
+    pub oversized_items: u32,
+    pub item_limit_items: u32,
+    pub conservative_input_token_upper_bound: u32,
+    pub token_estimate_source: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum TokenCountSource {
+    HostReported,
+    LocalTokenizer,
+    ConservativeByteUpperBound,
+    Unknown,
+}
+
+impl TokenCountSource {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::HostReported => "host_reported",
+            Self::LocalTokenizer => "local_tokenizer",
+            Self::ConservativeByteUpperBound => "conservative_byte_upper_bound",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum UsageOutcome {
+    Unverified,
+    VerifiedSuccess,
+    VerifiedFailure,
+}
+
+impl UsageOutcome {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Unverified => "unverified",
+            Self::VerifiedSuccess => "verified_success",
+            Self::VerifiedFailure => "verified_failure",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TokenUsageRecordRequest {
+    pub workspace: String,
+    #[serde(default)]
+    pub session_id: Option<String>,
+    pub scope_kind: String,
+    pub scope_id: String,
+    #[serde(default)]
+    pub model: Option<String>,
+    pub source_kind: TokenCountSource,
+    #[serde(default)]
+    pub input_tokens: Option<u64>,
+    #[serde(default)]
+    pub output_tokens: Option<u64>,
+    #[serde(default)]
+    pub cached_input_tokens: Option<u64>,
+    #[serde(default)]
+    pub reasoning_tokens: Option<u64>,
+    #[serde(default)]
+    pub context_bytes: Option<u64>,
+    pub outcome: UsageOutcome,
+    #[serde(default)]
+    pub verification_ref: Option<String>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TokenUsageListRequest {
+    pub workspace: String,
+    #[serde(default)]
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TokenEfficiencyReportRequest {
+    pub workspace: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TokenUsageReceipt {
+    pub sequence: u64,
+    pub receipt_id: String,
+    pub session_id: Option<String>,
+    pub scope_kind: String,
+    pub scope_id: String,
+    pub model: Option<String>,
+    pub source_kind: TokenCountSource,
+    pub input_tokens: Option<u64>,
+    pub output_tokens: Option<u64>,
+    pub cached_input_tokens: Option<u64>,
+    pub reasoning_tokens: Option<u64>,
+    pub context_bytes: Option<u64>,
+    pub outcome: UsageOutcome,
+    pub verification_ref: Option<String>,
+    pub receipt_sha256: String,
+    pub recorded_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TokenUsageOutcome {
+    pub receipt: TokenUsageReceipt,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TokenEfficiencyReport {
+    pub receipt_count: u64,
+    pub host_reported_receipts: u64,
+    pub local_tokenizer_receipts: u64,
+    pub estimated_receipts: u64,
+    pub unknown_receipts: u64,
+    pub measured_input_tokens: u64,
+    pub measured_output_tokens: u64,
+    pub measured_reasoning_tokens: u64,
+    pub cached_input_tokens: u64,
+    pub estimated_input_token_upper_bound: u64,
+    pub verified_successes: u64,
+    pub verified_failures: u64,
+    pub measured_verified_successes: u64,
+    pub measured_tokens_per_verified_success: Option<f64>,
+    pub measurement_complete: bool,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TokenUsageAudit {
+    pub receipt_count: u64,
+    pub digest_mismatch_count: u64,
+    pub consistent: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -705,6 +843,7 @@ pub struct HubStats {
     pub interrupted_execution_count: u64,
     pub execution_receipt_count: u64,
     pub git_snapshot_count: u64,
+    pub token_usage_receipt_count: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -1216,5 +1355,6 @@ pub struct ProjectExport {
     pub runtime_events: Vec<RuntimeEvent>,
     pub capability_observations: Vec<CapabilityObservation>,
     pub git_snapshots: Vec<GitSnapshot>,
+    pub token_usage_receipts: Vec<TokenUsageReceipt>,
     pub events: Vec<ExportEvent>,
 }
