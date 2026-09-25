@@ -182,7 +182,11 @@ async fn successful_runner_receipt_is_the_only_path_to_a_verified_task_proof() {
     .unwrap();
 
     let outcome = hub.verify(&registered.spec.spec_id).await.unwrap();
-    assert_eq!(outcome.run.status, ExecutionStatus::Succeeded);
+    assert_eq!(
+        outcome.run.status,
+        ExecutionStatus::Succeeded,
+        "host runner outcome: {outcome:?}"
+    );
     assert_eq!(outcome.artifacts.len(), 1);
     assert!(workspace.join(&artifact).is_file());
     let claim_id = outcome
@@ -435,7 +439,11 @@ async fn required_linux_sandbox_confines_files_and_attests_enforcement() {
         .unwrap();
 
     let outcome = hub.verify(&registered.spec.spec_id).await.unwrap();
-    assert_eq!(outcome.run.status, ExecutionStatus::Succeeded);
+    assert_eq!(
+        outcome.run.status,
+        ExecutionStatus::Succeeded,
+        "filesystem sandbox outcome: {outcome:?}"
+    );
     let receipt = outcome.receipt.unwrap();
     assert_eq!(receipt.sandbox_backend, "linux_bubblewrap");
     assert!(receipt.sandbox_enforced);
@@ -463,7 +471,11 @@ async fn required_linux_sandbox_denies_workspace_writes_and_network() {
         })
         .unwrap();
     let outcome = hub.verify(&read_only.spec.spec_id).await.unwrap();
-    assert_eq!(outcome.run.status, ExecutionStatus::Succeeded);
+    assert_eq!(
+        outcome.run.status,
+        ExecutionStatus::Succeeded,
+        "read-only sandbox outcome: {outcome:?}"
+    );
     assert!(outcome.receipt.unwrap().sandbox_enforced);
 
     let network = hub
@@ -483,7 +495,11 @@ async fn required_linux_sandbox_denies_workspace_writes_and_network() {
         })
         .unwrap();
     let outcome = hub.verify(&network.spec.spec_id).await.unwrap();
-    assert_eq!(outcome.run.status, ExecutionStatus::Succeeded);
+    assert_eq!(
+        outcome.run.status,
+        ExecutionStatus::Succeeded,
+        "network sandbox outcome: {outcome:?}"
+    );
     assert!(outcome.receipt.unwrap().sandbox_enforced);
 }
 

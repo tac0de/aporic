@@ -227,7 +227,18 @@ fn visible_in_linux_sandbox(executable: &Path, workspace: &Path) -> bool {
 fn system_mount_arguments() -> Vec<String> {
     let mut arguments = Vec::new();
     for path in ["/usr", "/bin", "/sbin", "/lib", "/lib64"] {
-        if Path::new(path).exists() {
+        let Ok(metadata) = fs::symlink_metadata(path) else {
+            continue;
+        };
+        if metadata.file_type().is_symlink() {
+            if let Ok(target) = fs::read_link(path) {
+                arguments.extend([
+                    "--symlink".to_owned(),
+                    target.to_string_lossy().into_owned(),
+                    path.to_owned(),
+                ]);
+            }
+        } else {
             arguments.extend(["--ro-bind".to_owned(), path.to_owned(), path.to_owned()]);
         }
     }
