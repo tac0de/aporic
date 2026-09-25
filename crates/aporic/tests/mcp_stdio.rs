@@ -59,7 +59,12 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_recall",
             "aporic_reconcile",
             "aporic_record",
+            "aporic_resume",
+            "aporic_role_appoint",
+            "aporic_role_appointments",
             "aporic_role_report_submit",
+            "aporic_role_revoke",
+            "aporic_roles_list",
             "aporic_run_get",
             "aporic_run_list",
             "aporic_security_assessment_get",
@@ -93,6 +98,12 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
         .as_str()
         .expect("open result has a session id")
         .to_owned();
+
+    let resumed = call_json(&client, "aporic_resume", json!({ "workspace": workspace })).await?;
+    assert_eq!(resumed["result"]["status"], "ready");
+    assert_eq!(resumed["result"]["selected"]["source"], "open_session");
+    let roles = call_json(&client, "aporic_roles_list", json!({})).await?;
+    assert_eq!(roles["result"].as_array().unwrap().len(), 4);
 
     let recorded = call_json(
         &client,

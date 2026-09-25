@@ -320,13 +320,17 @@ fn doctor() -> Result<(), Box<dyn Error>> {
     let token_usage = hub.audit_token_usage()?;
     let deliberations = hub.audit_deliberations()?;
     let secure_capabilities = hub.audit_secure_capabilities()?;
+    let role_appointments = hub.audit_role_appointments()?;
+    let orchestration = hub.audit_orchestration()?;
     let replay_ok = execution_replay.mismatches.is_empty()
         && memory_projection.consistent
         && runtime_projection.consistent
         && git_snapshots.consistent
         && token_usage.consistent
         && deliberations.consistent
-        && secure_capabilities.consistent;
+        && secure_capabilities.consistent
+        && role_appointments.consistent
+        && orchestration.consistent;
     println!(
         "{}",
         serde_json::to_string(&serde_json::json!({
@@ -340,8 +344,10 @@ fn doctor() -> Result<(), Box<dyn Error>> {
             "git_snapshots": git_snapshots,
             "token_usage": token_usage,
             "deliberations": deliberations,
-            "secure_capabilities": secure_capabilities
-            ,"sandbox": aporic::sandbox_backend_status()
+            "secure_capabilities": secure_capabilities,
+            "role_appointments": role_appointments,
+            "orchestration": orchestration,
+            "sandbox": aporic::sandbox_backend_status()
         }))?
     );
     Ok(())

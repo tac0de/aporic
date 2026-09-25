@@ -7,8 +7,9 @@ use aporic::{
         AdvisoryRoleReportRequest, AdvisorySourceKind, ClaimRequest, ClaimStatus, CriterionProof,
         EvidenceKind, EvidenceRequest, GitObserveRequest, OpenRequest,
         OrchestrationRunCreateRequest, OrchestrationRunGetRequest, OrchestrationRunListRequest,
-        PredictedTaskOutcome, RuntimeTraceListRequest, ShadowEvaluationRequest, TaskCancelRequest,
-        TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, workspace_file_claim,
+        PredictedTaskOutcome, RoleAppointmentCreateRequest, RuntimeTraceListRequest,
+        ShadowEvaluationRequest, TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest,
+        TaskCreateRequest, workspace_file_claim,
     },
     hook::handle_codex_hook,
 };
@@ -133,6 +134,7 @@ fn create_run(fixture: &Fixture, mode: AdvisoryMode, key: &str) -> String {
             mode,
             role_kind: AdvisoryRoleKind::Worker,
             role_id: "worker.implementation".to_owned(),
+            role_appointment_id: None,
             objective: "Predict whether the bound task will complete".to_owned(),
             model: Some("gpt-6-sol".to_owned()),
             reasoning_effort: Some("high".to_owned()),
@@ -145,6 +147,57 @@ fn create_run(fixture: &Fixture, mode: AdvisoryMode, key: &str) -> String {
         .view
         .run
         .run_id
+}
+
+#[test]
+fn hermes_run_binds_matching_role_appointment_without_granting_authority() {
+    let fixture = fixture();
+    let appointment = fixture
+        .hub
+        .create_role_appointment(&RoleAppointmentCreateRequest {
+            session_id: fixture.session_id.clone(),
+            task_id: Some(fixture.task_id.clone()),
+            role_id: "delivery.worker".to_owned(),
+            role_version: 1,
+            assignee_id: "agent.sol".to_owned(),
+            model_hint: Some("gpt-6-sol".to_owned()),
+            capability_refs: vec![],
+            idempotency_key: "appoint-hermes-worker".to_owned(),
+        })
+        .unwrap()
+        .appointment;
+    let request = OrchestrationRunCreateRequest {
+        session_id: fixture.session_id.clone(),
+        task_id: fixture.task_id.clone(),
+        git_snapshot_id: fixture.snapshot_id.clone(),
+        context_exposure_id: fixture.exposure_id.clone(),
+        mode: AdvisoryMode::VisibleAdvisory,
+        role_kind: AdvisoryRoleKind::Worker,
+        role_id: "worker.implementation".to_owned(),
+        role_appointment_id: Some(appointment.appointment_id.clone()),
+        objective: "Evaluate a bounded worker report".to_owned(),
+        model: Some("gpt-6-sol".to_owned()),
+        reasoning_effort: Some("medium".to_owned()),
+        max_input_tokens: 10_000,
+        max_output_tokens: 2_000,
+        max_duration_seconds: 300,
+        idempotency_key: "linked-run".to_owned(),
+    };
+    let run = fixture
+        .hub
+        .create_orchestration_run(&request)
+        .unwrap()
+        .view
+        .run;
+    assert_eq!(run.role_appointment_id, Some(appointment.appointment_id));
+    assert!(!run.executable);
+    assert!(fixture.hub.audit_orchestration().unwrap().consistent);
+    let mismatched = OrchestrationRunCreateRequest {
+        model: Some("gpt-6-astra".to_owned()),
+        idempotency_key: "mismatched-model".to_owned(),
+        ..request
+    };
+    assert!(fixture.hub.create_orchestration_run(&mismatched).is_err());
 }
 
 fn report(fixture: &Fixture, run_id: &str, key: &str) -> AdvisoryRoleReportRequest {
@@ -188,7 +241,7 @@ fn migrates_v13_to_v14_without_orchestration_state() {
     }
     drop(connection);
     let hub = Hub::open(database).unwrap();
-    assert_eq!(hub.stats().unwrap().schema_version, 14);
+    assert_eq!(hub.stats().unwrap().schema_version, 16);
     let audit = hub.audit_orchestration().unwrap();
     assert_eq!(audit.run_count, 0);
     assert!(audit.consistent);
@@ -295,7 +348,7 @@ fn blind_shadow_stays_sealed_until_verified_task_outcome() {
         .hub
         .export_project(fixture.workspace.to_string_lossy().as_ref())
         .unwrap();
-    assert_eq!(exported.format_version, 11);
+    assert_eq!(exported.format_version, 12);
     assert_eq!(exported.orchestration_runs.len(), 1);
     assert_eq!(exported.sealed_advisory_report_count, 0);
     assert_eq!(exported.advisory_role_reports.len(), 1);

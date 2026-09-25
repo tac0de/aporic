@@ -25,9 +25,11 @@ use crate::{
         OpenRequest, OrchestrationAudit, OrchestrationOutcome, OrchestrationRunCreateRequest,
         OrchestrationRunGetRequest, OrchestrationRunListRequest, OrchestrationRunSummary,
         OrchestrationRunView, ProjectExport, RecallRequest, ReconcileOutcome, ReconcileRequest,
-        RecordOutcome, RecordRequest, RuntimeEvent, RuntimeObservation, RuntimeProjectionAudit,
-        RuntimeTraceGetRequest, RuntimeTraceListRequest, RuntimeWorkspaceRequest,
-        SecureCapabilityAudit, SecurityArtifactImport, SecurityAssessment,
+        RecordOutcome, RecordRequest, ResumeBrief, ResumeRequest, RoleAppointment,
+        RoleAppointmentAudit, RoleAppointmentCreateRequest, RoleAppointmentListRequest,
+        RoleAppointmentOutcome, RoleAppointmentRevokeRequest, RuntimeEvent, RuntimeObservation,
+        RuntimeProjectionAudit, RuntimeTraceGetRequest, RuntimeTraceListRequest,
+        RuntimeWorkspaceRequest, SecureCapabilityAudit, SecurityArtifactImport, SecurityAssessment,
         SecurityAssessmentGetRequest, SecurityAssessmentListRequest, SecurityAssessmentOutcome,
         SecurityCoverage, SecurityImportRequest, ShadowEvaluationRequest, TaskCancelRequest,
         TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskOutcome,
@@ -70,6 +72,39 @@ impl Hub {
 
     pub fn recall(&self, request: &RecallRequest) -> Result<ContextCapsule> {
         self.store.recall(request)
+    }
+
+    pub fn resume(&self, request: &ResumeRequest) -> Result<ResumeBrief> {
+        self.store.resume(request)
+    }
+
+    pub fn role_definitions(&self) -> Vec<crate::domain::RoleDefinition> {
+        crate::roles::definitions()
+    }
+
+    pub fn create_role_appointment(
+        &self,
+        request: &RoleAppointmentCreateRequest,
+    ) -> Result<RoleAppointmentOutcome> {
+        self.store.create_role_appointment(request)
+    }
+
+    pub fn revoke_role_appointment(
+        &self,
+        request: &RoleAppointmentRevokeRequest,
+    ) -> Result<RoleAppointmentOutcome> {
+        self.store.revoke_role_appointment(request)
+    }
+
+    pub fn list_role_appointments(
+        &self,
+        request: &RoleAppointmentListRequest,
+    ) -> Result<Vec<RoleAppointment>> {
+        self.store.list_role_appointments(request)
+    }
+
+    pub fn audit_role_appointments(&self) -> Result<RoleAppointmentAudit> {
+        self.store.audit_role_appointments()
     }
 
     pub fn memory_search(&self, request: &MemorySearchRequest) -> Result<MemorySearchResult> {

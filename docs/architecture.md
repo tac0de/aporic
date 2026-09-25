@@ -161,10 +161,26 @@ event payloads until evaluation. Evaluation uses the task projection and its
 existing Aporic-direct criterion proofs, records Git staleness, and never turns
 model output into completion evidence.
 
+Schema v15 adds bounded `role_appointments` for four versioned advisory duty
+contracts. Each appointment is scoped to a session or active task, preserves
+optional model and existing capability-catalog references, and has an immutable
+creation digest with a separately recorded revocation. Worker and Inspector
+assignees are separated for the same task. An appointment does not invoke the
+assignee, load plugin code, or grant host access. Schema v16 lets new Hermes
+runs cite an appointment matching their session, task, role, and model hint;
+legacy runs retain their original digest. `aporic_resume` is a read-only
+selector over unfinished tasks, open sessions, and fresh handoffs; it reports
+ambiguity and does not execute the selected next action.
+
 ## MCP surface
 
 - `aporic_open`: start an idempotent session and return recent context.
 - `aporic_recall`: retrieve a bounded project capsule.
+- `aporic_resume`: identify one unambiguous unfinished task or fresh handoff
+  for a new session, without treating prior text as authority.
+- `aporic_roles_list`, `aporic_role_appoint`, `aporic_role_revoke`, and
+  `aporic_role_appointments`: inspect duty contracts and record advisory
+  assignments with optional catalog capability references.
 - `aporic_memory_search` and `aporic_memory_get`: inspect deterministic,
   workspace-scoped memory without granting write or execution authority.
 - `aporic_record`: append one durable typed record.

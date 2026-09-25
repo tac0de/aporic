@@ -14,15 +14,24 @@ See [PRODUCT.md](PRODUCT.md) for the product objective and
 
 ## Current product surface
 
-The hub exposes fifty MCP tools in fourteen groups.
+The hub exposes fifty-five MCP tools in fifteen groups.
 
 Continuity:
 
 - `aporic_open`: open an idempotent work session and receive bounded context;
 - `aporic_recall`: retrieve recent durable project context;
+- `aporic_resume`: select one unfinished task or fresh handoff for a terse
+  new-session continuation request, or report ambiguity;
 - `aporic_record`: record one typed durable fact or work-state change;
 - `aporic_close`: complete or hand off a session;
 - `aporic_reconcile`: abandon stale interrupted sessions without claiming success.
+
+Advisory roles:
+
+- `aporic_roles_list`: inspect four versioned duty and output contracts;
+- `aporic_role_appoint`, `aporic_role_revoke`, and
+  `aporic_role_appointments`: record and inspect bounded assignments. Optional
+  catalog capability references are associations, not executable grants.
 
 Memory lifecycle:
 
@@ -390,6 +399,26 @@ every task criterion has an Aporic-direct verified proof and the Git binding is
 not stale. `visible_advisory` exposes advice immediately but grants no extra
 authority. Reports cannot complete tasks, call providers, use credentials,
 access the network, mutate a workspace, or trigger tools.
+
+## v0.16 roles and new-session continuity
+
+The four foundation roles are Prime Minister (conversation and synthesis),
+Steward (project continuity), Worker (bounded delivery), and Inspector
+(independent review). A role is a versioned duty contract; an appointment binds
+an assignee and optional model hint to a session or active task. Worker and
+Inspector assignments for one task must use different assignee IDs. Capability
+references must exist in the workspace catalog and remain advisory. Installing
+a provider or recording an appointment never changes host permissions or
+dispatches an agent. The human's Codex UI model choice stays with the host.
+Hermes runs may bind a matching, active Steward or Worker appointment; older
+unbound runs remain readable with their original digest.
+
+For `이어한다` in a new session, the bridge calls `aporic_resume` before opening
+new work. It selects exactly one unfinished task, otherwise one interrupted
+session, otherwise a handoff newer than the latest completed session. Multiple
+unfinished candidates yield `ambiguous`; no eligible candidate yields `none`.
+The client then inspects live Git and the chosen task or handoff before acting.
+Historical text never becomes a new instruction by being selected.
 
 ## Offline evaluation
 

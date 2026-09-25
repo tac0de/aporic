@@ -49,16 +49,18 @@ use crate::{
         OrchestrationRunListRequest, OrchestrationRunStatus, OrchestrationRunSummary,
         OrchestrationRunView, OriginChannel, PredictedTaskOutcome, ProjectExport, RecallRequest,
         ReceiptArtifact, ReconcileOutcome, ReconcileRequest, RecordKind, RecordOutcome,
-        RecordRequest, RuntimeEvent, RuntimeEventKind, RuntimeObservation, RuntimeOutcomeStatus,
-        RuntimeProjectionAudit, RuntimeTraceGetRequest, RuntimeTraceListRequest,
-        RuntimeWorkspaceRequest, SandboxEnforcement, SecureCapabilityAudit, SecurityArtifactImport,
-        SecurityAssessment, SecurityAssessmentGetRequest, SecurityAssessmentListRequest,
-        SecurityAssessmentOutcome, SecurityCoverage, ShadowDisposition, ShadowEvaluation,
-        ShadowEvaluationRequest, TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest,
-        TaskCreateRequest, TaskListRequest, TaskOutcome, TaskStatus, TokenCountSource,
-        TokenEfficiencyReport, TokenEfficiencyReportRequest, TokenUsageAudit,
-        TokenUsageListRequest, TokenUsageOutcome, TokenUsageReceipt, TokenUsageRecordRequest,
-        UsageOutcome, workspace_file_claim,
+        RecordRequest, ResumeBrief, ResumeCandidate, ResumeRequest, ResumeStatus, RoleAppointment,
+        RoleAppointmentAudit, RoleAppointmentCreateRequest, RoleAppointmentListRequest,
+        RoleAppointmentOutcome, RoleAppointmentRevokeRequest, RoleCapabilityRef, RuntimeEvent,
+        RuntimeEventKind, RuntimeObservation, RuntimeOutcomeStatus, RuntimeProjectionAudit,
+        RuntimeTraceGetRequest, RuntimeTraceListRequest, RuntimeWorkspaceRequest,
+        SandboxEnforcement, SecureCapabilityAudit, SecurityArtifactImport, SecurityAssessment,
+        SecurityAssessmentGetRequest, SecurityAssessmentListRequest, SecurityAssessmentOutcome,
+        SecurityCoverage, ShadowDisposition, ShadowEvaluation, ShadowEvaluationRequest,
+        TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest,
+        TaskListRequest, TaskOutcome, TaskStatus, TokenCountSource, TokenEfficiencyReport,
+        TokenEfficiencyReportRequest, TokenUsageAudit, TokenUsageListRequest, TokenUsageOutcome,
+        TokenUsageReceipt, TokenUsageRecordRequest, UsageOutcome, workspace_file_claim,
     },
 };
 
@@ -76,7 +78,9 @@ const MIGRATION_11: &str = include_str!("../../../migrations/0011_commit_bound_d
 const MIGRATION_12: &str = include_str!("../../../migrations/0012_secure_capability_fabric.sql");
 const MIGRATION_13: &str = include_str!("../../../migrations/0013_execution_governance.sql");
 const MIGRATION_14: &str = include_str!("../../../migrations/0014_advisory_orchestration.sql");
-const SCHEMA_VERSION: u32 = 14;
+const MIGRATION_15: &str = include_str!("../../../migrations/0015_roles.sql");
+const MIGRATION_16: &str = include_str!("../../../migrations/0016_role_run_link.sql");
+const SCHEMA_VERSION: u32 = 16;
 const MIGRATIONS: &[(u32, &str)] = &[
     (2, MIGRATION_2),
     (3, MIGRATION_3),
@@ -91,6 +95,8 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (12, MIGRATION_12),
     (13, MIGRATION_13),
     (14, MIGRATION_14),
+    (15, MIGRATION_15),
+    (16, MIGRATION_16),
 ];
 
 #[derive(Debug, Error)]
@@ -322,6 +328,343 @@ impl Store {
                 })
             }
         }
+    }
+
+    pub fn resume(&self, request: &ResumeRequest) -> Result<ResumeBrief> {
+        let workspace = canonical_workspace(&request.workspace)?;
+        let connection = self.connection()?;
+        let project_id = connection
+            .query_row(
+                "SELECT project_id FROM projects WHERE workspace = ?1",
+                [&workspace],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        let Some(project_id) = project_id else {
+            return Ok(ResumeBrief {
+                status: ResumeStatus::None,
+                candidates: Vec::new(),
+                selected: None,
+                reason: "No recorded project work exists for this workspace.".to_owned(),
+                authority_notice: resume_authority_notice(),
+            });
+        };
+
+        let mut statement = connection.prepare(
+            "SELECT task_id, objective, updated_at_unix_ms FROM tasks
+             WHERE project_id = ?1 AND status IN ('queued', 'leased')
+             ORDER BY updated_at_unix_ms DESC, task_id DESC LIMIT 6",
+        )?;
+        let tasks = statement.query_map([&project_id], |row| {
+            Ok(ResumeCandidate {
+                source: "active_task".to_owned(),
+                source_id: row.get(0)?,
+                objective: row.get(1)?,
+                next_action: "Inspect the task's acceptance criteria and current repository state, then continue the unfinished work.".to_owned(),
+                updated_at_unix_ms: row.get(2)?,
+            })
+        })?.collect::<std::result::Result<Vec<_>, _>>()?;
+        if !tasks.is_empty() {
+            let selected = (tasks.len() == 1).then(|| tasks[0].clone());
+            return Ok(ResumeBrief {
+                status: if selected.is_some() {
+                    ResumeStatus::Ready
+                } else {
+                    ResumeStatus::Ambiguous
+                },
+                candidates: tasks,
+                selected,
+                reason: "Unfinished advisory tasks take precedence over historical handoffs."
+                    .to_owned(),
+                authority_notice: resume_authority_notice(),
+            });
+        }
+
+        let mut open_statement = connection.prepare(
+            "SELECT session_id, objective, last_activity_at_unix_ms FROM sessions
+             WHERE project_id = ?1 AND status = 'open' AND abandoned = 0
+             ORDER BY last_activity_at_unix_ms DESC, session_id DESC LIMIT 6",
+        )?;
+        let open_sessions = open_statement.query_map([&project_id], |row| {
+            Ok(ResumeCandidate {
+                source: "open_session".to_owned(),
+                source_id: row.get(0)?,
+                objective: row.get(1)?,
+                next_action: "Inspect the interrupted session's recent records and live repository state before continuing.".to_owned(),
+                updated_at_unix_ms: row.get(2)?,
+            })
+        })?.collect::<std::result::Result<Vec<_>, _>>()?;
+        if !open_sessions.is_empty() {
+            let selected = (open_sessions.len() == 1).then(|| open_sessions[0].clone());
+            return Ok(ResumeBrief {
+                status: if selected.is_some() {
+                    ResumeStatus::Ready
+                } else {
+                    ResumeStatus::Ambiguous
+                },
+                candidates: open_sessions,
+                selected,
+                reason: "Open sessions with no unfinished task may represent interrupted work."
+                    .to_owned(),
+                authority_notice: resume_authority_notice(),
+            });
+        }
+
+        let latest_completion: Option<i64> = connection.query_row(
+            "SELECT MAX(closed_at_unix_ms) FROM sessions
+             WHERE project_id = ?1 AND status = 'completed'",
+            [&project_id],
+            |row| row.get(0),
+        )?;
+        let handoff = connection
+            .query_row(
+                "SELECT session_id, summary, next_action, closed_at_unix_ms FROM sessions
+             WHERE project_id = ?1 AND status = 'handoff'
+             ORDER BY closed_at_unix_ms DESC, session_id DESC LIMIT 1",
+                [&project_id],
+                |row| {
+                    Ok(ResumeCandidate {
+                        source: "handoff".to_owned(),
+                        source_id: row.get(0)?,
+                        objective: row.get(1)?,
+                        next_action: row.get(2)?,
+                        updated_at_unix_ms: row.get(3)?,
+                    })
+                },
+            )
+            .optional()?;
+        let selected = handoff.filter(|item| {
+            latest_completion.is_none_or(|completed| item.updated_at_unix_ms > completed)
+        });
+        Ok(ResumeBrief {
+            status: if selected.is_some() { ResumeStatus::Ready } else { ResumeStatus::None },
+            candidates: selected.clone().into_iter().collect(),
+            selected,
+            reason: "Only a handoff newer than the latest completed session is eligible when no active task exists.".to_owned(),
+            authority_notice: resume_authority_notice(),
+        })
+    }
+
+    pub fn create_role_appointment(
+        &self,
+        request: &RoleAppointmentCreateRequest,
+    ) -> Result<RoleAppointmentOutcome> {
+        require_text("session_id", &request.session_id)?;
+        require_identifier("assignee_id", &request.assignee_id, 128)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        if let Some(model) = &request.model_hint {
+            require_identifier("model_hint", model, 128)?;
+        }
+        if request.capability_refs.len() > 16 {
+            return Err(Error::Invalid(
+                "an appointment may reference at most 16 capabilities".to_owned(),
+            ));
+        }
+        let role = crate::roles::get(&request.role_id, request.role_version)
+            .ok_or_else(|| Error::Invalid("unknown role or role version".to_owned()))?;
+        if role.task_required != request.task_id.is_some() {
+            return Err(Error::Invalid(
+                "this role requires a different task scope".to_owned(),
+            ));
+        }
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<RoleAppointmentOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "role_appointment_created",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        require_open_session(&transaction, &request.session_id)?;
+        let project_id: String = transaction.query_row(
+            "SELECT project_id FROM sessions WHERE session_id = ?1",
+            [&request.session_id],
+            |row| row.get(0),
+        )?;
+        let mut unique_refs = std::collections::BTreeSet::new();
+        for reference in &request.capability_refs {
+            require_identifier("capability_id", &reference.capability_id, 128)?;
+            require_identifier("capability_version", &reference.version, 64)?;
+            if !unique_refs.insert((&reference.capability_id, &reference.version)) {
+                return Err(Error::Invalid("duplicate capability reference".to_owned()));
+            }
+            load_capability_manifest(
+                &transaction,
+                &project_id,
+                &reference.capability_id,
+                &reference.version,
+            )?;
+        }
+        if let Some(task_id) = &request.task_id {
+            let task = load_task(&transaction, task_id)?
+                .ok_or_else(|| Error::NotFound(format!("task {task_id}")))?;
+            if task.project_id != project_id
+                || task.session_id != request.session_id
+                || matches!(task.status, TaskStatus::Completed | TaskStatus::Cancelled)
+            {
+                return Err(Error::Conflict(
+                    "appointment requires an active task in the same project".to_owned(),
+                ));
+            }
+            let opposed = if request.role_id == "delivery.worker" {
+                "oversight.inspector"
+            } else {
+                "delivery.worker"
+            };
+            if request.role_id == "delivery.worker" || request.role_id == "oversight.inspector" {
+                let conflict: u64 = transaction.query_row(
+                    "SELECT COUNT(*) FROM role_appointments WHERE task_id = ?1 AND role_id = ?2
+                       AND assignee_id = ?3 AND revoked_at_unix_ms IS NULL",
+                    params![task_id, opposed, request.assignee_id],
+                    |row| row.get(0),
+                )?;
+                if conflict > 0 {
+                    return Err(Error::Conflict(
+                        "worker and inspector must have different assignees for a task".to_owned(),
+                    ));
+                }
+            }
+        }
+        if request.role_id == "executive.prime_minister" {
+            let count: u64 = transaction.query_row(
+                "SELECT COUNT(*) FROM role_appointments WHERE session_id = ?1
+                 AND role_id = 'executive.prime_minister' AND revoked_at_unix_ms IS NULL",
+                [&request.session_id],
+                |row| row.get(0),
+            )?;
+            if count > 0 {
+                return Err(Error::Conflict(
+                    "a session already has an active prime minister appointment".to_owned(),
+                ));
+            }
+        }
+        let appointment_id = Uuid::now_v7().to_string();
+        let digest = role_appointment_digest(&appointment_id, request)?;
+        transaction.execute(
+            "INSERT INTO role_appointments(appointment_id, project_id, session_id, task_id,
+             role_id, role_version, assignee_id, model_hint, capability_refs_json,
+             appointment_sha256, created_at_unix_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            params![
+                appointment_id,
+                project_id,
+                request.session_id,
+                request.task_id,
+                request.role_id,
+                request.role_version,
+                request.assignee_id,
+                request.model_hint,
+                serde_json::to_string(&request.capability_refs)?,
+                digest,
+                now
+            ],
+        )?;
+        let appointment = load_role_appointment(&transaction, &appointment_id)?;
+        let outcome = RoleAppointmentOutcome {
+            appointment,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &appointment_id,
+            "role_appointment_created",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn revoke_role_appointment(
+        &self,
+        request: &RoleAppointmentRevokeRequest,
+    ) -> Result<RoleAppointmentOutcome> {
+        require_text("appointment_id", &request.appointment_id)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<RoleAppointmentOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "role_appointment_revoked",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        let appointment = load_role_appointment(&transaction, &request.appointment_id)?;
+        if appointment.revoked_at_unix_ms.is_some() {
+            return Err(Error::Conflict("appointment is already revoked".to_owned()));
+        }
+        transaction.execute(
+            "UPDATE role_appointments SET revoked_at_unix_ms = ?1 WHERE appointment_id = ?2",
+            params![now, request.appointment_id],
+        )?;
+        let outcome = RoleAppointmentOutcome {
+            appointment: load_role_appointment(&transaction, &request.appointment_id)?,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &request.appointment_id,
+            "role_appointment_revoked",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn list_role_appointments(
+        &self,
+        request: &RoleAppointmentListRequest,
+    ) -> Result<Vec<RoleAppointment>> {
+        let workspace = canonical_workspace(&request.workspace)?;
+        let connection = self.connection()?;
+        let mut statement = connection.prepare(
+            "SELECT appointment_id FROM role_appointments
+             WHERE project_id = (SELECT project_id FROM projects WHERE workspace = ?1)
+             ORDER BY created_at_unix_ms DESC, appointment_id DESC LIMIT ?2",
+        )?;
+        let ids = statement
+            .query_map(
+                params![
+                    workspace,
+                    i64::from(request.limit.unwrap_or(50).clamp(1, 200))
+                ],
+                |row| row.get::<_, String>(0),
+            )?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        ids.iter()
+            .map(|id| load_role_appointment(&connection, id))
+            .collect()
+    }
+
+    pub fn audit_role_appointments(&self) -> Result<RoleAppointmentAudit> {
+        let connection = self.connection()?;
+        let mut statement = connection
+            .prepare("SELECT appointment_id FROM role_appointments ORDER BY sequence ASC")?;
+        let ids = statement
+            .query_map([], |row| row.get::<_, String>(0))?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let invalid_count = ids
+            .iter()
+            .filter(|id| load_role_appointment(&connection, id).is_err())
+            .count() as u64;
+        Ok(RoleAppointmentAudit {
+            appointment_count: ids.len() as u64,
+            invalid_count,
+            consistent: invalid_count == 0,
+        })
     }
 
     pub fn record(&self, request: &RecordRequest) -> Result<RecordOutcome> {
@@ -4068,6 +4411,27 @@ impl Store {
                 "an orchestration run must bind an active advisory task".to_owned(),
             ));
         }
+        if let Some(appointment_id) = &request.role_appointment_id {
+            let appointment = load_role_appointment(&transaction, appointment_id)?;
+            let expected_role = match request.role_kind {
+                AdvisoryRoleKind::Steward => "portfolio.steward",
+                AdvisoryRoleKind::Worker => "delivery.worker",
+            };
+            if appointment.session_id != request.session_id
+                || appointment.role_id != expected_role
+                || appointment.revoked_at_unix_ms.is_some()
+                || appointment
+                    .task_id
+                    .as_deref()
+                    .is_some_and(|id| id != request.task_id)
+                || appointment
+                    .model_hint
+                    .as_deref()
+                    .is_some_and(|model| request.model.as_deref() != Some(model))
+            {
+                return Err(Error::Conflict("orchestration role appointment does not match the active session, task, and role".to_owned()));
+            }
+        }
         let snapshot = load_clean_project_snapshot(
             &transaction,
             &project_id,
@@ -4101,9 +4465,10 @@ impl Store {
                 context_exposure_id, mode, role_kind, role_id, objective, model,
                 reasoning_effort, max_input_tokens, max_output_tokens,
                 max_duration_seconds, capability_ceiling, status, bound_head_commit,
-                bound_head_tree, context_policy_sha256, run_sha256, created_at_unix_ms
+                bound_head_tree, context_policy_sha256, run_sha256, created_at_unix_ms,
+                role_appointment_id
              ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
-                       ?13, ?14, ?15, 'propose', 'awaiting_report', ?16, ?17, ?18, ?19, ?20)",
+                       ?13, ?14, ?15, 'propose', 'awaiting_report', ?16, ?17, ?18, ?19, ?20, ?21)",
             params![
                 run_id,
                 project_id,
@@ -4125,6 +4490,7 @@ impl Store {
                 context_policy_sha256,
                 run_sha256,
                 now,
+                request.role_appointment_id,
             ],
         )?;
         let view = load_orchestration_view(&transaction, &project_id, &run_id)?;
@@ -4481,11 +4847,17 @@ impl Store {
              LEFT JOIN tasks ON tasks.task_id = runs.task_id
              LEFT JOIN git_snapshots ON git_snapshots.snapshot_id = runs.git_snapshot_id
              LEFT JOIN memory_exposures ON memory_exposures.exposure_id = runs.context_exposure_id
+             LEFT JOIN role_appointments ON role_appointments.appointment_id = runs.role_appointment_id
              WHERE sessions.project_id IS NULL OR tasks.project_id IS NULL
                 OR git_snapshots.project_id IS NULL OR memory_exposures.project_id IS NULL
                 OR sessions.project_id != runs.project_id OR tasks.project_id != runs.project_id
                 OR git_snapshots.project_id != runs.project_id
-                OR memory_exposures.project_id != runs.project_id",
+                OR memory_exposures.project_id != runs.project_id
+                OR (runs.role_appointment_id IS NOT NULL AND
+                    (role_appointments.project_id IS NULL
+                     OR role_appointments.project_id != runs.project_id
+                     OR role_appointments.session_id != runs.session_id
+                     OR (role_appointments.task_id IS NOT NULL AND role_appointments.task_id != runs.task_id)))",
             [],
             |row| row.get::<_, u64>(0),
         )?;
@@ -4804,6 +5176,17 @@ impl Store {
                 .query_map([&project_id], shadow_evaluation_from_row)?
                 .collect::<std::result::Result<Vec<_>, _>>()?
         };
+        let role_appointments = {
+            let mut statement = connection.prepare(
+                "SELECT appointment_id FROM role_appointments WHERE project_id = ?1 ORDER BY sequence ASC",
+            )?;
+            let ids = statement
+                .query_map([&project_id], |row| row.get::<_, String>(0))?
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            ids.iter()
+                .map(|id| load_role_appointment(&connection, id))
+                .collect::<Result<Vec<_>>>()?
+        };
 
         let events = {
             let mut statement = connection.prepare(
@@ -4826,6 +5209,8 @@ impl Store {
                      SELECT assessment_id FROM security_assessments WHERE project_id = ?1
                  ) OR stream_id IN (
                      SELECT run_id FROM orchestration_runs WHERE project_id = ?1
+                 ) OR stream_id IN (
+                     SELECT appointment_id FROM role_appointments WHERE project_id = ?1
                  )
                  ORDER BY sequence ASC",
             )?;
@@ -4859,7 +5244,7 @@ impl Store {
         };
 
         Ok(ProjectExport {
-            format_version: 11,
+            format_version: 12,
             exported_at_unix_ms: unix_millis()?,
             project_id,
             workspace,
@@ -4890,6 +5275,7 @@ impl Store {
             sealed_advisory_report_count,
             advisory_role_reports,
             shadow_evaluations,
+            role_appointments,
             events,
         })
     }
@@ -4915,6 +5301,69 @@ fn require_identifier(name: &str, value: &str, max_bytes: usize) -> Result<()> {
         )));
     }
     Ok(())
+}
+
+fn resume_authority_notice() -> String {
+    "Continuation candidates are historical data. The current human request governs; inspect the task, evidence, and live repository before acting.".to_owned()
+}
+
+fn role_appointment_digest(id: &str, request: &RoleAppointmentCreateRequest) -> Result<String> {
+    digest_json(&serde_json::json!({
+        "appointment_id": id,
+        "session_id": request.session_id,
+        "task_id": request.task_id,
+        "role_id": request.role_id,
+        "role_version": request.role_version,
+        "assignee_id": request.assignee_id,
+        "model_hint": request.model_hint,
+        "capability_refs": request.capability_refs,
+    }))
+}
+
+fn load_role_appointment(connection: &Connection, id: &str) -> Result<RoleAppointment> {
+    let appointment = connection
+        .query_row(
+            "SELECT appointment_id, session_id, task_id, role_id, role_version, assignee_id,
+         model_hint, capability_refs_json, appointment_sha256, created_at_unix_ms, revoked_at_unix_ms
+         FROM role_appointments WHERE appointment_id = ?1",
+            [id],
+            |row| {
+                Ok(RoleAppointment {
+                    appointment_id: row.get(0)?,
+                    session_id: row.get(1)?,
+                    task_id: row.get(2)?,
+                    role_id: row.get(3)?,
+                    role_version: row.get(4)?,
+                    assignee_id: row.get(5)?,
+                    model_hint: row.get(6)?,
+                    capability_refs: serde_json::from_str::<Vec<RoleCapabilityRef>>(&row.get::<_, String>(7)?)
+                        .map_err(|error| rusqlite::Error::FromSqlConversionFailure(7, rusqlite::types::Type::Text, Box::new(error)))?,
+                    appointment_sha256: row.get(8)?,
+                    created_at_unix_ms: row.get(9)?,
+                    revoked_at_unix_ms: row.get(10)?,
+                    advisory: true,
+                    grants_authority: false,
+                })
+            },
+        )
+        .optional()?
+        .ok_or_else(|| Error::NotFound(format!("appointment {id}")))?;
+    let expected = digest_json(&serde_json::json!({
+        "appointment_id": appointment.appointment_id,
+        "session_id": appointment.session_id,
+        "task_id": appointment.task_id,
+        "role_id": appointment.role_id,
+        "role_version": appointment.role_version,
+        "assignee_id": appointment.assignee_id,
+        "model_hint": appointment.model_hint,
+        "capability_refs": appointment.capability_refs,
+    }))?;
+    if expected != appointment.appointment_sha256 {
+        return Err(Error::Conflict(
+            "role appointment digest mismatch".to_owned(),
+        ));
+    }
+    Ok(appointment)
 }
 
 fn is_sha256(value: &str) -> bool {
@@ -5266,7 +5715,7 @@ fn orchestration_run_digest(
     bound_head_tree: &str,
     context_policy_sha256: &str,
 ) -> Result<String> {
-    digest_json(&serde_json::json!({
+    let mut value = serde_json::json!({
         "run_id": run_id,
         "session_id": request.session_id,
         "task_id": request.task_id,
@@ -5285,11 +5734,15 @@ fn orchestration_run_digest(
         "bound_head_commit": bound_head_commit,
         "bound_head_tree": bound_head_tree,
         "context_policy_sha256": context_policy_sha256,
-    }))
+    });
+    if let Some(appointment_id) = &request.role_appointment_id {
+        value["role_appointment_id"] = serde_json::json!(appointment_id);
+    }
+    digest_json(&value)
 }
 
 fn orchestration_run_digest_from_value(run: &OrchestrationRun) -> Result<String> {
-    digest_json(&serde_json::json!({
+    let mut value = serde_json::json!({
         "run_id": run.run_id,
         "session_id": run.session_id,
         "task_id": run.task_id,
@@ -5308,7 +5761,11 @@ fn orchestration_run_digest_from_value(run: &OrchestrationRun) -> Result<String>
         "bound_head_commit": run.bound_head_commit,
         "bound_head_tree": run.bound_head_tree,
         "context_policy_sha256": run.context_policy_sha256,
-    }))
+    });
+    if let Some(appointment_id) = &run.role_appointment_id {
+        value["role_appointment_id"] = serde_json::json!(appointment_id);
+    }
+    digest_json(&value)
 }
 
 fn advisory_report_digest(report_id: &str, request: &AdvisoryRoleReportRequest) -> Result<String> {
@@ -5464,7 +5921,7 @@ fn orchestration_run_select() -> &'static str {
             reasoning_effort, max_input_tokens, max_output_tokens,
             max_duration_seconds, status, bound_head_commit, bound_head_tree,
             context_policy_sha256, run_sha256, created_at_unix_ms,
-            sealed_at_unix_ms, evaluated_at_unix_ms"
+            sealed_at_unix_ms, evaluated_at_unix_ms, role_appointment_id"
 }
 
 fn orchestration_run_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<OrchestrationRun> {
@@ -5493,6 +5950,7 @@ fn orchestration_run_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Orche
         created_at_unix_ms: row.get(20)?,
         sealed_at_unix_ms: row.get(21)?,
         evaluated_at_unix_ms: row.get(22)?,
+        role_appointment_id: row.get(23)?,
         advisory: true,
         executable: false,
     })
@@ -5536,6 +5994,7 @@ fn load_orchestration_run_any(
                     created_at_unix_ms: row.get(21)?,
                     sealed_at_unix_ms: row.get(22)?,
                     evaluated_at_unix_ms: row.get(23)?,
+                    role_appointment_id: row.get(24)?,
                     advisory: true,
                     executable: false,
                 };

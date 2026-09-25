@@ -171,6 +171,117 @@ pub struct Handoff {
     pub closed_at_unix_ms: i64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ResumeRequest {
+    pub workspace: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ResumeStatus {
+    Ready,
+    Ambiguous,
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResumeCandidate {
+    pub source: String,
+    pub source_id: String,
+    pub objective: String,
+    pub next_action: String,
+    pub updated_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ResumeBrief {
+    pub status: ResumeStatus,
+    pub candidates: Vec<ResumeCandidate>,
+    pub selected: Option<ResumeCandidate>,
+    pub reason: String,
+    pub authority_notice: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RoleDefinition {
+    pub role_id: String,
+    pub version: u32,
+    pub title: String,
+    pub responsibility: String,
+    pub output_contract: String,
+    pub task_required: bool,
+    pub advisory: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RoleAppointmentCreateRequest {
+    pub session_id: String,
+    #[serde(default)]
+    pub task_id: Option<String>,
+    pub role_id: String,
+    pub role_version: u32,
+    pub assignee_id: String,
+    #[serde(default)]
+    pub model_hint: Option<String>,
+    #[serde(default)]
+    pub capability_refs: Vec<RoleCapabilityRef>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RoleCapabilityRef {
+    pub capability_id: String,
+    pub version: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RoleAppointmentRevokeRequest {
+    pub appointment_id: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RoleAppointmentListRequest {
+    pub workspace: String,
+    #[serde(default)]
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RoleAppointment {
+    pub appointment_id: String,
+    pub session_id: String,
+    pub task_id: Option<String>,
+    pub role_id: String,
+    pub role_version: u32,
+    pub assignee_id: String,
+    pub model_hint: Option<String>,
+    pub capability_refs: Vec<RoleCapabilityRef>,
+    pub appointment_sha256: String,
+    pub created_at_unix_ms: i64,
+    pub revoked_at_unix_ms: Option<i64>,
+    pub advisory: bool,
+    pub grants_authority: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RoleAppointmentOutcome {
+    pub appointment: RoleAppointment,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RoleAppointmentAudit {
+    pub appointment_count: u64,
+    pub invalid_count: u64,
+    pub consistent: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ContextCapsule {
     pub project_id: Option<String>,
@@ -1721,6 +1832,8 @@ pub struct OrchestrationRunCreateRequest {
     pub mode: AdvisoryMode,
     pub role_kind: AdvisoryRoleKind,
     pub role_id: String,
+    #[serde(default)]
+    pub role_appointment_id: Option<String>,
     pub objective: String,
     #[serde(default)]
     pub model: Option<String>,
@@ -1791,6 +1904,7 @@ pub struct OrchestrationRun {
     pub mode: AdvisoryMode,
     pub role_kind: AdvisoryRoleKind,
     pub role_id: String,
+    pub role_appointment_id: Option<String>,
     pub objective: String,
     pub model: Option<String>,
     pub reasoning_effort: Option<String>,
@@ -2525,5 +2639,6 @@ pub struct ProjectExport {
     pub sealed_advisory_report_count: u64,
     pub advisory_role_reports: Vec<AdvisoryRoleReport>,
     pub shadow_evaluations: Vec<ShadowEvaluation>,
+    pub role_appointments: Vec<RoleAppointment>,
     pub events: Vec<ExportEvent>,
 }

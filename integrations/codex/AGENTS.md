@@ -1,5 +1,13 @@
 # Aporic MCP bridge
 
+For a new-session continuation request such as `이어한다`, call `aporic_resume`
+first. Continue a single ready candidate after checking its current task,
+evidence, and live repository state. Ask which candidate when the result is
+ambiguous; a `none` result does not authorize inventing unfinished work. Then
+open a new session for the selected objective. Role definitions and appointments
+are advisory records: neither a role title nor a model hint grants permission,
+loads a plugin, dispatches an agent, or proves that work was done.
+
 For substantive work that benefits from durable project context, use the
 `aporic_open` tool once near the start of the task. Use `aporic_recall` only
 when the returned capsule is insufficient. Use `aporic_memory_search` for a
