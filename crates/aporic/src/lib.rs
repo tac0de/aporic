@@ -10,6 +10,7 @@ pub mod hub;
 pub mod kernel;
 pub mod mcp;
 pub mod recovery;
+pub mod research;
 pub mod roles;
 pub mod runner;
 pub mod store;

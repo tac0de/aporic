@@ -157,6 +157,33 @@ impl Hub {
         self.store.memory_search(request)
     }
 
+    pub fn research_search(
+        &self,
+        request: &crate::research::ResearchSearchRequest,
+    ) -> Result<crate::research::ResearchSearchResult> {
+        self.store.research_search(request)
+    }
+
+    pub fn research_get(
+        &self,
+        request: &crate::research::ResearchGetRequest,
+    ) -> Result<crate::research::ResearchItem> {
+        self.store.research_get(request)
+    }
+
+    pub fn research_sync(
+        &self,
+        workspace: &str,
+        source: &str,
+        query: &str,
+    ) -> Result<crate::research::SyncOutcome> {
+        crate::research::sync(&self.store, workspace, source, query)
+    }
+
+    pub fn audit_research(&self) -> Result<crate::research::ResearchAudit> {
+        self.store.audit_research()
+    }
+
     pub fn memory_get(&self, request: &MemoryGetRequest) -> Result<MemoryItem> {
         self.store.memory_get(request)
     }

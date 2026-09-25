@@ -2794,5 +2794,6 @@ pub struct ProjectExport {
     pub role_appointments: Vec<RoleAppointment>,
     pub office_appointments: Vec<OfficeAppointment>,
     pub product_cells: Vec<ProductCell>,
+    pub research_revisions: Vec<crate::research::ResearchRevision>,
     pub events: Vec<ExportEvent>,
 }

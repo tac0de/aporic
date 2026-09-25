@@ -241,7 +241,7 @@ fn migrates_v13_to_v14_without_orchestration_state() {
     }
     drop(connection);
     let hub = Hub::open(database).unwrap();
-    assert_eq!(hub.stats().unwrap().schema_version, 17);
+    assert_eq!(hub.stats().unwrap().schema_version, 18);
     let audit = hub.audit_orchestration().unwrap();
     assert_eq!(audit.run_count, 0);
     assert!(audit.consistent);
@@ -348,7 +348,7 @@ fn blind_shadow_stays_sealed_until_verified_task_outcome() {
         .hub
         .export_project(fixture.workspace.to_string_lossy().as_ref())
         .unwrap();
-    assert_eq!(exported.format_version, 13);
+    assert_eq!(exported.format_version, 14);
     assert_eq!(exported.orchestration_runs.len(), 1);
     assert_eq!(exported.sealed_advisory_report_count, 0);
     assert_eq!(exported.advisory_role_reports.len(), 1);

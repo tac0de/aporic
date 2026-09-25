@@ -37,6 +37,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
         {
             import_codex_security(request)
         }
+        [
+            research,
+            sync,
+            workspace_flag,
+            workspace,
+            source_flag,
+            source,
+            query_flag,
+            query,
+        ] if research == "research"
+            && sync == "sync"
+            && workspace_flag == "--workspace"
+            && source_flag == "--source"
+            && query_flag == "--query" =>
+        {
+            sync_research(workspace, source, query)
+        }
         [trace, export_command, flag, workspace]
             if trace == "trace" && export_command == "export" && flag == "--workspace" =>
         {
@@ -116,7 +133,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         _ => {
             eprintln!(
-                "usage: aporic doctor | aporic backup --to PATH | aporic backup prune --dir DIR --keep COUNT | aporic restore --dry-run PATH | aporic restore --from BACKUP --to DATABASE | aporic security import-codex --request REQUEST.json | aporic export --workspace PATH | aporic trace export --workspace PATH | aporic git inspect --workspace PATH | aporic tokens report --workspace PATH | aporic deliberation show --workspace PATH --id ID | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic eval context | aporic eval memory | aporic eval runtime | aporic eval git | aporic eval tokens | aporic eval deliberation | aporic eval capabilities | aporic eval experiments | aporic eval security-import | aporic executions reconcile --stale-after SECONDS | aporic hook codex | aporic mcp serve --stdio"
+                "usage: aporic doctor | aporic backup --to PATH | aporic backup prune --dir DIR --keep COUNT | aporic restore --dry-run PATH | aporic restore --from BACKUP --to DATABASE | aporic security import-codex --request REQUEST.json | aporic research sync --workspace PATH --source github|stackoverflow --query TEXT | aporic export --workspace PATH | aporic trace export --workspace PATH | aporic git inspect --workspace PATH | aporic tokens report --workspace PATH | aporic deliberation show --workspace PATH --id ID | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic eval context | aporic eval memory | aporic eval runtime | aporic eval git | aporic eval tokens | aporic eval deliberation | aporic eval capabilities | aporic eval experiments | aporic eval security-import | aporic executions reconcile --stale-after SECONDS | aporic hook codex | aporic mcp serve --stdio"
             );
             std::process::exit(2);
         }
@@ -177,6 +194,16 @@ fn import_codex_security(request_path: &str) -> Result<(), Box<dyn Error>> {
     println!(
         "{}",
         serde_json::to_string_pretty(&hub.import_codex_security(&request)?)?
+    );
+    Ok(())
+}
+
+fn sync_research(workspace: &str, source: &str, query: &str) -> Result<(), Box<dyn Error>> {
+    let database = default_database_path().map_err(std::io::Error::other)?;
+    let hub = Hub::open(database)?;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&hub.research_sync(workspace, source, query)?)?
     );
     Ok(())
 }
@@ -324,6 +351,7 @@ fn doctor() -> Result<(), Box<dyn Error>> {
     let role_appointments = hub.audit_role_appointments()?;
     let government = hub.audit_government()?;
     let orchestration = hub.audit_orchestration()?;
+    let research = hub.audit_research()?;
     let replay_ok = execution_replay.mismatches.is_empty()
         && memory_projection.consistent
         && runtime_projection.consistent
@@ -334,6 +362,7 @@ fn doctor() -> Result<(), Box<dyn Error>> {
         && role_appointments.consistent
         && government.consistent
         && orchestration.consistent;
+    let replay_ok = replay_ok && research.consistent;
     println!(
         "{}",
         serde_json::to_string(&serde_json::json!({
@@ -351,6 +380,7 @@ fn doctor() -> Result<(), Box<dyn Error>> {
             "role_appointments": role_appointments,
             "government": government,
             "orchestration": orchestration,
+            "research": research,
             "sandbox": aporic::sandbox_backend_status()
         }))?
     );

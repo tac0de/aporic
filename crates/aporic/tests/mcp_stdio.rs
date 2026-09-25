@@ -1,5 +1,6 @@
 use std::error::Error;
 
+use aporic::{research::FetchedDocument, store::Store};
 use rmcp::{
     ServiceExt,
     model::CallToolRequestParams,
@@ -65,6 +66,8 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_recall",
             "aporic_reconcile",
             "aporic_record",
+            "aporic_research_get",
+            "aporic_research_search",
             "aporic_resume",
             "aporic_role_appoint",
             "aporic_role_appointments",
@@ -104,6 +107,36 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
         .as_str()
         .expect("open result has a session id")
         .to_owned();
+
+    let stored = Store::open(&database)?.ingest_research_document(
+        workspace.to_str().unwrap(),
+        &FetchedDocument {
+            source: "github".into(),
+            source_id: "77".into(),
+            source_url: "https://github.com/example/repo/issues/77".into(),
+            title: "Research retrieval defect".into(),
+            body: "External reports describe retrieval failures".into(),
+            author_name: Some("example".into()),
+            content_license: None,
+            published_at_unix_ms: None,
+        },
+    )?;
+    let found = call_json(
+        &client,
+        "aporic_research_search",
+        json!({
+            "workspace": workspace, "query": "retrieval"
+        }),
+    )
+    .await?;
+    assert_eq!(
+        found["result"]["items"][0]["document_id"],
+        stored.document_id
+    );
+    assert_eq!(
+        found["result"]["items"][0]["influence_class"],
+        "untrusted_external_content"
+    );
 
     let resumed = call_json(&client, "aporic_resume", json!({ "workspace": workspace })).await?;
     assert_eq!(resumed["result"]["status"], "ready");

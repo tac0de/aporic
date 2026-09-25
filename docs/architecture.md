@@ -188,6 +188,13 @@ Inspector; Worker/Inspector separation continues to apply. These records are
 advisory organization and accountability data, not agent dispatch, execution,
 approval, deployment, or host authority.
 
+Schema v18 adds source-scoped external research documents and append-only
+revisions with a separate FTS5 projection. Official API sync is explicit and
+local; MCP exposes only workspace-scoped search and current-document reads.
+An optional product cell supplies query context. Search results carry source
+URLs, fetch times, hashes, and an untrusted-content notice. The corpus never
+enters verified claims or authorization state.
+
 ## MCP surface
 
 - `aporic_open`: start an idempotent session and return recent context.

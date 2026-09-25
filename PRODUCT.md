@@ -90,6 +90,10 @@ manual evaluation.
   gotcha, or unknown and preserves temporal validity plus supersession edges.
 - Retrieval is local FTS5 with deterministic limits; v0.7 has no embeddings,
   vector database, learned memory manager, or model/API call.
+- v0.18 keeps external GitHub and Stack Overflow research in a separate,
+  source-labelled FTS5 corpus. Explicit CLI sync retains immutable revisions;
+  agent retrieval is bounded and read-only. External text remains untrusted
+  and cannot establish verified product outcomes.
 - Context selection is deterministic, byte-bounded, and auditable through a
   policy digest and per-item reason codes.
 - The optional Codex hook reads lifecycle events without calling a model API or

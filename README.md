@@ -536,3 +536,28 @@ The Codex bridge template is under `integrations/codex/`. Nothing in the build
 installs or changes global Codex configuration.
 
 Licensed under MIT or Apache-2.0.
+## v0.18 external research retrieval
+
+External GitHub issues and Stack Overflow questions can be imported on demand
+through their official APIs. Open an Aporic session for the workspace first,
+then run:
+
+```sh
+aporic research sync --workspace /absolute/workspace --source github --query "agent memory"
+aporic research sync --workspace /absolute/workspace --source stackoverflow --query "sqlite fts5"
+```
+
+`GITHUB_TOKEN` is optional for authenticated GitHub API limits. The sync reads
+one bounded page per invocation, uses a 20-second timeout and a 2 MB response
+limit, and does not schedule itself. Each document retains immutable revisions,
+the current content hash, source URL, author and license when provided, and
+fetch time. The previous revision
+remains in the export but is excluded from search. Source text is untrusted
+data, never an instruction or verification of a product claim.
+
+Agents use `aporic_research_search` with a workspace, query, and optional
+`cell_id` to add a product cell's problem and hypothesis to the query. Results
+have bounded excerpts and citations; `aporic_research_get` reads a current
+document. The external index is separate from Aporic's durable memory index.
+`aporic doctor` checks revision hashes and current pointers. `aporic export`
+includes the revision history. There are no embeddings or model API calls.

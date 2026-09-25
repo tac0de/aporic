@@ -84,7 +84,8 @@ const MIGRATION_14: &str = include_str!("../../../migrations/0014_advisory_orche
 const MIGRATION_15: &str = include_str!("../../../migrations/0015_roles.sql");
 const MIGRATION_16: &str = include_str!("../../../migrations/0016_role_run_link.sql");
 const MIGRATION_17: &str = include_str!("../../../migrations/0017_product_government.sql");
-const SCHEMA_VERSION: u32 = 17;
+const MIGRATION_18: &str = include_str!("../../../migrations/0018_external_research.sql");
+const SCHEMA_VERSION: u32 = 18;
 const MIGRATIONS: &[(u32, &str)] = &[
     (2, MIGRATION_2),
     (3, MIGRATION_3),
@@ -102,6 +103,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (15, MIGRATION_15),
     (16, MIGRATION_16),
     (17, MIGRATION_17),
+    (18, MIGRATION_18),
 ];
 
 #[derive(Debug, Error)]
@@ -5661,7 +5663,7 @@ impl Store {
         };
 
         Ok(ProjectExport {
-            format_version: 13,
+            format_version: 14,
             exported_at_unix_ms: unix_millis()?,
             project_id,
             workspace,
@@ -5695,11 +5697,12 @@ impl Store {
             role_appointments,
             office_appointments,
             product_cells,
+            research_revisions: self.research_revisions(raw_workspace)?,
             events,
         })
     }
 
-    fn connection(&self) -> Result<Connection> {
+    pub(crate) fn connection(&self) -> Result<Connection> {
         let connection = Connection::open(&self.path)?;
         connection.busy_timeout(Duration::from_secs(5))?;
         connection.pragma_update(None, "journal_mode", "WAL")?;
@@ -7964,7 +7967,7 @@ fn parse_deliberation_edge_kind(value: String) -> rusqlite::Result<DeliberationE
     }
 }
 
-fn canonical_workspace(raw: &str) -> Result<String> {
+pub(crate) fn canonical_workspace(raw: &str) -> Result<String> {
     require_text("workspace", raw)?;
     let path = fs::canonicalize(raw)?;
     if !path.is_dir() {

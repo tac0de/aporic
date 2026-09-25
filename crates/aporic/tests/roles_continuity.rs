@@ -207,7 +207,11 @@ fn upgrades_existing_role_schema_without_recreating_appointments() {
     let connection = rusqlite::Connection::open(&database).unwrap();
     connection
         .execute_batch(
-            "DROP TABLE product_cells;
+            "DROP TRIGGER research_revisions_fts_insert;
+             DROP TABLE research_fts;
+             DROP TABLE research_revisions;
+             DROP TABLE research_documents;
+             DROP TABLE product_cells;
              DROP TABLE office_appointments;
              ALTER TABLE orchestration_runs DROP COLUMN role_appointment_id;
              PRAGMA user_version = 15;",
@@ -215,7 +219,7 @@ fn upgrades_existing_role_schema_without_recreating_appointments() {
         .unwrap();
     drop(connection);
     let upgraded = Hub::open(database).unwrap();
-    assert_eq!(upgraded.stats().unwrap().schema_version, 17);
+    assert_eq!(upgraded.stats().unwrap().schema_version, 18);
     assert_eq!(
         upgraded
             .list_role_appointments(&RoleAppointmentListRequest {
