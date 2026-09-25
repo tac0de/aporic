@@ -41,6 +41,9 @@ Historical Git commits and tags are context, not current design authority.
 - For substantive backend implementation or review, use
   `.agents/skills/aporic-backend/SKILL.md` and the references relevant to the
   affected service, data, integration, or reliability path.
+- For playable game or level design work, use
+  `.agents/skills/aporic-game-development/SKILL.md` and verify the result through
+  actual play as well as relevant mechanical checks.
 - Unless the human explicitly requests otherwise or an external block prevents
   it, completed implementation work includes mechanical verification, a commit,
   fast-forward integration into `main`, pushing `origin/main`, and deletion of

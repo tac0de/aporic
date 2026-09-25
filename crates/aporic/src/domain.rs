@@ -365,6 +365,8 @@ pub enum ProductCellDuty {
     VisualDesign,
     MotionDesign,
     BackendEngineering,
+    GameDevelopment,
+    LevelDesign,
 }
 
 impl ProductCellDuty {
@@ -378,6 +380,8 @@ impl ProductCellDuty {
             Self::VisualDesign => "visual_design",
             Self::MotionDesign => "motion_design",
             Self::BackendEngineering => "backend_engineering",
+            Self::GameDevelopment => "game_development",
+            Self::LevelDesign => "level_design",
         }
     }
 }

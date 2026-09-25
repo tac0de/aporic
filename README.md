@@ -461,6 +461,12 @@ service contracts, SQLite data and search, local execution and external
 integrations, and operational reliability. It guides implementation and review;
 it does not create an independently running backend service.
 
+Product cells can also appoint game development and level design disciplines.
+The repository's [game development practice skill](.agents/skills/aporic-game-development/SKILL.md)
+guides playable prototypes, blockout and level iteration, game systems, and
+playtesting. It records design reasoning and observed behavior separately;
+it does not turn a design assessment into proof of player enjoyment.
+
 ## Offline evaluation
 
 Aporic does not call the OpenAI API or any other model endpoint. Its offline

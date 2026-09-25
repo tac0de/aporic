@@ -182,6 +182,22 @@ fn product_minister_and_multidisciplinary_cell_preserve_independent_oversight() 
         "agent.backend-engineer",
         "backend-engineer",
     );
+    let game_developer = appoint(
+        &hub,
+        &session_id,
+        Some(&task_id),
+        "delivery.worker",
+        "agent.game-developer",
+        "game-developer",
+    );
+    let level_designer = appoint(
+        &hub,
+        &session_id,
+        Some(&task_id),
+        "delivery.worker",
+        "agent.level-designer",
+        "level-designer",
+    );
     appoint(
         &hub,
         &session_id,
@@ -223,11 +239,19 @@ fn product_minister_and_multidisciplinary_cell_preserve_independent_oversight() 
                 role_appointment_id: backend_engineer,
                 duty: ProductCellDuty::BackendEngineering,
             },
+            ProductCellMemberRequest {
+                role_appointment_id: game_developer,
+                duty: ProductCellDuty::GameDevelopment,
+            },
+            ProductCellMemberRequest {
+                role_appointment_id: level_designer,
+                duty: ProductCellDuty::LevelDesign,
+            },
         ],
         idempotency_key: "cell".to_owned(),
     };
     let created = hub.create_product_cell(&request).unwrap();
-    assert_eq!(created.cell.members.len(), 6);
+    assert_eq!(created.cell.members.len(), 8);
     assert!(created.cell.active);
     assert!(created.cell.advisory);
     assert!(!created.cell.grants_authority);
@@ -267,7 +291,7 @@ fn product_minister_and_multidisciplinary_cell_preserve_independent_oversight() 
     assert_eq!(export.format_version, 14);
     assert_eq!(export.office_appointments.len(), 1);
     assert_eq!(export.product_cells.len(), 1);
-    assert_eq!(export.product_cells[0].members.len(), 6);
+    assert_eq!(export.product_cells[0].members.len(), 8);
     assert!(
         export.product_cells[0]
             .members
@@ -279,6 +303,18 @@ fn product_minister_and_multidisciplinary_cell_preserve_independent_oversight() 
             .members
             .iter()
             .any(|member| member.duty == ProductCellDuty::BackendEngineering)
+    );
+    assert!(
+        export.product_cells[0]
+            .members
+            .iter()
+            .any(|member| member.duty == ProductCellDuty::GameDevelopment)
+    );
+    assert!(
+        export.product_cells[0]
+            .members
+            .iter()
+            .any(|member| member.duty == ProductCellDuty::LevelDesign)
     );
     assert!(restarted.audit_government().unwrap().consistent);
 }
