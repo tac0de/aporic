@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     objective TEXT NOT NULL,
     status TEXT NOT NULL CHECK(status IN ('open', 'completed', 'handoff')),
     opened_at_unix_ms INTEGER NOT NULL,
+    last_activity_at_unix_ms INTEGER NOT NULL,
+    abandoned INTEGER NOT NULL DEFAULT 0 CHECK(abandoned IN (0, 1)),
     closed_at_unix_ms INTEGER,
     summary TEXT,
     next_action TEXT
@@ -24,11 +26,21 @@ CREATE TABLE IF NOT EXISTS records (
     kind TEXT NOT NULL,
     content TEXT NOT NULL,
     evidence TEXT,
+    supersedes_record_id TEXT REFERENCES records(record_id),
+    verifies_effect_id TEXT REFERENCES records(record_id),
     created_at_unix_ms INTEGER NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS records_session_created
     ON records(session_id, created_at_unix_ms DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS records_supersedes_once
+    ON records(supersedes_record_id)
+    WHERE supersedes_record_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS records_verifies_effect_once
+    ON records(verifies_effect_id)
+    WHERE verifies_effect_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS events (
     sequence INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,4 +53,4 @@ CREATE TABLE IF NOT EXISTS events (
     occurred_at_unix_ms INTEGER NOT NULL
 );
 
-PRAGMA user_version = 1;
+PRAGMA user_version = 2;

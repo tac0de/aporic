@@ -43,9 +43,23 @@ call. Tests replay events independently and compare the result with projections.
 - `aporic_recall`: retrieve a bounded project capsule.
 - `aporic_record`: append one durable typed record.
 - `aporic_close`: complete or hand off a session.
+- `aporic_reconcile`: mark inactive sessions abandoned without converting them
+  into completed work.
+
+Recall excludes records superseded by a newer decision or constraint and
+prioritizes active decisions, constraints, and material unknowns. Effects and
+verifications are linked records: a completed session cannot contain an
+unverified effect.
 
 Tool failures are returned as visible tool-level errors. Protocol errors are
 reserved for malformed MCP requests that cannot be routed or decoded.
+
+## Automated evaluation
+
+`frontier_failures` is a deterministic simulation suite for five recurrent
+model failures: context loss after restart, stale decision reuse, unsupported
+completion, duplicate work, and orphaned sessions. It is a regression contract,
+not evidence that every natural-language model behavior is solved.
 
 ## Later growth
 

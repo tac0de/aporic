@@ -65,6 +65,18 @@ pub struct RecordRequest {
     pub kind: RecordKind,
     pub content: String,
     pub evidence: Option<String>,
+    #[serde(default)]
+    pub supersedes_record_id: Option<String>,
+    #[serde(default)]
+    pub verifies_effect_id: Option<String>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ReconcileRequest {
+    pub workspace: String,
+    pub stale_after_seconds: u64,
     pub idempotency_key: String,
 }
 
@@ -85,6 +97,8 @@ pub struct DurableRecord {
     pub kind: RecordKind,
     pub content: String,
     pub evidence: Option<String>,
+    pub supersedes_record_id: Option<String>,
+    pub verifies_effect_id: Option<String>,
     pub created_at_unix_ms: i64,
 }
 
@@ -93,6 +107,14 @@ pub struct ActiveSession {
     pub session_id: String,
     pub objective: String,
     pub opened_at_unix_ms: i64,
+    pub last_activity_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AbandonedSession {
+    pub session_id: String,
+    pub objective: String,
+    pub last_activity_at_unix_ms: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -134,4 +156,57 @@ pub struct CloseOutcome {
     pub summary: String,
     pub next_action: Option<String>,
     pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReconcileOutcome {
+    pub project_id: Option<String>,
+    pub abandoned_sessions: Vec<AbandonedSession>,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HubStats {
+    pub schema_version: u32,
+    pub project_count: u64,
+    pub open_session_count: u64,
+    pub abandoned_session_count: u64,
+    pub record_count: u64,
+    pub event_count: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExportSession {
+    pub session_id: String,
+    pub objective: String,
+    pub status: String,
+    pub opened_at_unix_ms: i64,
+    pub last_activity_at_unix_ms: i64,
+    pub abandoned: bool,
+    pub closed_at_unix_ms: Option<i64>,
+    pub summary: Option<String>,
+    pub next_action: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ExportEvent {
+    pub sequence: u64,
+    pub event_id: String,
+    pub idempotency_key: String,
+    pub stream_id: String,
+    pub kind: String,
+    pub payload: serde_json::Value,
+    pub result: serde_json::Value,
+    pub occurred_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ProjectExport {
+    pub format_version: u32,
+    pub exported_at_unix_ms: i64,
+    pub project_id: String,
+    pub workspace: String,
+    pub sessions: Vec<ExportSession>,
+    pub records: Vec<DurableRecord>,
+    pub events: Vec<ExportEvent>,
 }

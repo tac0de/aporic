@@ -3,7 +3,7 @@ use serde::Serialize;
 
 use crate::{
     Hub,
-    domain::{CloseRequest, OpenRequest, RecallRequest, RecordRequest},
+    domain::{CloseRequest, OpenRequest, RecallRequest, ReconcileRequest, RecordRequest},
 };
 
 #[derive(Clone)]
@@ -45,6 +45,13 @@ impl AporicMcp {
     )]
     async fn aporic_close(&self, Parameters(request): Parameters<CloseRequest>) -> String {
         render(self.hub.close_session(&request))
+    }
+
+    #[tool(
+        description = "Mark inactive open sessions as abandoned without claiming they completed. Use this to recover from interrupted tasks; it never treats abandonment as a successful effect."
+    )]
+    async fn aporic_reconcile(&self, Parameters(request): Parameters<ReconcileRequest>) -> String {
+        render(self.hub.reconcile(&request))
     }
 }
 

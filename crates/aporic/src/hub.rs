@@ -2,8 +2,9 @@ use std::path::PathBuf;
 
 use crate::{
     domain::{
-        CloseOutcome, CloseRequest, ContextCapsule, OpenOutcome, OpenRequest, RecallRequest,
-        RecordOutcome, RecordRequest,
+        CloseOutcome, CloseRequest, ContextCapsule, HubStats, OpenOutcome, OpenRequest,
+        ProjectExport, RecallRequest, ReconcileOutcome, ReconcileRequest, RecordOutcome,
+        RecordRequest,
     },
     kernel,
     store::{Result, Store},
@@ -42,7 +43,19 @@ impl Hub {
         self.store.close_session(request)
     }
 
+    pub fn reconcile(&self, request: &ReconcileRequest) -> Result<ReconcileOutcome> {
+        self.store.reconcile(request)
+    }
+
     pub fn event_count(&self) -> Result<u64> {
         self.store.event_count()
+    }
+
+    pub fn stats(&self) -> Result<HubStats> {
+        self.store.stats()
+    }
+
+    pub fn export_project(&self, workspace: &str) -> Result<ProjectExport> {
+        self.store.export_project(workspace)
     }
 }

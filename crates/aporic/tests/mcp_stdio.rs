@@ -28,6 +28,7 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_close",
             "aporic_open",
             "aporic_recall",
+            "aporic_reconcile",
             "aporic_record"
         ]
     );
@@ -53,7 +54,7 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
         "aporic_record",
         json!({
             "session_id": session_id,
-            "kind": "verification",
+            "kind": "observation",
             "content": "The stdio MCP tool call completed.",
             "evidence": "rmcp client response",
             "idempotency_key": "mcp-record"

@@ -33,14 +33,16 @@ saves.
 
 ## Current stage
 
-The product is in the thin-prototype stage. The prototype question is:
+The product is in the continuity-hardening stage. The product question is:
 
 > Can a local MCP hub restore and preserve the minimum useful work context
 > across Codex tasks with less overhead than manually restating it?
 
-The first slice is complete only when an actual stdio MCP client can open a
+The first protocol slice is complete: an actual stdio MCP client can open a
 session, recall project context, record a durable item, close the session, and
-recover the same state after a process restart.
+recover the same state after a process restart. Current work tests whether the
+hub can structurally reduce recurring frontier-model failures without requiring
+manual evaluation.
 
 ## Constraints and decisions
 
@@ -54,6 +56,10 @@ recover the same state after a process restart.
 - Important state changes are append-only events with transactionally updated
   read projections.
 - Raw conversation history is not durable product memory.
+- Effect claims require explicit evidence and linked verification before a
+  session may claim completion.
+- A newer decision or constraint can explicitly supersede one older record;
+  stale records remain in history but are omitted from active recall.
 
 ## Material unknowns
 
@@ -82,15 +88,22 @@ Observed on 2026-09-25:
 - exact retries are idempotent and conflicting reuse of a key is rejected;
 - concurrent writers retain all tested sessions through SQLite WAL;
 - the complete workspace test and clippy suites pass;
+- a deterministic frontier-failure suite improves the enforced-property score
+  from the v0.1 baseline of 1/5 to 5/5 for restart memory, stale-decision
+  suppression, verified completion, duplicate-work rejection, and stale-session
+  reconciliation;
 - an already initialized release database opens below the resolution of the
   local `time` measurement, while first-time database creation was about 0.57
   seconds and remains an optimization target.
 
-Not yet observed:
+Not yet established:
 
-- Codex loading the repository MCP bridge in a fresh real task;
-- reduced restatement or coordination time during representative daily work;
+- generalized performance on model-generated adversarial scenarios beyond the
+  deterministic regression suite;
+- reduced restatement or coordination cost across a long synthetic workload;
 - agent dispatch or parallel worker operation.
 
-The protocol slice is implemented, but the product hypothesis remains open
-until the Codex bridge is installed and exercised on real work.
+The protocol slice and its live Codex bridge are operating. The broader product
+hypothesis remains open until automated long-horizon simulations show that the
+stored context reduces errors without creating stale-context or coordination
+overhead.

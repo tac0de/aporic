@@ -40,6 +40,8 @@ fn persists_context_across_hub_restarts_and_deduplicates_retries() {
         kind: RecordKind::Decision,
         content: "Use a local stdio MCP vertical slice first.".to_owned(),
         evidence: Some("Current product decision".to_owned()),
+        supersedes_record_id: None,
+        verifies_effect_id: None,
         idempotency_key: "record-1".to_owned(),
     };
     let recorded = hub.record(&record_request).unwrap();
@@ -118,6 +120,8 @@ fn handoff_requires_a_next_action_and_closed_sessions_reject_new_records() {
             kind: RecordKind::Observation,
             content: "This must not be stored".to_owned(),
             evidence: None,
+            supersedes_record_id: None,
+            verifies_effect_id: None,
             idempotency_key: "late-record".to_owned(),
         })
         .unwrap_err();
@@ -160,4 +164,79 @@ fn concurrent_process_equivalent_writers_do_not_lose_sessions() {
         .unwrap();
     assert_eq!(recalled.active_sessions.len(), 8);
     assert_eq!(hub.event_count().unwrap(), 8);
+}
+
+#[test]
+fn migrates_v1_state_and_exports_complete_project_history() {
+    let area = tempfile::tempdir().unwrap();
+    let workspace = area.path().join("workspace");
+    std::fs::create_dir(&workspace).unwrap();
+    let database = area.path().join("aporic.sqlite3");
+    let connection = rusqlite::Connection::open(&database).unwrap();
+    connection
+        .execute_batch(
+            "CREATE TABLE projects (
+                project_id TEXT PRIMARY KEY,
+                workspace TEXT NOT NULL UNIQUE,
+                created_at_unix_ms INTEGER NOT NULL
+            );
+            CREATE TABLE sessions (
+                session_id TEXT PRIMARY KEY,
+                project_id TEXT NOT NULL REFERENCES projects(project_id),
+                objective TEXT NOT NULL,
+                status TEXT NOT NULL CHECK(status IN ('open', 'completed', 'handoff')),
+                opened_at_unix_ms INTEGER NOT NULL,
+                closed_at_unix_ms INTEGER,
+                summary TEXT,
+                next_action TEXT
+            );
+            CREATE TABLE records (
+                record_id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL REFERENCES sessions(session_id),
+                kind TEXT NOT NULL,
+                content TEXT NOT NULL,
+                evidence TEXT,
+                created_at_unix_ms INTEGER NOT NULL
+            );
+            CREATE TABLE events (
+                sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_id TEXT NOT NULL UNIQUE,
+                idempotency_key TEXT NOT NULL UNIQUE,
+                stream_id TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                result_json TEXT NOT NULL,
+                occurred_at_unix_ms INTEGER NOT NULL
+            );
+            PRAGMA user_version = 1;",
+        )
+        .unwrap();
+    drop(connection);
+
+    let hub = Hub::open(&database).unwrap();
+    assert_eq!(hub.stats().unwrap().schema_version, 2);
+    let workspace = workspace.to_string_lossy().into_owned();
+    let opened = hub
+        .open_session(&OpenRequest {
+            workspace: workspace.clone(),
+            objective: "Verify migration and export".to_owned(),
+            idempotency_key: "migration-open".to_owned(),
+        })
+        .unwrap();
+    hub.record(&RecordRequest {
+        session_id: opened.session_id,
+        kind: RecordKind::Observation,
+        content: "The migrated database accepted a record.".to_owned(),
+        evidence: Some("Successful transaction".to_owned()),
+        supersedes_record_id: None,
+        verifies_effect_id: None,
+        idempotency_key: "migration-record".to_owned(),
+    })
+    .unwrap();
+
+    let exported = hub.export_project(&workspace).unwrap();
+    assert_eq!(exported.format_version, 1);
+    assert_eq!(exported.sessions.len(), 1);
+    assert_eq!(exported.records.len(), 1);
+    assert_eq!(exported.events.len(), 2);
 }

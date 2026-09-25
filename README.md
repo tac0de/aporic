@@ -14,12 +14,19 @@ See [PRODUCT.md](PRODUCT.md) for the product objective and
 
 ## First vertical slice
 
-The prototype currently exposes four MCP tools:
+The prototype currently exposes five MCP tools:
 
 - `aporic_open`: open an idempotent work session and receive bounded context;
 - `aporic_recall`: retrieve recent durable project context;
 - `aporic_record`: record one typed durable fact or work-state change;
 - `aporic_close`: complete or hand off a session.
+- `aporic_reconcile`: abandon stale interrupted sessions without claiming success.
+
+Decision and constraint records may explicitly supersede older records. Effect
+records require evidence, and a session with effects cannot be completed until
+each effect has a linked verification record. These structural checks target
+common agent failures: stale context, duplicate work, and unsupported completion
+claims.
 
 State is stored in platform-native application data, not in the governed
 workspace or `~/.codex`. Set `APORIC_DATABASE` to an explicit database path for
@@ -43,6 +50,18 @@ Inspect the local kernel and database without starting MCP:
 
 ```console
 cargo run -p aporic -- doctor
+```
+
+Export one project's complete sessions, records, and event history as JSON:
+
+```console
+cargo run -p aporic -- export --workspace /absolute/project/path
+```
+
+Run the deterministic frontier-failure simulation:
+
+```console
+cargo test -p aporic --test frontier_failures -- --nocapture
 ```
 
 The Codex bridge template is under `integrations/codex/`. Nothing in the build
