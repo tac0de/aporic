@@ -1,6 +1,6 @@
 use aporic::eval::{
     EvalTrial, StructuredAnswer, TrialProvenance, frontier_scenarios, grade, routing_eligible,
-    simulate, simulate_context_selection, simulate_memory_lifecycle,
+    simulate, simulate_context_selection, simulate_memory_lifecycle, simulate_runtime_trace,
 };
 
 #[test]
@@ -10,6 +10,26 @@ fn calibrated_simulator_passes_without_becoming_model_evidence() {
     assert_eq!(report.passed as usize, frontier_scenarios().len());
     assert_eq!(report.network_or_model_calls, 0);
     assert!(!report.routing_eligible);
+}
+
+#[test]
+fn runtime_trace_simulation_detects_gaps_without_blocking_or_payload_capture() {
+    let report = simulate_runtime_trace();
+    assert_eq!(
+        report.lifecycle_gaps_detected,
+        report.lifecycle_gaps_expected
+    );
+    assert_eq!(
+        report.duplicate_events_detected,
+        report.duplicate_events_expected
+    );
+    assert_eq!(report.unknown_schemas_preserved, 1);
+    assert_eq!(report.destructive_patterns_shadowed, 1);
+    assert_eq!(report.blocking_hook_outputs, 0);
+    assert_eq!(report.raw_payloads_persisted, 0);
+    assert!(report.deterministic);
+    assert!(!report.routing_eligible);
+    assert_eq!(report.network_or_model_calls, 0);
 }
 
 #[test]

@@ -321,6 +321,214 @@ pub struct MemoryExposure {
     pub created_at_unix_ms: i64,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum RuntimeEventKind {
+    SessionStart,
+    UserPrompt,
+    PreTool,
+    PostTool,
+    ToolFailure,
+    PermissionRequest,
+    Stop,
+    SessionEnd,
+    Unknown,
+}
+
+impl RuntimeEventKind {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::SessionStart => "session_start",
+            Self::UserPrompt => "user_prompt",
+            Self::PreTool => "pre_tool",
+            Self::PostTool => "post_tool",
+            Self::ToolFailure => "tool_failure",
+            Self::PermissionRequest => "permission_request",
+            Self::Stop => "stop",
+            Self::SessionEnd => "session_end",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum CapabilityClass {
+    Read,
+    Write,
+    Execute,
+    Network,
+    ExternalMutation,
+    Delegation,
+    Unknown,
+}
+
+impl CapabilityClass {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Read => "read",
+            Self::Write => "write",
+            Self::Execute => "execute",
+            Self::Network => "network",
+            Self::ExternalMutation => "external_mutation",
+            Self::Delegation => "delegation",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RuntimeOutcomeStatus {
+    Proposed,
+    Succeeded,
+    Failed,
+    Unknown,
+}
+
+impl RuntimeOutcomeStatus {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Proposed => "proposed",
+            Self::Succeeded => "succeeded",
+            Self::Failed => "failed",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ShadowDisposition {
+    Observe,
+    Warn,
+    WouldAsk,
+    WouldDeny,
+}
+
+impl ShadowDisposition {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Observe => "observe",
+            Self::Warn => "warn",
+            Self::WouldAsk => "would_ask",
+            Self::WouldDeny => "would_deny",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct RuntimeObservation {
+    pub workspace: String,
+    pub host_provider: String,
+    pub event_kind: RuntimeEventKind,
+    pub host_session_id: Option<String>,
+    pub host_turn_id: Option<String>,
+    pub host_tool_call_id: Option<String>,
+    pub tool_name: Option<String>,
+    pub capability_class: CapabilityClass,
+    pub outcome_status: RuntimeOutcomeStatus,
+    pub input: Option<serde_json::Value>,
+    pub output: Option<serde_json::Value>,
+    pub latency_ms: Option<u64>,
+    pub hook_schema_version: Option<String>,
+    pub shadow_disposition: ShadowDisposition,
+    pub shadow_reasons: Vec<String>,
+    pub exposure_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RuntimeTraceListRequest {
+    pub workspace: String,
+    #[serde(default)]
+    pub limit: Option<u32>,
+    #[serde(default)]
+    pub event_kinds: Vec<RuntimeEventKind>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RuntimeTraceGetRequest {
+    pub workspace: String,
+    pub event_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RuntimeWorkspaceRequest {
+    pub workspace: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeEvent {
+    pub sequence: u64,
+    pub event_id: String,
+    pub exposure_id: Option<String>,
+    pub host_provider: String,
+    pub event_kind: RuntimeEventKind,
+    pub host_session_hmac: Option<String>,
+    pub host_turn_hmac: Option<String>,
+    pub host_tool_call_hmac: Option<String>,
+    pub tool_name: Option<String>,
+    pub capability_class: CapabilityClass,
+    pub outcome_status: RuntimeOutcomeStatus,
+    pub input_hmac: Option<String>,
+    pub input_bytes: u64,
+    pub output_hmac: Option<String>,
+    pub output_bytes: u64,
+    pub latency_ms: Option<u64>,
+    pub hook_schema_version: Option<String>,
+    pub shadow_disposition: ShadowDisposition,
+    pub shadow_reasons: Vec<String>,
+    pub duplicate_of_event_id: Option<String>,
+    pub received_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CapabilityObservation {
+    pub observation_id: String,
+    pub host_provider: String,
+    pub tool_name: String,
+    pub capability_class: CapabilityClass,
+    pub first_seen_at_unix_ms: i64,
+    pub last_seen_at_unix_ms: i64,
+    pub event_count: u64,
+    pub succeeded_count: u64,
+    pub failed_count: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CapabilityReport {
+    pub project_id: Option<String>,
+    pub workspace: String,
+    pub observations: Vec<CapabilityObservation>,
+    pub authority_notice: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HookHealthReport {
+    pub project_id: Option<String>,
+    pub workspace: String,
+    pub event_count: u64,
+    pub unmatched_pre_tool_count: u64,
+    pub terminal_without_pre_count: u64,
+    pub duplicate_count: u64,
+    pub unknown_event_count: u64,
+    pub unknown_capability_count: u64,
+    pub last_event_at_unix_ms: Option<i64>,
+    pub no_detected_gaps: bool,
+    pub coverage_proven: bool,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeProjectionAudit {
+    pub event_tool_group_count: u64,
+    pub capability_projection_count: u64,
+    pub consistent: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OpenOutcome {
     pub session_id: String,
@@ -876,5 +1084,7 @@ pub struct ProjectExport {
     pub memory_items: Vec<MemoryItem>,
     pub memory_edges: Vec<MemoryEdge>,
     pub memory_exposures: Vec<MemoryExposure>,
+    pub runtime_events: Vec<RuntimeEvent>,
+    pub capability_observations: Vec<CapabilityObservation>,
     pub events: Vec<ExportEvent>,
 }

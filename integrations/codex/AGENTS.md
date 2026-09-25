@@ -10,6 +10,12 @@ constraints, progress, observations, effects, verification, or material
 unknowns with `aporic_record`, then use `aporic_close` when the work is complete
 or has one concrete next action.
 
+Use `aporic_trace_list`/`aporic_trace_get` to inspect observed lifecycle events,
+`aporic_capability_report` to see inferred capabilities actually observed, and
+`aporic_hook_health` to check visible gaps or schema drift. These are read-only
+telemetry. A missing observation is not proof that an action or capability did
+not exist, and shadow dispositions never grant, request, or deny authority.
+
 When a decision or constraint replaces an earlier one, set
 `supersedes_record_id`. An effect requires concrete evidence, and its
 verification must set `verifies_effect_id`; do not close the session as

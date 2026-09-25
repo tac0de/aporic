@@ -24,6 +24,7 @@ Codex --stdio MCP--> mcp adapter --> hub services --> SQLite
                                       +--> kernel invariants
 
 Codex lifecycle --JSON stdin--> fail-open hook --> bounded context + exposure receipt
+                                             \--> hashed runtime event + projections
 
 local CLI --> runner --> exact argv process --> hashed receipt --> SQLite
 ```
@@ -70,6 +71,14 @@ remain authoritative; the projection adds no permissions. Exposure receipts
 store selected IDs, byte counts, the policy digest, and installation-keyed HMACs
 for host session/turn correlation—never prompt or transcript contents.
 
+Schema v8 adds append-only `runtime_events` and a trigger-maintained
+`capability_observations` projection. Runtime rows keep bounded host/tool
+metadata, inferred capability and outcome classes, latency, byte counts, and
+installation-keyed HMACs for correlation and payload equality. They do not keep
+raw prompt, input, output, transcript, or assistant content. Tool events link to
+the latest exposure with identical project/session/turn HMACs. This is an
+observability relation, not evidence that recalled memory caused an outcome.
+
 ## MCP surface
 
 - `aporic_open`: start an idempotent session and return recent context.
@@ -91,6 +100,9 @@ for host session/turn correlation—never prompt or transcript contents.
   `aporic_task_complete`, and `aporic_task_cancel`: maintain advisory task
   contracts, dependency gates, non-overlapping write leases, and
   criterion-by-criterion verified proofs.
+- `aporic_trace_list`, `aporic_trace_get`, `aporic_capability_report`, and
+  `aporic_hook_health`: inspect runtime observations, inferred capability
+  projections, and observable hook gaps without exposing a control surface.
 
 Recall excludes records and claims superseded by newer state. Its selector
 combines unresolved material unknowns, active constraints and decisions, active
@@ -101,14 +113,21 @@ make ties deterministic. Each item exposes its origin, influence class, and
 selection reasons. Historical effect/verification links remain readable, but
 new writes use the typed gate.
 
-The Codex hook adapter appends no raw hook input or domain event. Opening the local
-store may still initialize or migrate its schema. The adapter ignores transcript
-and assistant-output fields, uses a submitted prompt only as an in-memory
-relevance query, emits model-visible text inside JSON data records under a
-data-not-instructions header, and records only a privacy-preserving exposure
-receipt. It returns an empty JSON object on errors. It does
-not block tools, request permissions, invoke models, or modify Codex
-configuration.
+The Codex hook adapter appends no raw hook payload. Opening the local store may
+still initialize or migrate its schema. For session and prompt events, it uses a
+submitted prompt only as an in-memory relevance query, emits model-visible text
+inside JSON data records under a data-not-instructions header, and records a
+privacy-preserving exposure receipt. For all recognized lifecycle events it
+records privacy-minimized runtime metadata and hashes. Tool and permission hooks
+always return an empty JSON object. Errors also return `{}`. The adapter does not
+block tools, request permissions, invoke models, or modify Codex configuration.
+
+Shadow disposition is a deterministic counterfactual classification. Even
+`would_deny` is a recorded observation and has no enforcement path. Hook health
+compares pre/terminal tool pairs, duplicate fingerprints, and unknown event,
+capability, or schema values. It can reveal evidence of incomplete observation;
+it cannot prove completeness, so `coverage_proven` is always false. The CLI can emit local OpenTelemetry-shaped JSON
+with 128-bit trace IDs and 64-bit span IDs, but does not transmit it.
 
 Tool failures are returned as visible tool-level errors. Protocol errors are
 reserved for malformed MCP requests that cannot be routed or decoded.
@@ -141,6 +160,12 @@ untrusted-by-default text, bounded Hook output, HMAC-only exposure correlation,
 and projection/FTS consistency. `eval memory` adds an offline fixed-trace check
 for stale exclusion, gotcha retention, unknown preservation, determinism, and
 zero poison authority escalation.
+
+`runtime_trace` exercises v7 migration, HMAC correlation, memory-exposure
+association, payload non-retention, capability projection, shadow-policy
+non-enforcement, gap/duplicate/schema detection, trace lookup, and content-free
+export. `eval runtime` adds a fixed offline adversarial trace and asserts no
+blocking, raw payload retention, network export, or model/API invocation.
 
 ## Later growth
 

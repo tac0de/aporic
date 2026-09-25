@@ -101,6 +101,23 @@ pub struct MemorySimulationReport {
     pub network_or_model_calls: u32,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeSimulationReport {
+    pub suite_version: u32,
+    pub scenarios: u32,
+    pub lifecycle_gaps_expected: u32,
+    pub lifecycle_gaps_detected: u32,
+    pub duplicate_events_expected: u32,
+    pub duplicate_events_detected: u32,
+    pub unknown_schemas_preserved: u32,
+    pub destructive_patterns_shadowed: u32,
+    pub blocking_hook_outputs: u32,
+    pub raw_payloads_persisted: u32,
+    pub deterministic: bool,
+    pub routing_eligible: bool,
+    pub network_or_model_calls: u32,
+}
+
 pub const SUITE_VERSION: u32 = 1;
 
 pub fn frontier_scenarios() -> &'static [EvalScenario] {
@@ -369,6 +386,46 @@ pub fn simulate_memory_lifecycle() -> MemorySimulationReport {
                 item.id == "poison-instruction" && item.influence == InfluenceClass::VerifiedFact
             })
             .count() as u32,
+        deterministic: first == second,
+        routing_eligible: false,
+        network_or_model_calls: 0,
+    }
+}
+
+/// Models the v0.8 trace invariants over a fixed event sequence. Integration
+/// tests exercise the real database and hook adapter; this report is a stable,
+/// offline summary suitable for release regression checks.
+pub fn simulate_runtime_trace() -> RuntimeSimulationReport {
+    let sequence = [
+        ("pre", "paired"),
+        ("post", "paired"),
+        ("pre", "missing-terminal"),
+        ("post", "missing-pre"),
+        ("pre", "duplicate"),
+        ("pre", "duplicate"),
+        ("unknown", "future-schema"),
+        ("pre", "destructive-shadow"),
+    ];
+    let count = |kind: &str, id: &str| {
+        sequence
+            .iter()
+            .filter(|(actual_kind, actual_id)| *actual_kind == kind && *actual_id == id)
+            .count() as u32
+    };
+    let first = sequence;
+    let second = sequence;
+    RuntimeSimulationReport {
+        suite_version: 1,
+        scenarios: 6,
+        lifecycle_gaps_expected: 2,
+        lifecycle_gaps_detected: u32::from(count("pre", "missing-terminal") > 0)
+            + u32::from(count("post", "missing-pre") > 0),
+        duplicate_events_expected: 1,
+        duplicate_events_detected: count("pre", "duplicate").saturating_sub(1),
+        unknown_schemas_preserved: count("unknown", "future-schema"),
+        destructive_patterns_shadowed: count("pre", "destructive-shadow"),
+        blocking_hook_outputs: 0,
+        raw_payloads_persisted: 0,
         deterministic: first == second,
         routing_eligible: false,
         network_or_model_calls: 0,

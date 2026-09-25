@@ -25,11 +25,13 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
     assert_eq!(
         tool_names,
         [
+            "aporic_capability_report",
             "aporic_check_register",
             "aporic_claim_assert",
             "aporic_close",
             "aporic_dissent_assess",
             "aporic_evidence_add",
+            "aporic_hook_health",
             "aporic_memory_get",
             "aporic_memory_search",
             "aporic_model_route",
@@ -43,7 +45,9 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_task_claim",
             "aporic_task_complete",
             "aporic_task_create",
-            "aporic_task_list"
+            "aporic_task_list",
+            "aporic_trace_get",
+            "aporic_trace_list"
         ]
     );
 

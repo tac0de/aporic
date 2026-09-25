@@ -14,7 +14,7 @@ See [PRODUCT.md](PRODUCT.md) for the product objective and
 
 ## Current product surface
 
-The hub exposes nineteen MCP tools in six groups.
+The hub exposes twenty-three MCP tools in seven groups.
 
 Continuity:
 
@@ -59,6 +59,15 @@ Verifiable execution history:
 - `aporic_run_list`: list bounded run lifecycle state;
 - `aporic_run_get`: inspect one receipt, its hashes, declared artifacts, and any
   mechanically issued claim.
+
+Runtime observation:
+
+- `aporic_trace_list` and `aporic_trace_get`: inspect privacy-minimized,
+  append-only host lifecycle observations;
+- `aporic_capability_report`: summarize tools and inferred capability classes
+  actually seen through configured hooks;
+- `aporic_hook_health`: report duplicates, unmatched tool lifecycles, unknown
+  events/capabilities, and schema drift without claiming complete coverage.
 
 MCP cannot execute a registered check or submit a receipt. A human or local
 automation invokes `aporic verify --spec SPEC_ID`; the Rust runner executes the
@@ -122,6 +131,31 @@ The example in `integrations/codex/hooks.json.example` is intentionally not
 installed. Copying it into an active Codex configuration and trusting the hook
 remain explicit operator actions.
 
+## Runtime trace and capability observation
+
+v0.8 extends the optional hook across session, prompt, tool, permission, stop,
+and session-end events. It stores event metadata, inferred capability class,
+outcome, latency, payload byte counts, and installation-keyed HMACs of payloads
+and correlation identifiers. Raw prompts, tool inputs, tool outputs, transcripts,
+and assistant messages are never durable trace fields. Metadata strings are
+control-character stripped and bounded.
+
+A deterministic shadow assessment labels observations `observe`, `warn`,
+`would_ask`, or `would_deny`. Those labels are counterfactual telemetry only:
+the hook always returns `{}` for tool and permission events, never grants,
+denies, delays, or requests approval, and fails open on any error. Capability
+reports show only what installed hooks observed; absence is not proof that a
+host lacks a capability or that every action was captured. Hook health reports
+`no_detected_gaps` separately and always leaves `coverage_proven` false.
+
+Tool events sharing a hashed host session and turn are linked to the latest
+memory-exposure receipt. A local, content-free OpenTelemetry-shaped JSON export
+is available without a network exporter:
+
+```console
+cargo run -p aporic -- trace export --workspace /absolute/project/path
+```
+
 The router is advisory and outside the behavioral kernel. It does not dispatch a
 model, grant authority, or turn a model review into evidence. See
 [model routing](docs/model-routing.md).
@@ -145,6 +179,7 @@ cargo run -p aporic -- eval simulate --actor overclaiming
 cargo run -p aporic -- eval simulate --actor contrarian
 cargo run -p aporic -- eval context
 cargo run -p aporic -- eval memory
+cargo run -p aporic -- eval runtime
 ```
 
 State is stored in platform-native application data, not in the governed
@@ -196,6 +231,7 @@ cargo test -p aporic --test verifiable_execution -- --nocapture
 cargo test -p aporic --test offline_eval -- --nocapture
 cargo test -p aporic --test context_runtime -- --nocapture
 cargo test -p aporic --test memory_lifecycle -- --nocapture
+cargo test -p aporic --test runtime_trace -- --nocapture
 ```
 
 The Codex bridge template is under `integrations/codex/`. Nothing in the build

@@ -12,18 +12,22 @@ use thiserror::Error;
 use uuid::Uuid;
 
 use crate::domain::{
-    AbandonedSession, ActiveSession, ClaimOutcome, ClaimRequest, ClaimStatus, CloseDisposition,
-    CloseOutcome, CloseRequest, CommandSpec, CommandSpecOutcome, CommandSpecRequest, Consequence,
-    ContextCapsule, CoordinatedTask, CriterionProof, DissentAssessment, DissentRequest,
-    DurableRecord, EpistemicClaim, EvidenceArtifact, EvidenceGrade, EvidenceKind, EvidenceOutcome,
+    AbandonedSession, ActiveSession, CapabilityClass, CapabilityObservation, CapabilityReport,
+    ClaimOutcome, ClaimRequest, ClaimStatus, CloseDisposition, CloseOutcome, CloseRequest,
+    CommandSpec, CommandSpecOutcome, CommandSpecRequest, Consequence, ContextCapsule,
+    CoordinatedTask, CriterionProof, DissentAssessment, DissentRequest, DurableRecord,
+    EpistemicClaim, EvidenceArtifact, EvidenceGrade, EvidenceKind, EvidenceOutcome,
     EvidenceRequest, ExecutionFinish, ExecutionGetRequest, ExecutionListRequest, ExecutionOutcome,
     ExecutionReceipt, ExecutionReplayAudit, ExecutionRun, ExecutionStart, ExecutionStatus,
-    ExportEvent, ExportSession, Handoff, HubStats, InfluenceClass, MemoryClass, MemoryEdge,
-    MemoryExposure, MemoryGetRequest, MemoryItem, MemoryLifecycle, MemoryProjectionAudit,
-    MemorySearchRequest, MemorySearchResult, OpenOutcome, OpenRequest, OriginChannel,
-    ProjectExport, RecallRequest, ReceiptArtifact, ReconcileOutcome, ReconcileRequest, RecordKind,
-    RecordOutcome, RecordRequest, TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest,
-    TaskCreateRequest, TaskListRequest, TaskOutcome, TaskStatus, workspace_file_claim,
+    ExportEvent, ExportSession, Handoff, HookHealthReport, HubStats, InfluenceClass, MemoryClass,
+    MemoryEdge, MemoryExposure, MemoryGetRequest, MemoryItem, MemoryLifecycle,
+    MemoryProjectionAudit, MemorySearchRequest, MemorySearchResult, OpenOutcome, OpenRequest,
+    OriginChannel, ProjectExport, RecallRequest, ReceiptArtifact, ReconcileOutcome,
+    ReconcileRequest, RecordKind, RecordOutcome, RecordRequest, RuntimeEvent, RuntimeEventKind,
+    RuntimeObservation, RuntimeOutcomeStatus, RuntimeProjectionAudit, RuntimeTraceGetRequest,
+    RuntimeTraceListRequest, RuntimeWorkspaceRequest, ShadowDisposition, TaskCancelRequest,
+    TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskOutcome,
+    TaskStatus, workspace_file_claim,
 };
 
 const SCHEMA: &str = include_str!("../../../migrations/0001_initial.sql");
@@ -33,6 +37,7 @@ const MIGRATION_4: &str = include_str!("../../../migrations/0004_epistemic_gate.
 const MIGRATION_5: &str = include_str!("../../../migrations/0005_verifiable_execution.sql");
 const MIGRATION_6: &str = include_str!("../../../migrations/0006_authority_bound_context.sql");
 const MIGRATION_7: &str = include_str!("../../../migrations/0007_memory_lifecycle.sql");
+const MIGRATION_8: &str = include_str!("../../../migrations/0008_runtime_trace.sql");
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -71,6 +76,7 @@ impl Store {
                 connection.execute_batch(SCHEMA)?;
                 connection.execute_batch(MIGRATION_6)?;
                 connection.execute_batch(MIGRATION_7)?;
+                connection.execute_batch(MIGRATION_8)?;
             }
             1 => {
                 connection.execute_batch(MIGRATION_2)?;
@@ -79,6 +85,7 @@ impl Store {
                 connection.execute_batch(MIGRATION_5)?;
                 connection.execute_batch(MIGRATION_6)?;
                 connection.execute_batch(MIGRATION_7)?;
+                connection.execute_batch(MIGRATION_8)?;
             }
             2 => {
                 connection.execute_batch(MIGRATION_3)?;
@@ -86,27 +93,35 @@ impl Store {
                 connection.execute_batch(MIGRATION_5)?;
                 connection.execute_batch(MIGRATION_6)?;
                 connection.execute_batch(MIGRATION_7)?;
+                connection.execute_batch(MIGRATION_8)?;
             }
             3 => {
                 connection.execute_batch(MIGRATION_4)?;
                 connection.execute_batch(MIGRATION_5)?;
                 connection.execute_batch(MIGRATION_6)?;
                 connection.execute_batch(MIGRATION_7)?;
+                connection.execute_batch(MIGRATION_8)?;
             }
             4 => {
                 connection.execute_batch(MIGRATION_5)?;
                 connection.execute_batch(MIGRATION_6)?;
                 connection.execute_batch(MIGRATION_7)?;
+                connection.execute_batch(MIGRATION_8)?;
             }
             5 => {
                 connection.execute_batch(MIGRATION_6)?;
                 connection.execute_batch(MIGRATION_7)?;
+                connection.execute_batch(MIGRATION_8)?;
             }
-            6 => connection.execute_batch(MIGRATION_7)?,
-            7 => {}
+            6 => {
+                connection.execute_batch(MIGRATION_7)?;
+                connection.execute_batch(MIGRATION_8)?;
+            }
+            7 => connection.execute_batch(MIGRATION_8)?,
+            8 => {}
             version => {
                 return Err(Error::Invalid(format!(
-                    "database schema version {version} is newer than supported version 7"
+                    "database schema version {version} is newer than supported version 8"
                 )));
             }
         }
@@ -1521,7 +1536,7 @@ impl Store {
         host_turn_id: Option<&str>,
         memory_ids: &[String],
         content_bytes: u32,
-    ) -> Result<()> {
+    ) -> Result<Option<String>> {
         let workspace = canonical_workspace(workspace)?;
         let now = unix_millis()?;
         let mut connection = self.connection()?;
@@ -1534,42 +1549,21 @@ impl Store {
             )
             .optional()?;
         let Some(project_id) = project_id else {
-            return Ok(());
+            return Ok(None);
         };
-        let secret = transaction
-            .query_row(
-                "SELECT value FROM installation_secrets WHERE name = 'exposure_hmac_v1'",
-                [],
-                |row| row.get::<_, String>(0),
-            )
-            .optional()?
-            .unwrap_or_else(|| Uuid::now_v7().to_string());
-        transaction.execute(
-            "INSERT OR IGNORE INTO installation_secrets(name, value, created_at_unix_ms)
-             VALUES ('exposure_hmac_v1', ?1, ?2)",
-            params![secret, now],
-        )?;
-        let digest = |value: Option<&str>| -> Result<Option<String>> {
-            value
-                .map(|value| {
-                    let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes())
-                        .map_err(|_| Error::Invalid("invalid HMAC key".to_owned()))?;
-                    mac.update(value.as_bytes());
-                    Ok(format!("{:x}", mac.finalize().into_bytes()))
-                })
-                .transpose()
-        };
+        let secret = installation_secret(&transaction, now)?;
+        let exposure_id = Uuid::now_v7().to_string();
         transaction.execute(
             "INSERT INTO memory_exposures(
                 exposure_id, project_id, event_kind, host_session_hmac, host_turn_hmac,
                 policy_sha256, memory_ids_json, content_bytes, created_at_unix_ms
              ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
-                Uuid::now_v7().to_string(),
+                exposure_id,
                 project_id,
                 event_kind,
-                digest(host_session_id)?,
-                digest(host_turn_id)?,
+                hmac_text(&secret, host_session_id)?,
+                hmac_text(&secret, host_turn_id)?,
                 crate::context::policy_sha256(),
                 serde_json::to_string(memory_ids)?,
                 content_bytes,
@@ -1577,7 +1571,355 @@ impl Store {
             ],
         )?;
         transaction.commit()?;
-        Ok(())
+        Ok(Some(exposure_id))
+    }
+
+    pub(crate) fn record_runtime_observation(
+        &self,
+        observation: &RuntimeObservation,
+    ) -> Result<Option<RuntimeEvent>> {
+        let workspace = canonical_workspace(&observation.workspace)?;
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let project_id = transaction
+            .query_row(
+                "SELECT project_id FROM projects WHERE workspace = ?1",
+                [&workspace],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        let Some(project_id) = project_id else {
+            return Ok(None);
+        };
+        let secret = installation_secret(&transaction, now)?;
+        let host_session_hmac = hmac_text(&secret, observation.host_session_id.as_deref())?;
+        let host_turn_hmac = hmac_text(&secret, observation.host_turn_id.as_deref())?;
+        let host_tool_call_hmac = hmac_text(&secret, observation.host_tool_call_id.as_deref())?;
+        let (input_hmac, input_bytes) = hmac_json(&secret, observation.input.as_ref())?;
+        let (output_hmac, output_bytes) = hmac_json(&secret, observation.output.as_ref())?;
+        let exposure_id = if observation.exposure_id.is_some() {
+            observation.exposure_id.clone()
+        } else if host_session_hmac.is_some() || host_turn_hmac.is_some() {
+            transaction
+                .query_row(
+                    "SELECT exposure_id FROM memory_exposures
+                     WHERE project_id = ?1
+                       AND host_session_hmac IS ?2
+                       AND host_turn_hmac IS ?3
+                     ORDER BY created_at_unix_ms DESC LIMIT 1",
+                    params![project_id, host_session_hmac, host_turn_hmac],
+                    |row| row.get::<_, String>(0),
+                )
+                .optional()?
+        } else {
+            None
+        };
+        let duplicate_of_event_id = transaction
+            .query_row(
+                "SELECT event_id FROM runtime_events
+                 WHERE project_id = ?1 AND event_kind = ?2
+                   AND host_session_hmac IS ?3 AND host_turn_hmac IS ?4
+                   AND host_tool_call_hmac IS ?5 AND input_hmac IS ?6 AND output_hmac IS ?7
+                 ORDER BY sequence ASC LIMIT 1",
+                params![
+                    project_id,
+                    observation.event_kind.as_str(),
+                    host_session_hmac,
+                    host_turn_hmac,
+                    host_tool_call_hmac,
+                    input_hmac,
+                    output_hmac,
+                ],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        let event_id = Uuid::now_v7().to_string();
+        transaction.execute(
+            "INSERT INTO runtime_events(
+                event_id, project_id, exposure_id, host_provider, event_kind,
+                host_session_hmac, host_turn_hmac, host_tool_call_hmac, tool_name,
+                capability_class, outcome_status, input_hmac, input_bytes,
+                output_hmac, output_bytes, latency_ms, hook_schema_version,
+                shadow_disposition, shadow_reasons_json, duplicate_of_event_id,
+                received_at_unix_ms
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
+                       ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21)",
+            params![
+                event_id,
+                project_id,
+                exposure_id,
+                observation.host_provider,
+                observation.event_kind.as_str(),
+                host_session_hmac,
+                host_turn_hmac,
+                host_tool_call_hmac,
+                observation.tool_name,
+                observation.capability_class.as_str(),
+                observation.outcome_status.as_str(),
+                input_hmac,
+                input_bytes,
+                output_hmac,
+                output_bytes,
+                observation.latency_ms,
+                observation.hook_schema_version,
+                observation.shadow_disposition.as_str(),
+                serde_json::to_string(&observation.shadow_reasons)?,
+                duplicate_of_event_id,
+                now,
+            ],
+        )?;
+        let sequence = u64::try_from(transaction.last_insert_rowid())
+            .map_err(|_| Error::Invalid("runtime event sequence overflow".to_owned()))?;
+        let event = RuntimeEvent {
+            sequence,
+            event_id,
+            exposure_id,
+            host_provider: observation.host_provider.clone(),
+            event_kind: observation.event_kind.clone(),
+            host_session_hmac,
+            host_turn_hmac,
+            host_tool_call_hmac,
+            tool_name: observation.tool_name.clone(),
+            capability_class: observation.capability_class.clone(),
+            outcome_status: observation.outcome_status.clone(),
+            input_hmac,
+            input_bytes,
+            output_hmac,
+            output_bytes,
+            latency_ms: observation.latency_ms,
+            hook_schema_version: observation.hook_schema_version.clone(),
+            shadow_disposition: observation.shadow_disposition.clone(),
+            shadow_reasons: observation.shadow_reasons.clone(),
+            duplicate_of_event_id,
+            received_at_unix_ms: now,
+        };
+        transaction.commit()?;
+        Ok(Some(event))
+    }
+
+    pub fn list_runtime_events(
+        &self,
+        request: &RuntimeTraceListRequest,
+    ) -> Result<Vec<RuntimeEvent>> {
+        let workspace = canonical_workspace(&request.workspace)?;
+        let connection = self.connection()?;
+        let project_id = project_id_for_workspace(&connection, &workspace)?;
+        let Some(project_id) = project_id else {
+            return Ok(Vec::new());
+        };
+        let limit = request.limit.unwrap_or(100).clamp(1, 500) as usize;
+        let mut statement = connection.prepare(&format!(
+            "{} FROM runtime_events WHERE project_id = ?1 ORDER BY sequence DESC LIMIT 2000",
+            runtime_event_select()
+        ))?;
+        let mut events = statement
+            .query_map([project_id], runtime_event_from_row)?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        if !request.event_kinds.is_empty() {
+            events.retain(|event| request.event_kinds.contains(&event.event_kind));
+        }
+        events.truncate(limit);
+        Ok(events)
+    }
+
+    pub fn get_runtime_event(&self, request: &RuntimeTraceGetRequest) -> Result<RuntimeEvent> {
+        require_text("event_id", &request.event_id)?;
+        let workspace = canonical_workspace(&request.workspace)?;
+        let connection = self.connection()?;
+        connection
+            .query_row(
+                &format!(
+                    "{} FROM runtime_events JOIN projects USING(project_id)
+                     WHERE projects.workspace = ?1 AND runtime_events.event_id = ?2",
+                    runtime_event_select()
+                ),
+                params![workspace, request.event_id],
+                runtime_event_from_row,
+            )
+            .optional()?
+            .ok_or_else(|| Error::NotFound(format!("runtime event {}", request.event_id)))
+    }
+
+    pub fn capability_report(&self, request: &RuntimeWorkspaceRequest) -> Result<CapabilityReport> {
+        let workspace = canonical_workspace(&request.workspace)?;
+        let connection = self.connection()?;
+        let project_id = project_id_for_workspace(&connection, &workspace)?;
+        let Some(project_id) = project_id else {
+            return Ok(CapabilityReport {
+                project_id: None,
+                workspace,
+                observations: Vec::new(),
+                authority_notice: runtime_authority_notice().to_owned(),
+            });
+        };
+        let observations = load_capability_observations(&connection, &project_id)?;
+        Ok(CapabilityReport {
+            project_id: Some(project_id),
+            workspace,
+            observations,
+            authority_notice: runtime_authority_notice().to_owned(),
+        })
+    }
+
+    pub fn hook_health(&self, request: &RuntimeWorkspaceRequest) -> Result<HookHealthReport> {
+        let workspace = canonical_workspace(&request.workspace)?;
+        let connection = self.connection()?;
+        let project_id = project_id_for_workspace(&connection, &workspace)?;
+        let Some(project_id) = project_id else {
+            return Ok(HookHealthReport {
+                project_id: None,
+                workspace,
+                event_count: 0,
+                unmatched_pre_tool_count: 0,
+                terminal_without_pre_count: 0,
+                duplicate_count: 0,
+                unknown_event_count: 0,
+                unknown_capability_count: 0,
+                last_event_at_unix_ms: None,
+                no_detected_gaps: false,
+                coverage_proven: false,
+                warnings: vec!["project_not_found".to_owned()],
+            });
+        };
+        let event_count = count_runtime(&connection, &project_id, "1 = 1")?;
+        let duplicate_count = count_runtime(
+            &connection,
+            &project_id,
+            "duplicate_of_event_id IS NOT NULL",
+        )?;
+        let unknown_event_count =
+            count_runtime(&connection, &project_id, "event_kind = 'unknown'")?;
+        let unknown_capability_count = count_runtime(
+            &connection,
+            &project_id,
+            "tool_name IS NOT NULL AND capability_class = 'unknown'",
+        )?;
+        let unmatched_pre_tool_count = connection.query_row(
+            "SELECT count(*) FROM runtime_events pre
+             WHERE pre.project_id = ?1 AND pre.event_kind = 'pre_tool'
+               AND (pre.host_tool_call_hmac IS NULL OR NOT EXISTS (
+                    SELECT 1 FROM runtime_events terminal
+                    WHERE terminal.project_id = pre.project_id
+                      AND terminal.host_tool_call_hmac = pre.host_tool_call_hmac
+                      AND terminal.event_kind IN ('post_tool', 'tool_failure')
+                      AND terminal.sequence > pre.sequence
+               ))",
+            [&project_id],
+            |row| row.get::<_, u64>(0),
+        )?;
+        let terminal_without_pre_count = connection.query_row(
+            "SELECT count(*) FROM runtime_events terminal
+             WHERE terminal.project_id = ?1
+               AND terminal.event_kind IN ('post_tool', 'tool_failure')
+               AND (terminal.host_tool_call_hmac IS NULL OR NOT EXISTS (
+                    SELECT 1 FROM runtime_events pre
+                    WHERE pre.project_id = terminal.project_id
+                      AND pre.host_tool_call_hmac = terminal.host_tool_call_hmac
+                      AND pre.event_kind = 'pre_tool' AND pre.sequence < terminal.sequence
+               ))",
+            [&project_id],
+            |row| row.get::<_, u64>(0),
+        )?;
+        let last_event_at_unix_ms = connection.query_row(
+            "SELECT max(received_at_unix_ms) FROM runtime_events WHERE project_id = ?1",
+            [&project_id],
+            |row| row.get::<_, Option<i64>>(0),
+        )?;
+        let mut warnings = Vec::new();
+        if unmatched_pre_tool_count > 0 {
+            warnings.push("unmatched_pre_tool".to_owned());
+        }
+        if terminal_without_pre_count > 0 {
+            warnings.push("terminal_without_pre_tool".to_owned());
+        }
+        if duplicate_count > 0 {
+            warnings.push("duplicate_events".to_owned());
+        }
+        if unknown_event_count > 0 || unknown_capability_count > 0 {
+            warnings.push("unknown_host_schema_or_capability".to_owned());
+        }
+        Ok(HookHealthReport {
+            project_id: Some(project_id),
+            workspace,
+            event_count,
+            unmatched_pre_tool_count,
+            terminal_without_pre_count,
+            duplicate_count,
+            unknown_event_count,
+            unknown_capability_count,
+            last_event_at_unix_ms,
+            no_detected_gaps: warnings.is_empty(),
+            coverage_proven: false,
+            warnings,
+        })
+    }
+
+    pub fn audit_runtime_projection(&self) -> Result<RuntimeProjectionAudit> {
+        let connection = self.connection()?;
+        let event_tool_group_count = connection.query_row(
+            "SELECT count(*) FROM (
+                SELECT project_id, host_provider, tool_name, capability_class
+                FROM runtime_events WHERE tool_name IS NOT NULL
+                GROUP BY project_id, host_provider, tool_name, capability_class
+             )",
+            [],
+            |row| row.get::<_, u64>(0),
+        )?;
+        let capability_projection_count =
+            table_count(&connection, "capability_observations", "1 = 1")?;
+        Ok(RuntimeProjectionAudit {
+            event_tool_group_count,
+            capability_projection_count,
+            consistent: event_tool_group_count == capability_projection_count,
+        })
+    }
+
+    pub fn export_runtime_otel(
+        &self,
+        request: &RuntimeWorkspaceRequest,
+    ) -> Result<serde_json::Value> {
+        let events = self.list_runtime_events(&RuntimeTraceListRequest {
+            workspace: request.workspace.clone(),
+            limit: Some(500),
+            event_kinds: Vec::new(),
+        })?;
+        let spans = events
+            .into_iter()
+            .rev()
+            .map(|event| {
+                let trace_source = event
+                    .host_session_hmac
+                    .as_deref()
+                    .unwrap_or(&event.event_id);
+                serde_json::json!({
+                    "name": format!("gen_ai.{}", event.event_kind.as_str()),
+                    "span_id": otel_hex_id(&event.event_id, 16),
+                    "trace_id": otel_hex_id(trace_source, 32),
+                    "parent_span_id": event.host_turn_hmac.as_deref().map(|id| otel_hex_id(id, 16)),
+                    "start_time_unix_ms": event.received_at_unix_ms,
+                    "attributes": {
+                        "gen_ai.operation.name": match event.event_kind {
+                            RuntimeEventKind::PreTool | RuntimeEventKind::PostTool | RuntimeEventKind::ToolFailure => "execute_tool",
+                            _ => "invoke_agent"
+                        },
+                        "gen_ai.tool.name": event.tool_name,
+                        "aporic.capability.class": event.capability_class.as_str(),
+                        "aporic.outcome.status": event.outcome_status.as_str(),
+                        "aporic.shadow.disposition": event.shadow_disposition.as_str(),
+                        "aporic.payload.content_recorded": false,
+                        "aporic.input.bytes": event.input_bytes,
+                        "aporic.output.bytes": event.output_bytes
+                    }
+                })
+            })
+            .collect::<Vec<_>>();
+        Ok(serde_json::json!({
+            "format": "aporic-otel-json-v1",
+            "network_exported": false,
+            "content_recorded": false,
+            "spans": spans
+        }))
     }
 
     pub fn stats(&self) -> Result<HubStats> {
@@ -1757,6 +2099,16 @@ impl Store {
             })
             .collect::<Result<Vec<_>>>()?
         };
+        let runtime_events = {
+            let mut statement = connection.prepare(&format!(
+                "{} FROM runtime_events WHERE project_id = ?1 ORDER BY sequence ASC",
+                runtime_event_select()
+            ))?;
+            statement
+                .query_map([&project_id], runtime_event_from_row)?
+                .collect::<std::result::Result<Vec<_>, _>>()?
+        };
+        let capability_observations = load_capability_observations(&connection, &project_id)?;
 
         let events = {
             let mut statement = connection.prepare(
@@ -1804,7 +2156,7 @@ impl Store {
         };
 
         Ok(ProjectExport {
-            format_version: 5,
+            format_version: 6,
             exported_at_unix_ms: unix_millis()?,
             project_id,
             workspace,
@@ -1820,6 +2172,8 @@ impl Store {
             memory_items,
             memory_edges,
             memory_exposures,
+            runtime_events,
+            capability_observations,
             events,
         })
     }
@@ -1840,6 +2194,155 @@ fn canonical_workspace(raw: &str) -> Result<String> {
         return Err(Error::Invalid("workspace must be a directory".to_owned()));
     }
     Ok(path.to_string_lossy().into_owned())
+}
+
+fn project_id_for_workspace(connection: &Connection, workspace: &str) -> Result<Option<String>> {
+    Ok(connection
+        .query_row(
+            "SELECT project_id FROM projects WHERE workspace = ?1",
+            [workspace],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()?)
+}
+
+fn installation_secret(connection: &Connection, now: i64) -> Result<String> {
+    if let Some(secret) = connection
+        .query_row(
+            "SELECT value FROM installation_secrets WHERE name = 'exposure_hmac_v1'",
+            [],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()?
+    {
+        return Ok(secret);
+    }
+    let candidate = Uuid::now_v7().to_string();
+    connection.execute(
+        "INSERT OR IGNORE INTO installation_secrets(name, value, created_at_unix_ms)
+         VALUES ('exposure_hmac_v1', ?1, ?2)",
+        params![candidate, now],
+    )?;
+    Ok(connection.query_row(
+        "SELECT value FROM installation_secrets WHERE name = 'exposure_hmac_v1'",
+        [],
+        |row| row.get::<_, String>(0),
+    )?)
+}
+
+fn hmac_bytes(secret: &str, bytes: &[u8]) -> Result<String> {
+    let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes())
+        .map_err(|_| Error::Invalid("invalid HMAC key".to_owned()))?;
+    mac.update(bytes);
+    Ok(format!("{:x}", mac.finalize().into_bytes()))
+}
+
+fn hmac_text(secret: &str, value: Option<&str>) -> Result<Option<String>> {
+    value
+        .map(|value| hmac_bytes(secret, value.as_bytes()))
+        .transpose()
+}
+
+fn hmac_json(secret: &str, value: Option<&serde_json::Value>) -> Result<(Option<String>, u64)> {
+    let Some(value) = value else {
+        return Ok((None, 0));
+    };
+    let bytes = serde_json::to_vec(value)?;
+    Ok((
+        Some(hmac_bytes(secret, &bytes)?),
+        u64::try_from(bytes.len()).unwrap_or(u64::MAX),
+    ))
+}
+
+fn otel_hex_id(value: &str, len: usize) -> String {
+    let digest = format!("{:x}", Sha256::digest(value.as_bytes()));
+    digest[..len.min(digest.len())].to_owned()
+}
+
+fn runtime_authority_notice() -> &'static str {
+    "Observed capabilities and shadow decisions are telemetry, not permissions, grants, denials, or proof that every host action was observed."
+}
+
+fn runtime_event_select() -> &'static str {
+    "SELECT runtime_events.sequence, runtime_events.event_id, runtime_events.exposure_id,
+            runtime_events.host_provider, runtime_events.event_kind,
+            runtime_events.host_session_hmac, runtime_events.host_turn_hmac,
+            runtime_events.host_tool_call_hmac, runtime_events.tool_name,
+            runtime_events.capability_class, runtime_events.outcome_status,
+            runtime_events.input_hmac, runtime_events.input_bytes,
+            runtime_events.output_hmac, runtime_events.output_bytes,
+            runtime_events.latency_ms, runtime_events.hook_schema_version,
+            runtime_events.shadow_disposition, runtime_events.shadow_reasons_json,
+            runtime_events.duplicate_of_event_id, runtime_events.received_at_unix_ms"
+}
+
+fn runtime_event_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<RuntimeEvent> {
+    let reasons = row.get::<_, String>(18)?;
+    Ok(RuntimeEvent {
+        sequence: row.get(0)?,
+        event_id: row.get(1)?,
+        exposure_id: row.get(2)?,
+        host_provider: row.get(3)?,
+        event_kind: parse_runtime_event_kind(row.get(4)?)?,
+        host_session_hmac: row.get(5)?,
+        host_turn_hmac: row.get(6)?,
+        host_tool_call_hmac: row.get(7)?,
+        tool_name: row.get(8)?,
+        capability_class: parse_capability_class(row.get(9)?)?,
+        outcome_status: parse_runtime_outcome(row.get(10)?)?,
+        input_hmac: row.get(11)?,
+        input_bytes: row.get(12)?,
+        output_hmac: row.get(13)?,
+        output_bytes: row.get(14)?,
+        latency_ms: row.get(15)?,
+        hook_schema_version: row.get(16)?,
+        shadow_disposition: parse_shadow_disposition(row.get(17)?)?,
+        shadow_reasons: serde_json::from_str(&reasons).map_err(|error| {
+            rusqlite::Error::FromSqlConversionFailure(
+                reasons.len(),
+                rusqlite::types::Type::Text,
+                Box::new(error),
+            )
+        })?,
+        duplicate_of_event_id: row.get(19)?,
+        received_at_unix_ms: row.get(20)?,
+    })
+}
+
+fn load_capability_observations(
+    connection: &Connection,
+    project_id: &str,
+) -> Result<Vec<CapabilityObservation>> {
+    let mut statement = connection.prepare(
+        "SELECT observation_id, host_provider, tool_name, capability_class,
+                first_seen_at_unix_ms, last_seen_at_unix_ms, event_count,
+                succeeded_count, failed_count
+         FROM capability_observations WHERE project_id = ?1
+         ORDER BY event_count DESC, host_provider ASC, tool_name ASC, capability_class ASC",
+    )?;
+    Ok(statement
+        .query_map([project_id], |row| {
+            Ok(CapabilityObservation {
+                observation_id: row.get(0)?,
+                host_provider: row.get(1)?,
+                tool_name: row.get(2)?,
+                capability_class: parse_capability_class(row.get(3)?)?,
+                first_seen_at_unix_ms: row.get(4)?,
+                last_seen_at_unix_ms: row.get(5)?,
+                event_count: row.get(6)?,
+                succeeded_count: row.get(7)?,
+                failed_count: row.get(8)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?)
+}
+
+fn count_runtime(connection: &Connection, project_id: &str, predicate: &str) -> Result<u64> {
+    Ok(connection.query_row(
+        &format!("SELECT count(*) FROM runtime_events WHERE project_id = ?1 AND {predicate}"),
+        [project_id],
+        |row| row.get(0),
+    )?)
 }
 
 fn validate_relative_path(name: &str, raw: &str) -> Result<()> {
@@ -3261,6 +3764,54 @@ fn parse_memory_lifecycle(value: String) -> rusqlite::Result<MemoryLifecycle> {
         "superseded" => Ok(MemoryLifecycle::Superseded),
         "quarantined" => Ok(MemoryLifecycle::Quarantined),
         "tombstoned" => Ok(MemoryLifecycle::Tombstoned),
+        _ => Err(rusqlite::Error::InvalidQuery),
+    }
+}
+
+fn parse_runtime_event_kind(value: String) -> rusqlite::Result<RuntimeEventKind> {
+    match value.as_str() {
+        "session_start" => Ok(RuntimeEventKind::SessionStart),
+        "user_prompt" => Ok(RuntimeEventKind::UserPrompt),
+        "pre_tool" => Ok(RuntimeEventKind::PreTool),
+        "post_tool" => Ok(RuntimeEventKind::PostTool),
+        "tool_failure" => Ok(RuntimeEventKind::ToolFailure),
+        "permission_request" => Ok(RuntimeEventKind::PermissionRequest),
+        "stop" => Ok(RuntimeEventKind::Stop),
+        "session_end" => Ok(RuntimeEventKind::SessionEnd),
+        "unknown" => Ok(RuntimeEventKind::Unknown),
+        _ => Err(rusqlite::Error::InvalidQuery),
+    }
+}
+
+fn parse_capability_class(value: String) -> rusqlite::Result<CapabilityClass> {
+    match value.as_str() {
+        "read" => Ok(CapabilityClass::Read),
+        "write" => Ok(CapabilityClass::Write),
+        "execute" => Ok(CapabilityClass::Execute),
+        "network" => Ok(CapabilityClass::Network),
+        "external_mutation" => Ok(CapabilityClass::ExternalMutation),
+        "delegation" => Ok(CapabilityClass::Delegation),
+        "unknown" => Ok(CapabilityClass::Unknown),
+        _ => Err(rusqlite::Error::InvalidQuery),
+    }
+}
+
+fn parse_runtime_outcome(value: String) -> rusqlite::Result<RuntimeOutcomeStatus> {
+    match value.as_str() {
+        "proposed" => Ok(RuntimeOutcomeStatus::Proposed),
+        "succeeded" => Ok(RuntimeOutcomeStatus::Succeeded),
+        "failed" => Ok(RuntimeOutcomeStatus::Failed),
+        "unknown" => Ok(RuntimeOutcomeStatus::Unknown),
+        _ => Err(rusqlite::Error::InvalidQuery),
+    }
+}
+
+fn parse_shadow_disposition(value: String) -> rusqlite::Result<ShadowDisposition> {
+    match value.as_str() {
+        "observe" => Ok(ShadowDisposition::Observe),
+        "warn" => Ok(ShadowDisposition::Warn),
+        "would_ask" => Ok(ShadowDisposition::WouldAsk),
+        "would_deny" => Ok(ShadowDisposition::WouldDeny),
         _ => Err(rusqlite::Error::InvalidQuery),
     }
 }

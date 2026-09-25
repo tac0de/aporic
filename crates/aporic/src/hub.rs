@@ -2,15 +2,18 @@ use std::path::PathBuf;
 
 use crate::{
     domain::{
-        ClaimOutcome, ClaimRequest, CloseOutcome, CloseRequest, CommandSpecOutcome,
-        CommandSpecRequest, Consequence, ContextCapsule, CoordinatedTask, DissentAssessment,
-        DissentRequest, EvidenceOutcome, EvidenceRequest, ExecutionFinish, ExecutionGetRequest,
-        ExecutionListRequest, ExecutionOutcome, ExecutionReplayAudit, ExecutionRun, ExecutionStart,
-        HubStats, MemoryGetRequest, MemoryItem, MemoryProjectionAudit, MemorySearchRequest,
-        MemorySearchResult, ModelRoute, ModelRouteRequest, OpenOutcome, OpenRequest, ProjectExport,
-        RecallRequest, ReconcileOutcome, ReconcileRequest, RecordOutcome, RecordRequest,
-        TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest,
-        TaskListRequest, TaskOutcome, WorkComplexity, WorkKind,
+        CapabilityReport, ClaimOutcome, ClaimRequest, CloseOutcome, CloseRequest,
+        CommandSpecOutcome, CommandSpecRequest, Consequence, ContextCapsule, CoordinatedTask,
+        DissentAssessment, DissentRequest, EvidenceOutcome, EvidenceRequest, ExecutionFinish,
+        ExecutionGetRequest, ExecutionListRequest, ExecutionOutcome, ExecutionReplayAudit,
+        ExecutionRun, ExecutionStart, HookHealthReport, HubStats, MemoryGetRequest, MemoryItem,
+        MemoryProjectionAudit, MemorySearchRequest, MemorySearchResult, ModelRoute,
+        ModelRouteRequest, OpenOutcome, OpenRequest, ProjectExport, RecallRequest,
+        ReconcileOutcome, ReconcileRequest, RecordOutcome, RecordRequest, RuntimeEvent,
+        RuntimeObservation, RuntimeProjectionAudit, RuntimeTraceGetRequest,
+        RuntimeTraceListRequest, RuntimeWorkspaceRequest, TaskCancelRequest, TaskClaimRequest,
+        TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskOutcome, WorkComplexity,
+        WorkKind,
     },
     kernel,
     store::{Result, Store},
@@ -61,7 +64,7 @@ impl Hub {
         host_turn_id: Option<&str>,
         memory_ids: &[String],
         content_bytes: u32,
-    ) -> Result<()> {
+    ) -> Result<Option<String>> {
         self.store.record_memory_exposure(
             workspace,
             event_kind,
@@ -70,6 +73,43 @@ impl Hub {
             memory_ids,
             content_bytes,
         )
+    }
+
+    pub(crate) fn record_runtime_observation(
+        &self,
+        observation: &RuntimeObservation,
+    ) -> Result<Option<RuntimeEvent>> {
+        self.store.record_runtime_observation(observation)
+    }
+
+    pub fn list_runtime_events(
+        &self,
+        request: &RuntimeTraceListRequest,
+    ) -> Result<Vec<RuntimeEvent>> {
+        self.store.list_runtime_events(request)
+    }
+
+    pub fn get_runtime_event(&self, request: &RuntimeTraceGetRequest) -> Result<RuntimeEvent> {
+        self.store.get_runtime_event(request)
+    }
+
+    pub fn capability_report(&self, request: &RuntimeWorkspaceRequest) -> Result<CapabilityReport> {
+        self.store.capability_report(request)
+    }
+
+    pub fn hook_health(&self, request: &RuntimeWorkspaceRequest) -> Result<HookHealthReport> {
+        self.store.hook_health(request)
+    }
+
+    pub fn audit_runtime_projection(&self) -> Result<RuntimeProjectionAudit> {
+        self.store.audit_runtime_projection()
+    }
+
+    pub fn export_runtime_otel(
+        &self,
+        request: &RuntimeWorkspaceRequest,
+    ) -> Result<serde_json::Value> {
+        self.store.export_runtime_otel(request)
     }
 
     pub fn record(&self, request: &RecordRequest) -> Result<RecordOutcome> {

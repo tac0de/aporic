@@ -32,10 +32,11 @@ saves.
 
 ## Current stage
 
-The product is in the memory-lifecycle stage. The product question is:
+The product is in the runtime-observation stage. The product question is:
 
-> Can a local MCP hub restore and preserve the minimum useful work context
-> across Codex tasks with less overhead than manually restating it?
+> Can a local MCP hub connect recalled context to the capabilities and outcomes
+> actually observed at runtime, without becoming an authority or retaining
+> sensitive payloads?
 
 The first protocol slice is complete: an actual stdio MCP client can open a
 session, recall project context, record a durable item, close the session, and
@@ -86,6 +87,16 @@ manual evaluation.
   persisting prompts, transcripts, or assistant messages. Session and turn IDs
   are recorded only as installation-keyed HMACs in exposure receipts.
   Hook failure is advisory and fail-open.
+- Runtime events are append-only observations. Tool inputs and outputs are
+  represented only by installation-keyed HMACs and byte counts; tool metadata
+  is bounded. Matching session/turn HMACs connect tool outcomes to memory
+  exposure receipts.
+- Capability classes and shadow dispositions are deterministic inferences, not
+  host permissions. `would_ask` and `would_deny` never affect execution, and
+  hook health explicitly reports gaps and unknowns rather than claiming full
+  coverage.
+- The runtime trace can be exported locally in a content-free,
+  OpenTelemetry-shaped format. v0.8 includes no network exporter.
 
 ## Material unknowns
 
@@ -110,7 +121,7 @@ Observed on 2026-09-25:
 
 - the exact kernel candidate in the repository matches the installed candidate
   by SHA-256;
-- a real stdio MCP child process exposes all nineteen tools and preserves a record
+- a real stdio MCP child process exposes all twenty-three tools and preserves a record
   across a server restart;
 - exact retries are idempotent and conflicting reuse of a key is rejected;
 - concurrent writers retain all tested sessions through SQLite WAL;
@@ -141,6 +152,13 @@ Observed on 2026-09-25:
   supersession, untrusted-by-default model text, projection/FTS consistency,
   HMAC-only exposure receipts, gotcha retention, unknown preservation, and zero
   poison authority escalations without network or model calls.
+- the runtime-trace suite migrates v7 state, correlates prompt exposure with
+  tool lifecycles, retains no raw prompt/tool payloads or host identifiers,
+  summarizes observed capabilities, detects duplicates and lifecycle gaps,
+  validates read-only trace lookup, and exports standard-length trace/span IDs.
+- the fixed runtime simulation covers lifecycle gaps, duplicate delivery,
+  unknown schemas, and destructive shadow classification while asserting zero
+  blocks, raw payload retention, network exports, and model calls.
 
 Not yet established:
 
@@ -149,6 +167,8 @@ Not yet established:
 - reduced restatement or coordination cost across a model-driven synthetic
   workload;
 - actual agent dispatch or parallel worker execution.
+- real-world hook coverage and outcome accuracy across host versions; the
+  current report detects observable gaps but cannot prove unobserved actions.
 - semantic adequacy of a successful test, OS-level isolation from same-user
   processes, child-process-tree containment, and trusted receipts for external
   APIs or remote effects.
