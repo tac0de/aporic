@@ -19,40 +19,46 @@ use crate::{
         MAX_RECEIPT_ARTIFACTS, sha256_file_bounded,
     },
     domain::{
-        AbandonedSession, ActiveSession, CapabilityCatalogState, CapabilityClass,
-        CapabilityEffectClass, CapabilityGetRequest, CapabilityManifest, CapabilityMaturity,
-        CapabilityObservation, CapabilityOutcome, CapabilityProviderKind,
-        CapabilityRegisterRequest, CapabilityReport, CapabilitySearchRequest, CapabilitySummary,
-        ClaimOutcome, ClaimRequest, ClaimStatus, CloseDisposition, CloseOutcome, CloseRequest,
-        CommandSpec, CommandSpecOutcome, CommandSpecRequest, Consequence, ContextCapsule,
-        CoordinatedTask, CriterionProof, Deliberation, DeliberationAudit,
-        DeliberationCreateRequest, DeliberationDecision, DeliberationDecisionRequest,
-        DeliberationEdge, DeliberationEdgeKind, DeliberationGetRequest, DeliberationGraph,
-        DeliberationListRequest, DeliberationNode, DeliberationNodeAddRequest,
-        DeliberationNodeKind, DeliberationOutcome, DeliberationSummary, DissentAssessment,
-        DissentRequest, DurableRecord, EpistemicClaim, EvidenceArtifact, EvidenceGrade,
-        EvidenceKind, EvidenceOutcome, EvidenceRequest, ExecutionFinish, ExecutionGetRequest,
-        ExecutionListRequest, ExecutionOutcome, ExecutionReceipt, ExecutionReplayAudit,
-        ExecutionRun, ExecutionStart, ExecutionStatus, ExperimentCampaign, ExperimentComparison,
-        ExperimentCreateRequest, ExperimentCriterion, ExperimentCriterionKind, ExperimentDecision,
-        ExperimentDecisionKind, ExperimentDecisionRequest, ExperimentDiversityAxis,
-        ExperimentGetRequest, ExperimentListRequest, ExperimentMeasurement,
-        ExperimentMeasurementAddRequest, ExperimentOutcome, ExperimentPortfolio, ExperimentSummary,
-        ExperimentVariant, ExperimentVariantAddRequest, ExportEvent, ExportSession, GitSnapshot,
-        GitSnapshotAudit, GitSnapshotDraft, GitSnapshotGetRequest, GitSnapshotListRequest, Handoff,
-        HookHealthReport, HubStats, InfluenceClass, MemoryClass, MemoryEdge, MemoryExposure,
-        MemoryGetRequest, MemoryItem, MemoryLifecycle, MemoryProjectionAudit, MemorySearchRequest,
-        MemorySearchResult, OpenOutcome, OpenRequest, OriginChannel, ProjectExport, RecallRequest,
+        AbandonedSession, ActiveSession, ActualTaskOutcome, AdvisoryDisposition, AdvisoryMode,
+        AdvisoryRoleKind, AdvisoryRoleReport, AdvisoryRoleReportRequest, AdvisorySourceKind,
+        CapabilityCatalogState, CapabilityClass, CapabilityEffectClass, CapabilityGetRequest,
+        CapabilityManifest, CapabilityMaturity, CapabilityObservation, CapabilityOutcome,
+        CapabilityProviderKind, CapabilityRegisterRequest, CapabilityReport,
+        CapabilitySearchRequest, CapabilitySummary, ClaimOutcome, ClaimRequest, ClaimStatus,
+        CloseDisposition, CloseOutcome, CloseRequest, CommandSpec, CommandSpecOutcome,
+        CommandSpecRequest, Consequence, ContextCapsule, CoordinatedTask, CriterionProof,
+        Deliberation, DeliberationAudit, DeliberationCreateRequest, DeliberationDecision,
+        DeliberationDecisionRequest, DeliberationEdge, DeliberationEdgeKind,
+        DeliberationGetRequest, DeliberationGraph, DeliberationListRequest, DeliberationNode,
+        DeliberationNodeAddRequest, DeliberationNodeKind, DeliberationOutcome, DeliberationSummary,
+        DissentAssessment, DissentRequest, DurableRecord, EpistemicClaim, EvidenceArtifact,
+        EvidenceGrade, EvidenceKind, EvidenceOutcome, EvidenceRequest, ExecutionFinish,
+        ExecutionGetRequest, ExecutionListRequest, ExecutionOutcome, ExecutionReceipt,
+        ExecutionReplayAudit, ExecutionRun, ExecutionStart, ExecutionStatus, ExperimentCampaign,
+        ExperimentComparison, ExperimentCreateRequest, ExperimentCriterion,
+        ExperimentCriterionKind, ExperimentDecision, ExperimentDecisionKind,
+        ExperimentDecisionRequest, ExperimentDiversityAxis, ExperimentGetRequest,
+        ExperimentListRequest, ExperimentMeasurement, ExperimentMeasurementAddRequest,
+        ExperimentOutcome, ExperimentPortfolio, ExperimentSummary, ExperimentVariant,
+        ExperimentVariantAddRequest, ExportEvent, ExportSession, GitSnapshot, GitSnapshotAudit,
+        GitSnapshotDraft, GitSnapshotGetRequest, GitSnapshotListRequest, Handoff, HookHealthReport,
+        HubStats, InfluenceClass, MemoryClass, MemoryEdge, MemoryExposure, MemoryGetRequest,
+        MemoryItem, MemoryLifecycle, MemoryProjectionAudit, MemorySearchRequest,
+        MemorySearchResult, OpenOutcome, OpenRequest, OrchestrationAudit, OrchestrationOutcome,
+        OrchestrationRun, OrchestrationRunCreateRequest, OrchestrationRunGetRequest,
+        OrchestrationRunListRequest, OrchestrationRunStatus, OrchestrationRunSummary,
+        OrchestrationRunView, OriginChannel, PredictedTaskOutcome, ProjectExport, RecallRequest,
         ReceiptArtifact, ReconcileOutcome, ReconcileRequest, RecordKind, RecordOutcome,
         RecordRequest, RuntimeEvent, RuntimeEventKind, RuntimeObservation, RuntimeOutcomeStatus,
         RuntimeProjectionAudit, RuntimeTraceGetRequest, RuntimeTraceListRequest,
         RuntimeWorkspaceRequest, SandboxEnforcement, SecureCapabilityAudit, SecurityArtifactImport,
         SecurityAssessment, SecurityAssessmentGetRequest, SecurityAssessmentListRequest,
-        SecurityAssessmentOutcome, SecurityCoverage, ShadowDisposition, TaskCancelRequest,
-        TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskOutcome,
-        TaskStatus, TokenCountSource, TokenEfficiencyReport, TokenEfficiencyReportRequest,
-        TokenUsageAudit, TokenUsageListRequest, TokenUsageOutcome, TokenUsageReceipt,
-        TokenUsageRecordRequest, UsageOutcome, workspace_file_claim,
+        SecurityAssessmentOutcome, SecurityCoverage, ShadowDisposition, ShadowEvaluation,
+        ShadowEvaluationRequest, TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest,
+        TaskCreateRequest, TaskListRequest, TaskOutcome, TaskStatus, TokenCountSource,
+        TokenEfficiencyReport, TokenEfficiencyReportRequest, TokenUsageAudit,
+        TokenUsageListRequest, TokenUsageOutcome, TokenUsageReceipt, TokenUsageRecordRequest,
+        UsageOutcome, workspace_file_claim,
     },
 };
 
@@ -69,7 +75,8 @@ const MIGRATION_10: &str = include_str!("../../../migrations/0010_token_efficien
 const MIGRATION_11: &str = include_str!("../../../migrations/0011_commit_bound_deliberation.sql");
 const MIGRATION_12: &str = include_str!("../../../migrations/0012_secure_capability_fabric.sql");
 const MIGRATION_13: &str = include_str!("../../../migrations/0013_execution_governance.sql");
-const SCHEMA_VERSION: u32 = 13;
+const MIGRATION_14: &str = include_str!("../../../migrations/0014_advisory_orchestration.sql");
+const SCHEMA_VERSION: u32 = 14;
 const MIGRATIONS: &[(u32, &str)] = &[
     (2, MIGRATION_2),
     (3, MIGRATION_3),
@@ -83,6 +90,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (11, MIGRATION_11),
     (12, MIGRATION_12),
     (13, MIGRATION_13),
+    (14, MIGRATION_14),
 ];
 
 #[derive(Debug, Error)]
@@ -4000,6 +4008,497 @@ impl Store {
         })
     }
 
+    pub fn create_orchestration_run(
+        &self,
+        request: &OrchestrationRunCreateRequest,
+    ) -> Result<OrchestrationOutcome> {
+        require_text("session_id", &request.session_id)?;
+        require_text("task_id", &request.task_id)?;
+        require_text("git_snapshot_id", &request.git_snapshot_id)?;
+        require_text("context_exposure_id", &request.context_exposure_id)?;
+        require_identifier("role_id", &request.role_id, 128)?;
+        require_bounded_public_text("objective", &request.objective, 4_096)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        if let Some(model) = &request.model {
+            require_identifier("model", model, 128)?;
+        }
+        if let Some(effort) = &request.reasoning_effort {
+            require_identifier("reasoning_effort", effort, 32)?;
+        }
+        if !(1..=10_000_000).contains(&request.max_input_tokens)
+            || !(1..=1_000_000).contains(&request.max_output_tokens)
+            || !(1..=86_400).contains(&request.max_duration_seconds)
+        {
+            return Err(Error::Invalid(
+                "orchestration budgets exceed the supported bounded range".to_owned(),
+            ));
+        }
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<OrchestrationOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "orchestration_run_created",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        require_open_session(&transaction, &request.session_id)?;
+        let project_id = transaction.query_row(
+            "SELECT project_id FROM sessions WHERE session_id = ?1",
+            [&request.session_id],
+            |row| row.get::<_, String>(0),
+        )?;
+        let task = load_task(&transaction, &request.task_id)?
+            .ok_or_else(|| Error::NotFound(format!("task {}", request.task_id)))?;
+        let task_project = transaction.query_row(
+            "SELECT project_id FROM tasks WHERE task_id = ?1",
+            [&request.task_id],
+            |row| row.get::<_, String>(0),
+        )?;
+        if task_project != project_id || task.session_id != request.session_id {
+            return Err(Error::Conflict(
+                "orchestration task and session must belong to the same project session".to_owned(),
+            ));
+        }
+        if matches!(task.status, TaskStatus::Completed | TaskStatus::Cancelled) {
+            return Err(Error::Conflict(
+                "an orchestration run must bind an active advisory task".to_owned(),
+            ));
+        }
+        let snapshot = load_clean_project_snapshot(
+            &transaction,
+            &project_id,
+            &request.git_snapshot_id,
+            "orchestration run",
+        )?;
+        let context_policy_sha256 = transaction
+            .query_row(
+                "SELECT policy_sha256 FROM memory_exposures
+                 WHERE project_id = ?1 AND exposure_id = ?2",
+                params![project_id, request.context_exposure_id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+            .ok_or_else(|| {
+                Error::NotFound(format!("context exposure {}", request.context_exposure_id))
+            })?;
+        let run_id = Uuid::now_v7().to_string();
+        let bound_head_commit = snapshot.head_commit.expect("clean snapshot has commit");
+        let bound_head_tree = snapshot.head_tree.expect("clean snapshot has tree");
+        let run_sha256 = orchestration_run_digest(
+            &run_id,
+            request,
+            &bound_head_commit,
+            &bound_head_tree,
+            &context_policy_sha256,
+        )?;
+        transaction.execute(
+            "INSERT INTO orchestration_runs(
+                run_id, project_id, session_id, task_id, git_snapshot_id,
+                context_exposure_id, mode, role_kind, role_id, objective, model,
+                reasoning_effort, max_input_tokens, max_output_tokens,
+                max_duration_seconds, capability_ceiling, status, bound_head_commit,
+                bound_head_tree, context_policy_sha256, run_sha256, created_at_unix_ms
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
+                       ?13, ?14, ?15, 'propose', 'awaiting_report', ?16, ?17, ?18, ?19, ?20)",
+            params![
+                run_id,
+                project_id,
+                request.session_id,
+                request.task_id,
+                request.git_snapshot_id,
+                request.context_exposure_id,
+                request.mode.as_str(),
+                request.role_kind.as_str(),
+                request.role_id.trim(),
+                request.objective.trim(),
+                request.model.as_deref(),
+                request.reasoning_effort.as_deref(),
+                request.max_input_tokens,
+                request.max_output_tokens,
+                request.max_duration_seconds,
+                bound_head_commit,
+                bound_head_tree,
+                context_policy_sha256,
+                run_sha256,
+                now,
+            ],
+        )?;
+        let view = load_orchestration_view(&transaction, &project_id, &run_id)?;
+        let outcome = OrchestrationOutcome {
+            view,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &run_id,
+            "orchestration_run_created",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn submit_advisory_role_report(
+        &self,
+        request: &AdvisoryRoleReportRequest,
+    ) -> Result<OrchestrationOutcome> {
+        require_text("run_id", &request.run_id)?;
+        require_bounded_public_text("summary", &request.summary, 4_096)?;
+        require_bounded_public_text("public_rationale", &request.public_rationale, 8_192)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        if request.claims_task_complete {
+            return Err(Error::Conflict(
+                "advisory role reports cannot claim task completion".to_owned(),
+            ));
+        }
+        if let Some(action) = &request.recommended_next_action {
+            require_bounded_public_text("recommended_next_action", action, 2_048)?;
+        }
+        if request.uncertainties.len() > 32 || request.addressed_criteria.len() > 64 {
+            return Err(Error::Invalid(
+                "role reports allow at most 32 uncertainties and 64 addressed criteria".to_owned(),
+            ));
+        }
+        for uncertainty in &request.uncertainties {
+            require_bounded_public_text("uncertainty", uncertainty, 1_024)?;
+        }
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let sealed_payload = advisory_report_event_payload(request)?;
+        if let Some(mut outcome) = duplicate_result::<OrchestrationOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "advisory_role_report_submitted",
+            &sealed_payload,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        let (project_id, run) = load_orchestration_run_any(&transaction, &request.run_id)?;
+        if run.status != OrchestrationRunStatus::AwaitingReport {
+            return Err(Error::Conflict(
+                "an orchestration run accepts exactly one role report".to_owned(),
+            ));
+        }
+        let task = load_task(&transaction, &run.task_id)?
+            .ok_or_else(|| Error::NotFound(format!("task {}", run.task_id)))?;
+        if matches!(task.status, TaskStatus::Completed | TaskStatus::Cancelled) {
+            return Err(Error::Conflict(
+                "a shadow report must be sealed before the bound task reaches an outcome"
+                    .to_owned(),
+            ));
+        }
+        if run.role_kind == AdvisoryRoleKind::Steward
+            && request.disposition == AdvisoryDisposition::ProposeWork
+            && request.recommended_next_action.is_none()
+        {
+            return Err(Error::Invalid(
+                "a steward proposing work must provide a recommended next action".to_owned(),
+            ));
+        }
+        if request.disposition == AdvisoryDisposition::Abstain
+            && request.recommended_next_action.is_some()
+        {
+            return Err(Error::Invalid(
+                "an abstaining report must not recommend an action".to_owned(),
+            ));
+        }
+        validate_report_budget(&run, request)?;
+        let task_criteria = task
+            .acceptance_criteria
+            .iter()
+            .collect::<std::collections::BTreeSet<_>>();
+        let mut addressed = std::collections::BTreeSet::new();
+        for criterion in &request.addressed_criteria {
+            require_bounded_public_text("addressed criterion", criterion, 2_048)?;
+            if !task_criteria.contains(criterion) {
+                return Err(Error::Conflict(
+                    "addressed criteria must exactly match the bound task acceptance criteria"
+                        .to_owned(),
+                ));
+            }
+            if !addressed.insert(criterion) {
+                return Err(Error::Invalid(
+                    "addressed criteria must be unique".to_owned(),
+                ));
+            }
+        }
+        let report_id = Uuid::now_v7().to_string();
+        let report_sha256 = advisory_report_digest(&report_id, request)?;
+        transaction.execute(
+            "INSERT INTO advisory_role_reports(
+                report_id, run_id, source_kind, disposition, predicted_task_outcome,
+                summary, public_rationale, recommended_next_action, uncertainties_json,
+                addressed_criteria_json, reported_input_tokens, reported_output_tokens,
+                reported_duration_ms, report_sha256, created_at_unix_ms
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+            params![
+                report_id,
+                request.run_id,
+                request.source_kind.as_str(),
+                request.disposition.as_str(),
+                request.predicted_task_outcome.as_str(),
+                request.summary.trim(),
+                request.public_rationale.trim(),
+                request.recommended_next_action.as_deref(),
+                serde_json::to_string(&request.uncertainties)?,
+                serde_json::to_string(&request.addressed_criteria)?,
+                request.reported_input_tokens,
+                request.reported_output_tokens,
+                request.reported_duration_ms,
+                report_sha256,
+                unix_millis()?,
+            ],
+        )?;
+        let now = unix_millis()?;
+        transaction.execute(
+            "UPDATE orchestration_runs SET status = 'sealed', sealed_at_unix_ms = ?1
+             WHERE run_id = ?2",
+            params![now, request.run_id],
+        )?;
+        let view = load_orchestration_view(&transaction, &project_id, &request.run_id)?;
+        let outcome = OrchestrationOutcome {
+            view,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &request.run_id,
+            "advisory_role_report_submitted",
+            &sealed_payload,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn evaluate_shadow_run(
+        &self,
+        request: &ShadowEvaluationRequest,
+    ) -> Result<OrchestrationOutcome> {
+        require_text("run_id", &request.run_id)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<OrchestrationOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "shadow_run_evaluated",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        let (project_id, run) = load_orchestration_run_any(&transaction, &request.run_id)?;
+        if run.status != OrchestrationRunStatus::Sealed {
+            return Err(Error::Conflict(
+                "shadow evaluation requires one sealed role report".to_owned(),
+            ));
+        }
+        let report = load_advisory_report(&transaction, &run.run_id)?
+            .ok_or_else(|| Error::Conflict("sealed run is missing its role report".to_owned()))?;
+        let task = load_task(&transaction, &run.task_id)?
+            .ok_or_else(|| Error::NotFound(format!("task {}", run.task_id)))?;
+        let actual_task_outcome = match task.status {
+            TaskStatus::Completed => ActualTaskOutcome::Completed,
+            TaskStatus::Cancelled => ActualTaskOutcome::Cancelled,
+            TaskStatus::Queued | TaskStatus::Leased => {
+                return Err(Error::Conflict(
+                    "shadow evaluation requires the bound task to be completed or cancelled"
+                        .to_owned(),
+                ));
+            }
+        };
+        let prediction_match = match report.predicted_task_outcome {
+            PredictedTaskOutcome::Completion => {
+                Some(actual_task_outcome == ActualTaskOutcome::Completed)
+            }
+            PredictedTaskOutcome::NonCompletion => {
+                Some(actual_task_outcome == ActualTaskOutcome::Cancelled)
+            }
+            PredictedTaskOutcome::Uncertain => None,
+        };
+        let git_stale = orchestration_git_stale(&transaction, &project_id, &run)?;
+        let criterion_count = task.acceptance_criteria.len() as u64;
+        let addressed_count = report.addressed_criteria.len() as u64;
+        let verified_count = task.completion_proofs.len() as u64;
+        let evidence_eligible = actual_task_outcome == ActualTaskOutcome::Completed
+            && verified_count == criterion_count
+            && criterion_count > 0
+            && !git_stale;
+        let evaluation_id = Uuid::now_v7().to_string();
+        let evaluation_sha256 = shadow_evaluation_digest(
+            &evaluation_id,
+            &run.run_id,
+            &actual_task_outcome,
+            prediction_match,
+            criterion_count,
+            addressed_count,
+            verified_count,
+            git_stale,
+            evidence_eligible,
+            now,
+        )?;
+        transaction.execute(
+            "INSERT INTO shadow_evaluations(
+                evaluation_id, run_id, actual_task_outcome, prediction_match,
+                acceptance_criterion_count, addressed_criterion_count,
+                verified_criterion_count, git_stale, evidence_eligible,
+                evaluation_sha256, created_at_unix_ms
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            params![
+                evaluation_id,
+                run.run_id,
+                actual_task_outcome.as_str(),
+                prediction_match,
+                criterion_count,
+                addressed_count,
+                verified_count,
+                git_stale,
+                evidence_eligible,
+                evaluation_sha256,
+                now,
+            ],
+        )?;
+        transaction.execute(
+            "UPDATE orchestration_runs SET status = 'evaluated', evaluated_at_unix_ms = ?1
+             WHERE run_id = ?2",
+            params![now, run.run_id],
+        )?;
+        let view = load_orchestration_view(&transaction, &project_id, &run.run_id)?;
+        let outcome = OrchestrationOutcome {
+            view,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &request.run_id,
+            "shadow_run_evaluated",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn get_orchestration_run(
+        &self,
+        request: &OrchestrationRunGetRequest,
+    ) -> Result<OrchestrationRunView> {
+        let workspace = canonical_workspace(&request.workspace)?;
+        require_text("run_id", &request.run_id)?;
+        let connection = self.connection()?;
+        let project_id = connection
+            .query_row(
+                "SELECT project_id FROM projects WHERE workspace = ?1",
+                [&workspace],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+            .ok_or_else(|| Error::NotFound(format!("workspace {workspace}")))?;
+        load_orchestration_view(&connection, &project_id, &request.run_id)
+    }
+
+    pub fn list_orchestration_runs(
+        &self,
+        request: &OrchestrationRunListRequest,
+    ) -> Result<Vec<OrchestrationRunSummary>> {
+        let workspace = canonical_workspace(&request.workspace)?;
+        let limit = request.limit.unwrap_or(50).clamp(1, 200);
+        let connection = self.connection()?;
+        let project_id = connection
+            .query_row(
+                "SELECT project_id FROM projects WHERE workspace = ?1",
+                [&workspace],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        let Some(project_id) = project_id else {
+            return Ok(Vec::new());
+        };
+        let mut statement = connection.prepare(
+            "SELECT run_id, task_id, mode, role_kind, role_id, status,
+                    CASE WHEN mode = 'visible_advisory' OR status = 'evaluated' THEN 1 ELSE 0 END,
+                    (SELECT evidence_eligible FROM shadow_evaluations
+                     WHERE shadow_evaluations.run_id = orchestration_runs.run_id),
+                    created_at_unix_ms
+             FROM orchestration_runs WHERE project_id = ?1
+             ORDER BY sequence DESC LIMIT ?2",
+        )?;
+        Ok(statement
+            .query_map(params![project_id, limit], |row| {
+                Ok(OrchestrationRunSummary {
+                    run_id: row.get(0)?,
+                    task_id: row.get(1)?,
+                    mode: parse_advisory_mode(row.get(2)?)?,
+                    role_kind: parse_advisory_role_kind(row.get(3)?)?,
+                    role_id: row.get(4)?,
+                    status: parse_orchestration_status(row.get(5)?)?,
+                    report_revealed: row.get(6)?,
+                    evidence_eligible: row.get(7)?,
+                    created_at_unix_ms: row.get(8)?,
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?)
+    }
+
+    pub fn audit_orchestration(&self) -> Result<OrchestrationAudit> {
+        let connection = self.connection()?;
+        let runs = load_all_orchestration_runs(&connection)?;
+        let reports = load_all_advisory_reports(&connection)?;
+        let evaluations = load_all_shadow_evaluations(&connection)?;
+        let mut digest_mismatch_count = 0_u64;
+        for run in &runs {
+            if orchestration_run_digest_from_value(run)? != run.run_sha256 {
+                digest_mismatch_count += 1;
+            }
+        }
+        for report in &reports {
+            if advisory_report_digest_from_value(report)? != report.report_sha256 {
+                digest_mismatch_count += 1;
+            }
+        }
+        for evaluation in &evaluations {
+            if shadow_evaluation_digest_from_value(evaluation)? != evaluation.evaluation_sha256 {
+                digest_mismatch_count += 1;
+            }
+        }
+        let invalid_reference_count = connection.query_row(
+            "SELECT COUNT(*) FROM orchestration_runs runs
+             LEFT JOIN sessions ON sessions.session_id = runs.session_id
+             LEFT JOIN tasks ON tasks.task_id = runs.task_id
+             LEFT JOIN git_snapshots ON git_snapshots.snapshot_id = runs.git_snapshot_id
+             LEFT JOIN memory_exposures ON memory_exposures.exposure_id = runs.context_exposure_id
+             WHERE sessions.project_id IS NULL OR tasks.project_id IS NULL
+                OR git_snapshots.project_id IS NULL OR memory_exposures.project_id IS NULL
+                OR sessions.project_id != runs.project_id OR tasks.project_id != runs.project_id
+                OR git_snapshots.project_id != runs.project_id
+                OR memory_exposures.project_id != runs.project_id",
+            [],
+            |row| row.get::<_, u64>(0),
+        )?;
+        Ok(OrchestrationAudit {
+            run_count: runs.len() as u64,
+            report_count: reports.len() as u64,
+            evaluation_count: evaluations.len() as u64,
+            digest_mismatch_count,
+            invalid_reference_count,
+            consistent: digest_mismatch_count == 0 && invalid_reference_count == 0,
+        })
+    }
+
     pub fn stats(&self) -> Result<HubStats> {
         let connection = self.connection()?;
         Ok(HubStats {
@@ -4048,6 +4547,8 @@ impl Store {
             capability_manifest_count: table_count(&connection, "capability_manifests", "1 = 1")?,
             experiment_campaign_count: table_count(&connection, "experiment_campaigns", "1 = 1")?,
             security_assessment_count: table_count(&connection, "security_assessments", "1 = 1")?,
+            orchestration_run_count: table_count(&connection, "orchestration_runs", "1 = 1")?,
+            shadow_evaluation_count: table_count(&connection, "shadow_evaluations", "1 = 1")?,
         })
     }
 
@@ -4260,6 +4761,49 @@ impl Store {
                 .map(|id| load_security_assessment(&connection, &project_id, id))
                 .collect::<Result<Vec<_>>>()?
         };
+        let orchestration_runs = {
+            let mut statement = connection.prepare(&format!(
+                "{} FROM orchestration_runs WHERE project_id = ?1 ORDER BY sequence ASC",
+                orchestration_run_select()
+            ))?;
+            statement
+                .query_map([&project_id], orchestration_run_from_row)?
+                .collect::<std::result::Result<Vec<_>, _>>()?
+        };
+        let sealed_advisory_report_count = connection.query_row(
+            "SELECT COUNT(*) FROM advisory_role_reports AS reports
+             JOIN orchestration_runs AS runs ON runs.run_id = reports.run_id
+             WHERE runs.project_id = ?1 AND runs.mode = 'blind_shadow'
+                   AND runs.status != 'evaluated'",
+            [&project_id],
+            |row| row.get::<_, u64>(0),
+        )?;
+        let advisory_role_reports = {
+            let mut statement = connection.prepare(&format!(
+                "{} FROM advisory_role_reports AS reports
+                 WHERE reports.run_id IN (
+                     SELECT run_id FROM orchestration_runs
+                     WHERE project_id = ?1
+                       AND (mode = 'visible_advisory' OR status = 'evaluated')
+                 )
+                 ORDER BY reports.sequence ASC",
+                advisory_report_select()
+            ))?;
+            statement
+                .query_map([&project_id], advisory_report_from_row)?
+                .collect::<std::result::Result<Vec<_>, _>>()?
+        };
+        let shadow_evaluations = {
+            let mut statement = connection.prepare(&format!(
+                "{} FROM shadow_evaluations
+                 WHERE run_id IN (SELECT run_id FROM orchestration_runs WHERE project_id = ?1)
+                 ORDER BY sequence ASC",
+                shadow_evaluation_select()
+            ))?;
+            statement
+                .query_map([&project_id], shadow_evaluation_from_row)?
+                .collect::<std::result::Result<Vec<_>, _>>()?
+        };
 
         let events = {
             let mut statement = connection.prepare(
@@ -4280,6 +4824,8 @@ impl Store {
                      SELECT campaign_id FROM experiment_campaigns WHERE project_id = ?1
                  ) OR stream_id IN (
                      SELECT assessment_id FROM security_assessments WHERE project_id = ?1
+                 ) OR stream_id IN (
+                     SELECT run_id FROM orchestration_runs WHERE project_id = ?1
                  )
                  ORDER BY sequence ASC",
             )?;
@@ -4313,7 +4859,7 @@ impl Store {
         };
 
         Ok(ProjectExport {
-            format_version: 10,
+            format_version: 11,
             exported_at_unix_ms: unix_millis()?,
             project_id,
             workspace,
@@ -4340,6 +4886,10 @@ impl Store {
             capability_manifests,
             experiments,
             security_assessments,
+            orchestration_runs,
+            sealed_advisory_report_count,
+            advisory_role_reports,
+            shadow_evaluations,
             events,
         })
     }
@@ -4707,6 +5257,472 @@ fn load_clean_project_snapshot(
         )));
     }
     Ok(snapshot)
+}
+
+fn orchestration_run_digest(
+    run_id: &str,
+    request: &OrchestrationRunCreateRequest,
+    bound_head_commit: &str,
+    bound_head_tree: &str,
+    context_policy_sha256: &str,
+) -> Result<String> {
+    digest_json(&serde_json::json!({
+        "run_id": run_id,
+        "session_id": request.session_id,
+        "task_id": request.task_id,
+        "git_snapshot_id": request.git_snapshot_id,
+        "context_exposure_id": request.context_exposure_id,
+        "mode": request.mode.as_str(),
+        "role_kind": request.role_kind.as_str(),
+        "role_id": request.role_id.trim(),
+        "objective": request.objective.trim(),
+        "model": request.model,
+        "reasoning_effort": request.reasoning_effort,
+        "max_input_tokens": request.max_input_tokens,
+        "max_output_tokens": request.max_output_tokens,
+        "max_duration_seconds": request.max_duration_seconds,
+        "capability_ceiling": "propose",
+        "bound_head_commit": bound_head_commit,
+        "bound_head_tree": bound_head_tree,
+        "context_policy_sha256": context_policy_sha256,
+    }))
+}
+
+fn orchestration_run_digest_from_value(run: &OrchestrationRun) -> Result<String> {
+    digest_json(&serde_json::json!({
+        "run_id": run.run_id,
+        "session_id": run.session_id,
+        "task_id": run.task_id,
+        "git_snapshot_id": run.git_snapshot_id,
+        "context_exposure_id": run.context_exposure_id,
+        "mode": run.mode.as_str(),
+        "role_kind": run.role_kind.as_str(),
+        "role_id": run.role_id,
+        "objective": run.objective,
+        "model": run.model,
+        "reasoning_effort": run.reasoning_effort,
+        "max_input_tokens": run.max_input_tokens,
+        "max_output_tokens": run.max_output_tokens,
+        "max_duration_seconds": run.max_duration_seconds,
+        "capability_ceiling": "propose",
+        "bound_head_commit": run.bound_head_commit,
+        "bound_head_tree": run.bound_head_tree,
+        "context_policy_sha256": run.context_policy_sha256,
+    }))
+}
+
+fn advisory_report_digest(report_id: &str, request: &AdvisoryRoleReportRequest) -> Result<String> {
+    digest_json(&serde_json::json!({
+        "report_id": report_id,
+        "run_id": request.run_id,
+        "source_kind": request.source_kind.as_str(),
+        "disposition": request.disposition.as_str(),
+        "predicted_task_outcome": request.predicted_task_outcome.as_str(),
+        "summary": request.summary.trim(),
+        "public_rationale": request.public_rationale.trim(),
+        "recommended_next_action": request.recommended_next_action,
+        "uncertainties": request.uncertainties,
+        "addressed_criteria": request.addressed_criteria,
+        "reported_input_tokens": request.reported_input_tokens,
+        "reported_output_tokens": request.reported_output_tokens,
+        "reported_duration_ms": request.reported_duration_ms,
+    }))
+}
+
+fn advisory_report_event_payload(request: &AdvisoryRoleReportRequest) -> Result<serde_json::Value> {
+    let request_sha256 = digest_json(&serde_json::json!({
+        "run_id": request.run_id,
+        "source_kind": request.source_kind.as_str(),
+        "disposition": request.disposition.as_str(),
+        "predicted_task_outcome": request.predicted_task_outcome.as_str(),
+        "summary": request.summary.trim(),
+        "public_rationale": request.public_rationale.trim(),
+        "recommended_next_action": request.recommended_next_action,
+        "uncertainties": request.uncertainties,
+        "addressed_criteria": request.addressed_criteria,
+        "reported_input_tokens": request.reported_input_tokens,
+        "reported_output_tokens": request.reported_output_tokens,
+        "reported_duration_ms": request.reported_duration_ms,
+        "claims_task_complete": request.claims_task_complete,
+    }))?;
+    Ok(serde_json::json!({
+        "run_id": request.run_id,
+        "sealed_report_request_sha256": request_sha256,
+    }))
+}
+
+fn advisory_report_digest_from_value(report: &AdvisoryRoleReport) -> Result<String> {
+    digest_json(&serde_json::json!({
+        "report_id": report.report_id,
+        "run_id": report.run_id,
+        "source_kind": report.source_kind.as_str(),
+        "disposition": report.disposition.as_str(),
+        "predicted_task_outcome": report.predicted_task_outcome.as_str(),
+        "summary": report.summary,
+        "public_rationale": report.public_rationale,
+        "recommended_next_action": report.recommended_next_action,
+        "uncertainties": report.uncertainties,
+        "addressed_criteria": report.addressed_criteria,
+        "reported_input_tokens": report.reported_input_tokens,
+        "reported_output_tokens": report.reported_output_tokens,
+        "reported_duration_ms": report.reported_duration_ms,
+    }))
+}
+
+#[allow(clippy::too_many_arguments)]
+fn shadow_evaluation_digest(
+    evaluation_id: &str,
+    run_id: &str,
+    actual_task_outcome: &ActualTaskOutcome,
+    prediction_match: Option<bool>,
+    acceptance_criterion_count: u64,
+    addressed_criterion_count: u64,
+    verified_criterion_count: u64,
+    git_stale: bool,
+    evidence_eligible: bool,
+    created_at_unix_ms: i64,
+) -> Result<String> {
+    digest_json(&serde_json::json!({
+        "evaluation_id": evaluation_id,
+        "run_id": run_id,
+        "actual_task_outcome": actual_task_outcome.as_str(),
+        "prediction_match": prediction_match,
+        "acceptance_criterion_count": acceptance_criterion_count,
+        "addressed_criterion_count": addressed_criterion_count,
+        "verified_criterion_count": verified_criterion_count,
+        "git_stale": git_stale,
+        "evidence_eligible": evidence_eligible,
+        "created_at_unix_ms": created_at_unix_ms,
+    }))
+}
+
+fn shadow_evaluation_digest_from_value(value: &ShadowEvaluation) -> Result<String> {
+    shadow_evaluation_digest(
+        &value.evaluation_id,
+        &value.run_id,
+        &value.actual_task_outcome,
+        value.prediction_match,
+        value.acceptance_criterion_count,
+        value.addressed_criterion_count,
+        value.verified_criterion_count,
+        value.git_stale,
+        value.evidence_eligible,
+        value.created_at_unix_ms,
+    )
+}
+
+fn validate_report_budget(
+    run: &OrchestrationRun,
+    request: &AdvisoryRoleReportRequest,
+) -> Result<()> {
+    if request
+        .reported_input_tokens
+        .is_some_and(|value| value > run.max_input_tokens)
+        || request
+            .reported_output_tokens
+            .is_some_and(|value| value > run.max_output_tokens)
+        || request
+            .reported_duration_ms
+            .is_some_and(|value| value > run.max_duration_seconds.saturating_mul(1_000))
+    {
+        return Err(Error::Conflict(
+            "reported role usage exceeds the immutable run budget".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn orchestration_git_stale(
+    connection: &Connection,
+    project_id: &str,
+    run: &OrchestrationRun,
+) -> Result<bool> {
+    let current = connection
+        .query_row(
+            "SELECT head_commit, head_tree, dirty FROM git_snapshots
+             WHERE project_id = ?1 ORDER BY sequence DESC LIMIT 1",
+            [project_id],
+            |row| {
+                Ok((
+                    row.get::<_, Option<String>>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, bool>(2)?,
+                ))
+            },
+        )
+        .optional()?;
+    Ok(current.is_none_or(|(commit, tree, dirty)| {
+        dirty
+            || commit.as_deref() != Some(run.bound_head_commit.as_str())
+            || tree.as_deref() != Some(run.bound_head_tree.as_str())
+    }))
+}
+
+fn orchestration_run_select() -> &'static str {
+    "SELECT sequence, run_id, session_id, task_id, git_snapshot_id,
+            context_exposure_id, mode, role_kind, role_id, objective, model,
+            reasoning_effort, max_input_tokens, max_output_tokens,
+            max_duration_seconds, status, bound_head_commit, bound_head_tree,
+            context_policy_sha256, run_sha256, created_at_unix_ms,
+            sealed_at_unix_ms, evaluated_at_unix_ms"
+}
+
+fn orchestration_run_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<OrchestrationRun> {
+    Ok(OrchestrationRun {
+        sequence: row.get(0)?,
+        run_id: row.get(1)?,
+        session_id: row.get(2)?,
+        task_id: row.get(3)?,
+        git_snapshot_id: row.get(4)?,
+        context_exposure_id: row.get(5)?,
+        mode: parse_advisory_mode(row.get(6)?)?,
+        role_kind: parse_advisory_role_kind(row.get(7)?)?,
+        role_id: row.get(8)?,
+        objective: row.get(9)?,
+        model: row.get(10)?,
+        reasoning_effort: row.get(11)?,
+        max_input_tokens: row.get(12)?,
+        max_output_tokens: row.get(13)?,
+        max_duration_seconds: row.get(14)?,
+        capability_ceiling: CapabilityMaturity::Propose,
+        status: parse_orchestration_status(row.get(15)?)?,
+        bound_head_commit: row.get(16)?,
+        bound_head_tree: row.get(17)?,
+        context_policy_sha256: row.get(18)?,
+        run_sha256: row.get(19)?,
+        created_at_unix_ms: row.get(20)?,
+        sealed_at_unix_ms: row.get(21)?,
+        evaluated_at_unix_ms: row.get(22)?,
+        advisory: true,
+        executable: false,
+    })
+}
+
+fn load_orchestration_run_any(
+    connection: &Connection,
+    run_id: &str,
+) -> Result<(String, OrchestrationRun)> {
+    connection
+        .query_row(
+            &format!(
+                "SELECT project_id, {} FROM orchestration_runs WHERE run_id = ?1",
+                orchestration_run_select().trim_start_matches("SELECT ")
+            ),
+            [run_id],
+            |row| {
+                let project_id = row.get::<_, String>(0)?;
+                let run = OrchestrationRun {
+                    sequence: row.get(1)?,
+                    run_id: row.get(2)?,
+                    session_id: row.get(3)?,
+                    task_id: row.get(4)?,
+                    git_snapshot_id: row.get(5)?,
+                    context_exposure_id: row.get(6)?,
+                    mode: parse_advisory_mode(row.get(7)?)?,
+                    role_kind: parse_advisory_role_kind(row.get(8)?)?,
+                    role_id: row.get(9)?,
+                    objective: row.get(10)?,
+                    model: row.get(11)?,
+                    reasoning_effort: row.get(12)?,
+                    max_input_tokens: row.get(13)?,
+                    max_output_tokens: row.get(14)?,
+                    max_duration_seconds: row.get(15)?,
+                    capability_ceiling: CapabilityMaturity::Propose,
+                    status: parse_orchestration_status(row.get(16)?)?,
+                    bound_head_commit: row.get(17)?,
+                    bound_head_tree: row.get(18)?,
+                    context_policy_sha256: row.get(19)?,
+                    run_sha256: row.get(20)?,
+                    created_at_unix_ms: row.get(21)?,
+                    sealed_at_unix_ms: row.get(22)?,
+                    evaluated_at_unix_ms: row.get(23)?,
+                    advisory: true,
+                    executable: false,
+                };
+                Ok((project_id, run))
+            },
+        )
+        .optional()?
+        .ok_or_else(|| Error::NotFound(format!("orchestration run {run_id}")))
+}
+
+fn advisory_report_select() -> &'static str {
+    "SELECT sequence, report_id, run_id, source_kind, disposition,
+            predicted_task_outcome, summary, public_rationale,
+            recommended_next_action, uncertainties_json, addressed_criteria_json,
+            reported_input_tokens, reported_output_tokens, reported_duration_ms,
+            report_sha256, created_at_unix_ms"
+}
+
+fn advisory_report_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<AdvisoryRoleReport> {
+    let uncertainties = row.get::<_, String>(9)?;
+    let criteria = row.get::<_, String>(10)?;
+    Ok(AdvisoryRoleReport {
+        sequence: row.get(0)?,
+        report_id: row.get(1)?,
+        run_id: row.get(2)?,
+        source_kind: parse_advisory_source_kind(row.get(3)?)?,
+        disposition: parse_advisory_disposition(row.get(4)?)?,
+        predicted_task_outcome: parse_predicted_task_outcome(row.get(5)?)?,
+        summary: row.get(6)?,
+        public_rationale: row.get(7)?,
+        recommended_next_action: row.get(8)?,
+        uncertainties: serde_json::from_str(&uncertainties).map_err(|error| {
+            rusqlite::Error::FromSqlConversionFailure(
+                uncertainties.len(),
+                rusqlite::types::Type::Text,
+                Box::new(error),
+            )
+        })?,
+        addressed_criteria: serde_json::from_str(&criteria).map_err(|error| {
+            rusqlite::Error::FromSqlConversionFailure(
+                criteria.len(),
+                rusqlite::types::Type::Text,
+                Box::new(error),
+            )
+        })?,
+        reported_input_tokens: row.get(11)?,
+        reported_output_tokens: row.get(12)?,
+        reported_duration_ms: row.get(13)?,
+        report_sha256: row.get(14)?,
+        created_at_unix_ms: row.get(15)?,
+        evidence_grade: EvidenceGrade::ModelOnly,
+    })
+}
+
+fn load_advisory_report(
+    connection: &Connection,
+    run_id: &str,
+) -> Result<Option<AdvisoryRoleReport>> {
+    Ok(connection
+        .query_row(
+            &format!(
+                "{} FROM advisory_role_reports WHERE run_id = ?1",
+                advisory_report_select()
+            ),
+            [run_id],
+            advisory_report_from_row,
+        )
+        .optional()?)
+}
+
+fn shadow_evaluation_select() -> &'static str {
+    "SELECT sequence, evaluation_id, run_id, actual_task_outcome,
+            prediction_match, acceptance_criterion_count, addressed_criterion_count,
+            verified_criterion_count, git_stale, evidence_eligible,
+            evaluation_sha256, created_at_unix_ms"
+}
+
+fn shadow_evaluation_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ShadowEvaluation> {
+    Ok(ShadowEvaluation {
+        sequence: row.get(0)?,
+        evaluation_id: row.get(1)?,
+        run_id: row.get(2)?,
+        actual_task_outcome: parse_actual_task_outcome(row.get(3)?)?,
+        prediction_match: row.get(4)?,
+        acceptance_criterion_count: row.get(5)?,
+        addressed_criterion_count: row.get(6)?,
+        verified_criterion_count: row.get(7)?,
+        git_stale: row.get(8)?,
+        evidence_eligible: row.get(9)?,
+        evaluation_sha256: row.get(10)?,
+        created_at_unix_ms: row.get(11)?,
+    })
+}
+
+fn load_shadow_evaluation(
+    connection: &Connection,
+    run_id: &str,
+) -> Result<Option<ShadowEvaluation>> {
+    Ok(connection
+        .query_row(
+            &format!(
+                "{} FROM shadow_evaluations WHERE run_id = ?1",
+                shadow_evaluation_select()
+            ),
+            [run_id],
+            shadow_evaluation_from_row,
+        )
+        .optional()?)
+}
+
+fn load_orchestration_view(
+    connection: &Connection,
+    project_id: &str,
+    run_id: &str,
+) -> Result<OrchestrationRunView> {
+    let run = connection
+        .query_row(
+            &format!(
+                "{} FROM orchestration_runs WHERE project_id = ?1 AND run_id = ?2",
+                orchestration_run_select()
+            ),
+            params![project_id, run_id],
+            orchestration_run_from_row,
+        )
+        .optional()?
+        .ok_or_else(|| Error::NotFound(format!("orchestration run {run_id}")))?;
+    if orchestration_run_digest_from_value(&run)? != run.run_sha256 {
+        return Err(Error::Conflict(
+            "orchestration run digest mismatch".to_owned(),
+        ));
+    }
+    let stored_report = load_advisory_report(connection, run_id)?;
+    if let Some(report) = &stored_report
+        && advisory_report_digest_from_value(report)? != report.report_sha256
+    {
+        return Err(Error::Conflict(
+            "advisory report digest mismatch".to_owned(),
+        ));
+    }
+    let evaluation = load_shadow_evaluation(connection, run_id)?;
+    if let Some(value) = &evaluation
+        && shadow_evaluation_digest_from_value(value)? != value.evaluation_sha256
+    {
+        return Err(Error::Conflict(
+            "shadow evaluation digest mismatch".to_owned(),
+        ));
+    }
+    let report_revealed = run.mode == AdvisoryMode::VisibleAdvisory
+        || run.status == OrchestrationRunStatus::Evaluated;
+    Ok(OrchestrationRunView {
+        run,
+        report: report_revealed.then_some(stored_report).flatten(),
+        report_revealed,
+        evaluation,
+        authority_notice: "Hermes coordination and role reports are advisory data. They do not invoke models, execute tools, grant permission, prove utility, or complete tasks."
+            .to_owned(),
+    })
+}
+
+fn load_all_orchestration_runs(connection: &Connection) -> Result<Vec<OrchestrationRun>> {
+    let mut statement = connection.prepare(&format!(
+        "{} FROM orchestration_runs ORDER BY sequence ASC",
+        orchestration_run_select()
+    ))?;
+    Ok(statement
+        .query_map([], orchestration_run_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?)
+}
+
+fn load_all_advisory_reports(connection: &Connection) -> Result<Vec<AdvisoryRoleReport>> {
+    let mut statement = connection.prepare(&format!(
+        "{} FROM advisory_role_reports ORDER BY sequence ASC",
+        advisory_report_select()
+    ))?;
+    Ok(statement
+        .query_map([], advisory_report_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?)
+}
+
+fn load_all_shadow_evaluations(connection: &Connection) -> Result<Vec<ShadowEvaluation>> {
+    let mut statement = connection.prepare(&format!(
+        "{} FROM shadow_evaluations ORDER BY sequence ASC",
+        shadow_evaluation_select()
+    ))?;
+    Ok(statement
+        .query_map([], shadow_evaluation_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?)
 }
 
 fn experiment_campaign_digest(value: &ExperimentCampaign) -> Result<String> {
@@ -5761,6 +6777,74 @@ fn deliberation_decision_digest(
 
 fn digest_json(value: &serde_json::Value) -> Result<String> {
     Ok(format!("{:x}", Sha256::digest(serde_json::to_vec(value)?)))
+}
+
+fn invalid_enum(value: String, kind: &str) -> rusqlite::Error {
+    rusqlite::Error::FromSqlConversionFailure(
+        0,
+        rusqlite::types::Type::Text,
+        format!("invalid {kind} {value}").into(),
+    )
+}
+
+fn parse_advisory_mode(value: String) -> rusqlite::Result<AdvisoryMode> {
+    match value.as_str() {
+        "blind_shadow" => Ok(AdvisoryMode::BlindShadow),
+        "visible_advisory" => Ok(AdvisoryMode::VisibleAdvisory),
+        _ => Err(invalid_enum(value, "advisory mode")),
+    }
+}
+
+fn parse_advisory_role_kind(value: String) -> rusqlite::Result<AdvisoryRoleKind> {
+    match value.as_str() {
+        "steward" => Ok(AdvisoryRoleKind::Steward),
+        "worker" => Ok(AdvisoryRoleKind::Worker),
+        _ => Err(invalid_enum(value, "advisory role kind")),
+    }
+}
+
+fn parse_orchestration_status(value: String) -> rusqlite::Result<OrchestrationRunStatus> {
+    match value.as_str() {
+        "awaiting_report" => Ok(OrchestrationRunStatus::AwaitingReport),
+        "sealed" => Ok(OrchestrationRunStatus::Sealed),
+        "evaluated" => Ok(OrchestrationRunStatus::Evaluated),
+        _ => Err(invalid_enum(value, "orchestration run status")),
+    }
+}
+
+fn parse_advisory_disposition(value: String) -> rusqlite::Result<AdvisoryDisposition> {
+    match value.as_str() {
+        "abstain" => Ok(AdvisoryDisposition::Abstain),
+        "recommend" => Ok(AdvisoryDisposition::Recommend),
+        "flag_risk" => Ok(AdvisoryDisposition::FlagRisk),
+        "propose_work" => Ok(AdvisoryDisposition::ProposeWork),
+        _ => Err(invalid_enum(value, "advisory disposition")),
+    }
+}
+
+fn parse_predicted_task_outcome(value: String) -> rusqlite::Result<PredictedTaskOutcome> {
+    match value.as_str() {
+        "completion" => Ok(PredictedTaskOutcome::Completion),
+        "non_completion" => Ok(PredictedTaskOutcome::NonCompletion),
+        "uncertain" => Ok(PredictedTaskOutcome::Uncertain),
+        _ => Err(invalid_enum(value, "predicted task outcome")),
+    }
+}
+
+fn parse_advisory_source_kind(value: String) -> rusqlite::Result<AdvisorySourceKind> {
+    match value.as_str() {
+        "host_reported" => Ok(AdvisorySourceKind::HostReported),
+        "deterministic_simulator" => Ok(AdvisorySourceKind::DeterministicSimulator),
+        _ => Err(invalid_enum(value, "advisory source kind")),
+    }
+}
+
+fn parse_actual_task_outcome(value: String) -> rusqlite::Result<ActualTaskOutcome> {
+    match value.as_str() {
+        "completed" => Ok(ActualTaskOutcome::Completed),
+        "cancelled" => Ok(ActualTaskOutcome::Cancelled),
+        _ => Err(invalid_enum(value, "actual task outcome")),
+    }
 }
 
 fn parse_deliberation_node_kind(value: String) -> rusqlite::Result<DeliberationNodeKind> {

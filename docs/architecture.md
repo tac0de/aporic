@@ -151,6 +151,16 @@ and read-only or read-write workspace access. Required execution fails closed on
 unsupported platforms or backend/setup failure and cannot issue a verified claim
 without the in-sandbox readiness marker.
 
+Schema v14 adds immutable `orchestration_runs`, one-to-one
+`advisory_role_reports`, and one-to-one `shadow_evaluations`. Each Hermes run
+binds an advisory role to an active task, clean Git commit/tree, context-policy
+digest, and fixed resource budget. The only capability ceiling is `propose`;
+there is no provider invocation or agent-dispatch path. Blind-shadow report
+content is sealed before the task outcome and omitted from reads, exports, and
+event payloads until evaluation. Evaluation uses the task projection and its
+existing Aporic-direct criterion proofs, records Git staleness, and never turns
+model output into completion evidence.
+
 ## MCP surface
 
 - `aporic_open`: start an idempotent session and return recent context.
@@ -195,6 +205,12 @@ without the in-sandbox readiness marker.
 - `aporic_security_assessment_get` and `aporic_security_assessment_list`:
   inspect imported security-artifact summaries; scanner execution remains a
   host-owned operation outside MCP.
+- `aporic_orchestration_run_create`, `aporic_role_report_submit`,
+  `aporic_shadow_evaluate`, `aporic_orchestration_run_get`, and
+  `aporic_orchestration_run_list`: maintain commit/context/task-bound advisory
+  shadow runs while keeping blind reports sealed until deterministic outcome
+  evaluation. They do not invoke models, dispatch agents, execute tools, or
+  grant authority.
 
 Recall excludes records and claims superseded by newer state. Its selector
 combines unresolved material unknowns, active constraints and decisions, active

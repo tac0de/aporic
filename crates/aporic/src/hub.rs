@@ -7,30 +7,33 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     domain::{
-        CapabilityGetRequest, CapabilityManifest, CapabilityOutcome, CapabilityRegisterRequest,
-        CapabilityReport, CapabilitySearchRequest, CapabilitySummary, ClaimOutcome, ClaimRequest,
-        CloseOutcome, CloseRequest, CommandSpecOutcome, CommandSpecRequest, Consequence,
-        ContextCapsule, CoordinatedTask, DeliberationAudit, DeliberationCreateRequest,
-        DeliberationDecisionRequest, DeliberationGetRequest, DeliberationGraph,
-        DeliberationListRequest, DeliberationNodeAddRequest, DeliberationOutcome,
-        DeliberationSummary, DissentAssessment, DissentRequest, EvidenceOutcome, EvidenceRequest,
-        ExecutionFinish, ExecutionGetRequest, ExecutionListRequest, ExecutionOutcome,
-        ExecutionReplayAudit, ExecutionRun, ExecutionStart, ExperimentCreateRequest,
-        ExperimentDecisionRequest, ExperimentGetRequest, ExperimentListRequest,
-        ExperimentMeasurementAddRequest, ExperimentOutcome, ExperimentPortfolio, ExperimentSummary,
-        ExperimentVariantAddRequest, GitObserveRequest, GitSnapshot, GitSnapshotAudit,
-        GitSnapshotGetRequest, GitSnapshotListRequest, HookHealthReport, HubStats,
-        MemoryGetRequest, MemoryItem, MemoryProjectionAudit, MemorySearchRequest,
-        MemorySearchResult, ModelRoute, ModelRouteRequest, OpenOutcome, OpenRequest, ProjectExport,
-        RecallRequest, ReconcileOutcome, ReconcileRequest, RecordOutcome, RecordRequest,
-        RuntimeEvent, RuntimeObservation, RuntimeProjectionAudit, RuntimeTraceGetRequest,
-        RuntimeTraceListRequest, RuntimeWorkspaceRequest, SecureCapabilityAudit,
-        SecurityArtifactImport, SecurityAssessment, SecurityAssessmentGetRequest,
-        SecurityAssessmentListRequest, SecurityAssessmentOutcome, SecurityCoverage,
-        SecurityImportRequest, TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest,
-        TaskCreateRequest, TaskListRequest, TaskOutcome, TokenEfficiencyReport,
-        TokenEfficiencyReportRequest, TokenUsageAudit, TokenUsageListRequest, TokenUsageOutcome,
-        TokenUsageReceipt, TokenUsageRecordRequest, WorkComplexity, WorkKind,
+        AdvisoryRoleReportRequest, CapabilityGetRequest, CapabilityManifest, CapabilityOutcome,
+        CapabilityRegisterRequest, CapabilityReport, CapabilitySearchRequest, CapabilitySummary,
+        ClaimOutcome, ClaimRequest, CloseOutcome, CloseRequest, CommandSpecOutcome,
+        CommandSpecRequest, Consequence, ContextCapsule, CoordinatedTask, DeliberationAudit,
+        DeliberationCreateRequest, DeliberationDecisionRequest, DeliberationGetRequest,
+        DeliberationGraph, DeliberationListRequest, DeliberationNodeAddRequest,
+        DeliberationOutcome, DeliberationSummary, DissentAssessment, DissentRequest,
+        EvidenceOutcome, EvidenceRequest, ExecutionFinish, ExecutionGetRequest,
+        ExecutionListRequest, ExecutionOutcome, ExecutionReplayAudit, ExecutionRun, ExecutionStart,
+        ExperimentCreateRequest, ExperimentDecisionRequest, ExperimentGetRequest,
+        ExperimentListRequest, ExperimentMeasurementAddRequest, ExperimentOutcome,
+        ExperimentPortfolio, ExperimentSummary, ExperimentVariantAddRequest, GitObserveRequest,
+        GitSnapshot, GitSnapshotAudit, GitSnapshotGetRequest, GitSnapshotListRequest,
+        HookHealthReport, HubStats, MemoryGetRequest, MemoryItem, MemoryProjectionAudit,
+        MemorySearchRequest, MemorySearchResult, ModelRoute, ModelRouteRequest, OpenOutcome,
+        OpenRequest, OrchestrationAudit, OrchestrationOutcome, OrchestrationRunCreateRequest,
+        OrchestrationRunGetRequest, OrchestrationRunListRequest, OrchestrationRunSummary,
+        OrchestrationRunView, ProjectExport, RecallRequest, ReconcileOutcome, ReconcileRequest,
+        RecordOutcome, RecordRequest, RuntimeEvent, RuntimeObservation, RuntimeProjectionAudit,
+        RuntimeTraceGetRequest, RuntimeTraceListRequest, RuntimeWorkspaceRequest,
+        SecureCapabilityAudit, SecurityArtifactImport, SecurityAssessment,
+        SecurityAssessmentGetRequest, SecurityAssessmentListRequest, SecurityAssessmentOutcome,
+        SecurityCoverage, SecurityImportRequest, ShadowEvaluationRequest, TaskCancelRequest,
+        TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskOutcome,
+        TokenEfficiencyReport, TokenEfficiencyReportRequest, TokenUsageAudit,
+        TokenUsageListRequest, TokenUsageOutcome, TokenUsageReceipt, TokenUsageRecordRequest,
+        WorkComplexity, WorkKind,
     },
     kernel,
     store::{Result, Store},
@@ -379,6 +382,45 @@ impl Hub {
 
     pub fn audit_deliberations(&self) -> Result<DeliberationAudit> {
         self.store.audit_deliberations()
+    }
+
+    pub fn create_orchestration_run(
+        &self,
+        request: &OrchestrationRunCreateRequest,
+    ) -> Result<OrchestrationOutcome> {
+        self.store.create_orchestration_run(request)
+    }
+
+    pub fn submit_advisory_role_report(
+        &self,
+        request: &AdvisoryRoleReportRequest,
+    ) -> Result<OrchestrationOutcome> {
+        self.store.submit_advisory_role_report(request)
+    }
+
+    pub fn evaluate_shadow_run(
+        &self,
+        request: &ShadowEvaluationRequest,
+    ) -> Result<OrchestrationOutcome> {
+        self.store.evaluate_shadow_run(request)
+    }
+
+    pub fn get_orchestration_run(
+        &self,
+        request: &OrchestrationRunGetRequest,
+    ) -> Result<OrchestrationRunView> {
+        self.store.get_orchestration_run(request)
+    }
+
+    pub fn list_orchestration_runs(
+        &self,
+        request: &OrchestrationRunListRequest,
+    ) -> Result<Vec<OrchestrationRunSummary>> {
+        self.store.list_orchestration_runs(request)
+    }
+
+    pub fn audit_orchestration(&self) -> Result<OrchestrationAudit> {
+        self.store.audit_orchestration()
     }
 
     pub fn record(&self, request: &RecordRequest) -> Result<RecordOutcome> {

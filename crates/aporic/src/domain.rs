@@ -1601,6 +1601,290 @@ pub struct SecureCapabilityAudit {
     pub consistent: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum AdvisoryMode {
+    BlindShadow,
+    VisibleAdvisory,
+}
+
+impl AdvisoryMode {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::BlindShadow => "blind_shadow",
+            Self::VisibleAdvisory => "visible_advisory",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum AdvisoryRoleKind {
+    Steward,
+    Worker,
+}
+
+impl AdvisoryRoleKind {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Steward => "steward",
+            Self::Worker => "worker",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OrchestrationRunStatus {
+    AwaitingReport,
+    Sealed,
+    Evaluated,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum AdvisoryDisposition {
+    Abstain,
+    Recommend,
+    FlagRisk,
+    ProposeWork,
+}
+
+impl AdvisoryDisposition {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Abstain => "abstain",
+            Self::Recommend => "recommend",
+            Self::FlagRisk => "flag_risk",
+            Self::ProposeWork => "propose_work",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum PredictedTaskOutcome {
+    Completion,
+    NonCompletion,
+    Uncertain,
+}
+
+impl PredictedTaskOutcome {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Completion => "completion",
+            Self::NonCompletion => "non_completion",
+            Self::Uncertain => "uncertain",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum AdvisorySourceKind {
+    HostReported,
+    DeterministicSimulator,
+}
+
+impl AdvisorySourceKind {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::HostReported => "host_reported",
+            Self::DeterministicSimulator => "deterministic_simulator",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ActualTaskOutcome {
+    Completed,
+    Cancelled,
+}
+
+impl ActualTaskOutcome {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Completed => "completed",
+            Self::Cancelled => "cancelled",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OrchestrationRunCreateRequest {
+    pub session_id: String,
+    pub task_id: String,
+    pub git_snapshot_id: String,
+    pub context_exposure_id: String,
+    pub mode: AdvisoryMode,
+    pub role_kind: AdvisoryRoleKind,
+    pub role_id: String,
+    pub objective: String,
+    #[serde(default)]
+    pub model: Option<String>,
+    #[serde(default)]
+    pub reasoning_effort: Option<String>,
+    pub max_input_tokens: u64,
+    pub max_output_tokens: u64,
+    pub max_duration_seconds: u64,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AdvisoryRoleReportRequest {
+    pub run_id: String,
+    pub source_kind: AdvisorySourceKind,
+    pub disposition: AdvisoryDisposition,
+    pub predicted_task_outcome: PredictedTaskOutcome,
+    pub summary: String,
+    pub public_rationale: String,
+    #[serde(default)]
+    pub recommended_next_action: Option<String>,
+    #[serde(default)]
+    pub uncertainties: Vec<String>,
+    #[serde(default)]
+    pub addressed_criteria: Vec<String>,
+    #[serde(default)]
+    pub reported_input_tokens: Option<u64>,
+    #[serde(default)]
+    pub reported_output_tokens: Option<u64>,
+    #[serde(default)]
+    pub reported_duration_ms: Option<u64>,
+    #[serde(default)]
+    pub claims_task_complete: bool,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ShadowEvaluationRequest {
+    pub run_id: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OrchestrationRunGetRequest {
+    pub workspace: String,
+    pub run_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct OrchestrationRunListRequest {
+    pub workspace: String,
+    #[serde(default)]
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OrchestrationRun {
+    pub sequence: u64,
+    pub run_id: String,
+    pub session_id: String,
+    pub task_id: String,
+    pub git_snapshot_id: String,
+    pub context_exposure_id: String,
+    pub mode: AdvisoryMode,
+    pub role_kind: AdvisoryRoleKind,
+    pub role_id: String,
+    pub objective: String,
+    pub model: Option<String>,
+    pub reasoning_effort: Option<String>,
+    pub max_input_tokens: u64,
+    pub max_output_tokens: u64,
+    pub max_duration_seconds: u64,
+    pub capability_ceiling: CapabilityMaturity,
+    pub status: OrchestrationRunStatus,
+    pub bound_head_commit: String,
+    pub bound_head_tree: String,
+    pub context_policy_sha256: String,
+    pub run_sha256: String,
+    pub created_at_unix_ms: i64,
+    pub sealed_at_unix_ms: Option<i64>,
+    pub evaluated_at_unix_ms: Option<i64>,
+    pub advisory: bool,
+    pub executable: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AdvisoryRoleReport {
+    pub sequence: u64,
+    pub report_id: String,
+    pub run_id: String,
+    pub source_kind: AdvisorySourceKind,
+    pub disposition: AdvisoryDisposition,
+    pub predicted_task_outcome: PredictedTaskOutcome,
+    pub summary: String,
+    pub public_rationale: String,
+    pub recommended_next_action: Option<String>,
+    pub uncertainties: Vec<String>,
+    pub addressed_criteria: Vec<String>,
+    pub reported_input_tokens: Option<u64>,
+    pub reported_output_tokens: Option<u64>,
+    pub reported_duration_ms: Option<u64>,
+    pub report_sha256: String,
+    pub created_at_unix_ms: i64,
+    pub evidence_grade: EvidenceGrade,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ShadowEvaluation {
+    pub sequence: u64,
+    pub evaluation_id: String,
+    pub run_id: String,
+    pub actual_task_outcome: ActualTaskOutcome,
+    pub prediction_match: Option<bool>,
+    pub acceptance_criterion_count: u64,
+    pub addressed_criterion_count: u64,
+    pub verified_criterion_count: u64,
+    pub git_stale: bool,
+    pub evidence_eligible: bool,
+    pub evaluation_sha256: String,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OrchestrationRunView {
+    pub run: OrchestrationRun,
+    pub report: Option<AdvisoryRoleReport>,
+    pub report_revealed: bool,
+    pub evaluation: Option<ShadowEvaluation>,
+    pub authority_notice: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OrchestrationOutcome {
+    pub view: OrchestrationRunView,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OrchestrationRunSummary {
+    pub run_id: String,
+    pub task_id: String,
+    pub mode: AdvisoryMode,
+    pub role_kind: AdvisoryRoleKind,
+    pub role_id: String,
+    pub status: OrchestrationRunStatus,
+    pub report_revealed: bool,
+    pub evidence_eligible: Option<bool>,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OrchestrationAudit {
+    pub run_count: u64,
+    pub report_count: u64,
+    pub evaluation_count: u64,
+    pub digest_mismatch_count: u64,
+    pub invalid_reference_count: u64,
+    pub consistent: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OpenOutcome {
     pub session_id: String,
@@ -1655,6 +1939,8 @@ pub struct HubStats {
     pub capability_manifest_count: u64,
     pub experiment_campaign_count: u64,
     pub security_assessment_count: u64,
+    pub orchestration_run_count: u64,
+    pub shadow_evaluation_count: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -2235,5 +2521,9 @@ pub struct ProjectExport {
     pub capability_manifests: Vec<CapabilityManifest>,
     pub experiments: Vec<ExperimentPortfolio>,
     pub security_assessments: Vec<SecurityAssessment>,
+    pub orchestration_runs: Vec<OrchestrationRun>,
+    pub sealed_advisory_report_count: u64,
+    pub advisory_role_reports: Vec<AdvisoryRoleReport>,
+    pub shadow_evaluations: Vec<ShadowEvaluation>,
     pub events: Vec<ExportEvent>,
 }

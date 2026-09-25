@@ -72,6 +72,14 @@ manual evaluation.
 - Coordination is advisory: task contracts, dependencies, write scopes, leases,
   cancellations, and criterion proofs are recorded, but Aporic does not launch
   workers or grant host authority.
+- Hermes orchestration is an Aporic-native deterministic envelope, not an
+  external agent framework. Steward- and Worker-style roles can submit only
+  bounded advisory reports under a fixed `propose` ceiling; Aporic makes no
+  model/API call and dispatches no agent.
+- Blind-shadow reports must be sealed before task termination and remain absent
+  from normal reads, exports, and event payloads until their prediction is
+  compared with the independently recorded outcome. A role report can never
+  complete the task or become its proof.
 - Model routing is advisory and outside the kernel: Terra handles bounded work,
   Sol is the default for complex implementation, and Astra handles frontier or
   high-consequence ambiguous work.
@@ -162,6 +170,9 @@ write scopes, and supply-chain/coverage release gates. Restore still refuses to
 overwrite an existing database. v0.14 adds capability maturity metadata and an
 opt-in, fail-closed Linux `bubblewrap` profile for local verification commands;
 neither feature grants provider authority or makes catalog entries executable.
+v0.15 adds only zero-effect advisory orchestration and deterministic shadow
+evaluation; provider invocation, scheduling, and recommendation execution remain
+deferred.
 
 ## Current evidence
 
@@ -169,7 +180,7 @@ Observed on 2026-09-25:
 
 - the exact versioned kernel candidate in the repository matches the installed candidate
   by SHA-256;
-- a real stdio MCP child process exposes all forty-five tools and preserves a record
+- a real stdio MCP child process exposes all fifty tools and preserves a record
   across a server restart;
 - exact retries are idempotent and conflicting reuse of a key is rejected;
 - concurrent writers retain all tested sessions through SQLite WAL;
@@ -246,6 +257,10 @@ Observed on 2026-09-25:
   routines, and requires unsupported platforms to fail closed. Linux CI also
   exercises denial of an out-of-workspace secret, read-only workspace writes,
   and network connection attempts inside the real `bubblewrap` backend.
+- the v0.15 orchestration suite keeps blind reports out of reads, exports, and
+  event payloads before evaluation; rejects false completion, budget overrun,
+  post-outcome advice, and digest tampering; and scores predictions only against
+  later task state backed by existing direct criterion proofs.
 
 Not yet established:
 

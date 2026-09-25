@@ -14,7 +14,7 @@ See [PRODUCT.md](PRODUCT.md) for the product objective and
 
 ## Current product surface
 
-The hub exposes forty-five MCP tools in thirteen groups.
+The hub exposes fifty MCP tools in fourteen groups.
 
 Continuity:
 
@@ -122,6 +122,18 @@ Security evidence bridge:
 - `aporic_security_assessment_get` and `aporic_security_assessment_list`:
   inspect locally imported, commit-bound Codex Security artifact summaries.
   Zero findings and partial coverage never become a safety claim.
+
+Zero-effect advisory orchestration:
+
+- `aporic_orchestration_run_create`: bind a Hermes run envelope to one active
+  task, clean Git snapshot, recorded context exposure, role, and hard budget;
+- `aporic_role_report_submit`: seal one bounded Steward- or Worker-style report
+  without invoking a model, dispatching an agent, executing a tool, or claiming
+  task completion;
+- `aporic_shadow_evaluate`: compare a pre-outcome report with the later
+  independently recorded task outcome and verified criterion proofs;
+- `aporic_orchestration_run_get` and `aporic_orchestration_run_list`: inspect
+  runs without revealing blind-shadow report content before evaluation.
 
 MCP cannot execute a registered check or submit a receipt. A human or local
 automation invokes `aporic verify --spec SPEC_ID`; the Rust runner executes the
@@ -364,6 +376,21 @@ seccomp policy; provide a VM/microVM boundary; execute catalog capabilities; or
 verify remote side effects. The existing timeout remains the resource-lifetime
 limit.
 
+## v0.15 zero-effect advisory orchestration
+
+v0.15 adds an Aporic-native Hermes coordinator as deterministic data contracts,
+not as an agent runtime. A run is immutably bound to an active task, clean Git
+commit/tree, one recorded context exposure, a Steward or Worker role, and input,
+output, and duration budgets. Its capability ceiling is always `propose`.
+
+`blind_shadow` reports are submitted before the task outcome, sealed from read
+and export surfaces, and revealed only after deterministic evaluation against a
+later completed or cancelled task. Completion is evidence-eligible only when
+every task criterion has an Aporic-direct verified proof and the Git binding is
+not stale. `visible_advisory` exposes advice immediately but grants no extra
+authority. Reports cannot complete tasks, call providers, use credentials,
+access the network, mutate a workspace, or trigger tools.
+
 ## Offline evaluation
 
 Aporic does not call the OpenAI API or any other model endpoint. Its offline
@@ -444,6 +471,7 @@ cargo test -p aporic --test memory_lifecycle -- --nocapture
 cargo test -p aporic --test runtime_trace -- --nocapture
 cargo test -p aporic --test git_governance -- --nocapture
 cargo test -p aporic --test token_efficiency -- --nocapture
+cargo test -p aporic --test advisory_orchestration -- --nocapture
 ```
 
 The Codex bridge template is under `integrations/codex/`. Nothing in the build

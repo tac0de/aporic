@@ -132,7 +132,7 @@ fn backup(target: &str) -> Result<(), Box<dyn Error>> {
         serde_json::to_string(&serde_json::json!({
             "ok": true,
             "backup": fs::canonicalize(target)?,
-            "schema_version": 13,
+            "schema_version": 14,
         }))?
     );
     Ok(())

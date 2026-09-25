@@ -72,6 +72,16 @@ and records declared coverage and finding counts against a clean Git snapshot.
 Partial coverage or zero findings never proves safety. Imported files remain
 untrusted content, and Aporic does not pass tokens or credentials to a provider.
 
+Hermes orchestration is also a storage and evaluation boundary, not a provider
+runtime. Steward and Worker reports are advisory, model-only evidence and have
+a fixed `propose` capability ceiling. Aporic does not launch those roles, call a
+model API, broker credentials, execute their recommendations, or let a report
+complete its bound task. Blind-shadow report bodies are omitted from ordinary
+reads, project exports, and event payloads until the independently recorded task
+outcome is eligible for evaluation. This sealing limits observer bias in the
+workflow; it is not cryptographic secrecy from a same-user process that can read
+the SQLite database.
+
 ## Resource and recovery limits
 
 v0.13 bounds hook input, direct workspace evidence, receipt artifact count and
