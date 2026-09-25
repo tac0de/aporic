@@ -29,7 +29,12 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_open",
             "aporic_recall",
             "aporic_reconcile",
-            "aporic_record"
+            "aporic_record",
+            "aporic_task_cancel",
+            "aporic_task_claim",
+            "aporic_task_complete",
+            "aporic_task_create",
+            "aporic_task_list"
         ]
     );
 

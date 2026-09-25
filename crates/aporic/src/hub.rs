@@ -2,9 +2,10 @@ use std::path::PathBuf;
 
 use crate::{
     domain::{
-        CloseOutcome, CloseRequest, ContextCapsule, HubStats, OpenOutcome, OpenRequest,
-        ProjectExport, RecallRequest, ReconcileOutcome, ReconcileRequest, RecordOutcome,
-        RecordRequest,
+        CloseOutcome, CloseRequest, ContextCapsule, CoordinatedTask, HubStats, OpenOutcome,
+        OpenRequest, ProjectExport, RecallRequest, ReconcileOutcome, ReconcileRequest,
+        RecordOutcome, RecordRequest, TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest,
+        TaskCreateRequest, TaskListRequest, TaskOutcome,
     },
     kernel,
     store::{Result, Store},
@@ -57,5 +58,25 @@ impl Hub {
 
     pub fn export_project(&self, workspace: &str) -> Result<ProjectExport> {
         self.store.export_project(workspace)
+    }
+
+    pub fn create_task(&self, request: &TaskCreateRequest) -> Result<TaskOutcome> {
+        self.store.create_task(request)
+    }
+
+    pub fn list_tasks(&self, request: &TaskListRequest) -> Result<Vec<CoordinatedTask>> {
+        self.store.list_tasks(request)
+    }
+
+    pub fn claim_task(&self, request: &TaskClaimRequest) -> Result<TaskOutcome> {
+        self.store.claim_task(request)
+    }
+
+    pub fn complete_task(&self, request: &TaskCompleteRequest) -> Result<TaskOutcome> {
+        self.store.complete_task(request)
+    }
+
+    pub fn cancel_task(&self, request: &TaskCancelRequest) -> Result<TaskOutcome> {
+        self.store.cancel_task(request)
     }
 }

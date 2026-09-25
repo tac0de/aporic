@@ -173,6 +173,106 @@ pub struct HubStats {
     pub abandoned_session_count: u64,
     pub record_count: u64,
     pub event_count: u64,
+    pub queued_task_count: u64,
+    pub leased_task_count: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum TaskStatus {
+    Queued,
+    Leased,
+    Completed,
+    Cancelled,
+}
+
+impl TaskStatus {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Queued => "queued",
+            Self::Leased => "leased",
+            Self::Completed => "completed",
+            Self::Cancelled => "cancelled",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CoordinatedTask {
+    pub task_id: String,
+    pub project_id: String,
+    pub session_id: String,
+    pub objective: String,
+    pub acceptance_criteria: Vec<String>,
+    pub write_scope: Vec<String>,
+    pub depends_on: Vec<String>,
+    pub status: TaskStatus,
+    pub lease_owner: Option<String>,
+    pub lease_expires_at_unix_ms: Option<i64>,
+    pub outcome_summary: Option<String>,
+    pub completion_evidence: Vec<CriterionEvidence>,
+    pub created_at_unix_ms: i64,
+    pub updated_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CriterionEvidence {
+    pub criterion: String,
+    pub evidence: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TaskCreateRequest {
+    pub session_id: String,
+    pub objective: String,
+    pub acceptance_criteria: Vec<String>,
+    #[serde(default)]
+    pub write_scope: Vec<String>,
+    #[serde(default)]
+    pub depends_on: Vec<String>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TaskListRequest {
+    pub workspace: String,
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TaskClaimRequest {
+    pub task_id: String,
+    pub worker_id: String,
+    pub lease_seconds: u64,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TaskCompleteRequest {
+    pub task_id: String,
+    pub worker_id: String,
+    pub outcome_summary: String,
+    pub criterion_evidence: Vec<CriterionEvidence>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TaskCancelRequest {
+    pub task_id: String,
+    pub reason: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskOutcome {
+    pub task: CoordinatedTask,
+    pub duplicate: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -208,5 +308,6 @@ pub struct ProjectExport {
     pub workspace: String,
     pub sessions: Vec<ExportSession>,
     pub records: Vec<DurableRecord>,
+    pub tasks: Vec<CoordinatedTask>,
     pub events: Vec<ExportEvent>,
 }

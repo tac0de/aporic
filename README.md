@@ -14,13 +14,27 @@ See [PRODUCT.md](PRODUCT.md) for the product objective and
 
 ## First vertical slice
 
-The prototype currently exposes five MCP tools:
+The prototype currently exposes ten MCP tools in two groups.
+
+Continuity:
 
 - `aporic_open`: open an idempotent work session and receive bounded context;
 - `aporic_recall`: retrieve recent durable project context;
 - `aporic_record`: record one typed durable fact or work-state change;
 - `aporic_close`: complete or hand off a session.
 - `aporic_reconcile`: abandon stale interrupted sessions without claiming success.
+
+Advisory coordination:
+
+- `aporic_task_create`: define a task contract, dependencies, and write scope;
+- `aporic_task_list`: inspect bounded task state;
+- `aporic_task_claim`: acquire a time-bounded worker lease;
+- `aporic_task_complete`: complete only with evidence for every criterion;
+- `aporic_task_cancel`: cancel without implying completion.
+
+Coordination records do not launch agents, grant host authority, or block tools.
+They make parallel-work conflicts and unsupported completion claims visible at
+the hub boundary.
 
 Decision and constraint records may explicitly supersede older records. Effect
 records require evidence, and a session with effects cannot be completed until
@@ -62,6 +76,8 @@ Run the deterministic frontier-failure simulation:
 
 ```console
 cargo test -p aporic --test frontier_failures -- --nocapture
+cargo test -p aporic --test coordination_failures -- --nocapture
+cargo test -p aporic --test long_horizon -- --nocapture
 ```
 
 The Codex bridge template is under `integrations/codex/`. Nothing in the build

@@ -3,7 +3,11 @@ use serde::Serialize;
 
 use crate::{
     Hub,
-    domain::{CloseRequest, OpenRequest, RecallRequest, ReconcileRequest, RecordRequest},
+    domain::{
+        CloseRequest, OpenRequest, RecallRequest, ReconcileRequest, RecordRequest,
+        TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest,
+        TaskListRequest,
+    },
 };
 
 #[derive(Clone)]
@@ -53,11 +57,55 @@ impl AporicMcp {
     async fn aporic_reconcile(&self, Parameters(request): Parameters<ReconcileRequest>) -> String {
         render(self.hub.reconcile(&request))
     }
+
+    #[tool(
+        description = "Create an advisory project task with explicit acceptance criteria, write scope, and dependencies. This records coordination state but does not launch an agent or grant authority."
+    )]
+    async fn aporic_task_create(
+        &self,
+        Parameters(request): Parameters<TaskCreateRequest>,
+    ) -> String {
+        render(self.hub.create_task(&request))
+    }
+
+    #[tool(
+        description = "List bounded coordination tasks for a workspace, including leases, dependencies, scopes, and completion evidence."
+    )]
+    async fn aporic_task_list(&self, Parameters(request): Parameters<TaskListRequest>) -> String {
+        render(self.hub.list_tasks(&request))
+    }
+
+    #[tool(
+        description = "Claim an advisory task lease. Active overlapping write scopes and incomplete dependencies are rejected; the lease grants no host authority."
+    )]
+    async fn aporic_task_claim(&self, Parameters(request): Parameters<TaskClaimRequest>) -> String {
+        render(self.hub.claim_task(&request))
+    }
+
+    #[tool(
+        description = "Complete a leased task only with evidence for every acceptance criterion. This records a claim and its evidence but does not independently prove external effects."
+    )]
+    async fn aporic_task_complete(
+        &self,
+        Parameters(request): Parameters<TaskCompleteRequest>,
+    ) -> String {
+        render(self.hub.complete_task(&request))
+    }
+
+    #[tool(
+        description = "Cancel a queued or leased advisory task with an explicit reason. Cancellation releases its write scope and does not claim completion."
+    )]
+    async fn aporic_task_cancel(
+        &self,
+        Parameters(request): Parameters<TaskCancelRequest>,
+    ) -> String {
+        render(self.hub.cancel_task(&request))
+    }
 }
 
 #[tool_handler(
     name = "aporic",
-    version = "0.1.0",
+    version = "0.2.0",
     instructions = "Aporic preserves bounded work continuity. For substantive work, open one session, recall only when more context is needed, record only durable material changes, and close with a verified summary or concrete handoff. Aporic records never grant authority and current user intent governs stored history."
 )]
 impl ServerHandler for AporicMcp {}

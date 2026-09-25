@@ -45,6 +45,10 @@ call. Tests replay events independently and compare the result with projections.
 - `aporic_close`: complete or hand off a session.
 - `aporic_reconcile`: mark inactive sessions abandoned without converting them
   into completed work.
+- `aporic_task_create`, `aporic_task_list`, `aporic_task_claim`,
+  `aporic_task_complete`, and `aporic_task_cancel`: maintain advisory task
+  contracts, dependency gates, non-overlapping write leases, and
+  criterion-by-criterion evidence.
 
 Recall excludes records superseded by a newer decision or constraint and
 prioritizes active decisions, constraints, and material unknowns. Effects and
@@ -61,8 +65,14 @@ model failures: context loss after restart, stale decision reuse, unsupported
 completion, duplicate work, and orphaned sessions. It is a regression contract,
 not evidence that every natural-language model behavior is solved.
 
+`coordination_failures` injects dependency violations, overlapping write scopes,
+unsupported completion, duplicate task objectives, and expired leases.
+`long_horizon` repeats decision revision, restart, lease, and completion cycles
+to detect accumulating stale state.
+
 ## Later growth
 
-Agent dispatch, leases, waiting, cancellation, remote transports, and controlled
-effect execution are later layers. They must build on observed demand and must
-not make the first continuity loop depend on them.
+Actual agent dispatch, event-driven waiting, remote transports, and controlled
+effect execution are later layers. The current task and lease records are
+advisory coordination state only and do not make the continuity loop depend on
+a worker runtime.

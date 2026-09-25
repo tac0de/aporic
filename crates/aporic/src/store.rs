@@ -11,13 +11,16 @@ use uuid::Uuid;
 
 use crate::domain::{
     AbandonedSession, ActiveSession, CloseDisposition, CloseOutcome, CloseRequest, ContextCapsule,
-    DurableRecord, ExportEvent, ExportSession, Handoff, HubStats, OpenOutcome, OpenRequest,
-    ProjectExport, RecallRequest, ReconcileOutcome, ReconcileRequest, RecordKind, RecordOutcome,
-    RecordRequest,
+    CoordinatedTask, CriterionEvidence, DurableRecord, ExportEvent, ExportSession, Handoff,
+    HubStats, OpenOutcome, OpenRequest, ProjectExport, RecallRequest, ReconcileOutcome,
+    ReconcileRequest, RecordKind, RecordOutcome, RecordRequest, TaskCancelRequest,
+    TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskOutcome,
+    TaskStatus,
 };
 
 const SCHEMA: &str = include_str!("../../../migrations/0001_initial.sql");
 const MIGRATION_2: &str = include_str!("../../../migrations/0002_continuity_hardening.sql");
+const MIGRATION_3: &str = include_str!("../../../migrations/0003_coordination.sql");
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -53,11 +56,15 @@ impl Store {
             connection.pragma_query_value(None, "user_version", |row| row.get::<_, u32>(0))?;
         match schema_version {
             0 => connection.execute_batch(SCHEMA)?,
-            1 => connection.execute_batch(MIGRATION_2)?,
-            2 => {}
+            1 => {
+                connection.execute_batch(MIGRATION_2)?;
+                connection.execute_batch(MIGRATION_3)?;
+            }
+            2 => connection.execute_batch(MIGRATION_3)?,
+            3 => {}
             version => {
                 return Err(Error::Invalid(format!(
-                    "database schema version {version} is newer than supported version 2"
+                    "database schema version {version} is newer than supported version 3"
                 )));
             }
         }
@@ -377,6 +384,318 @@ impl Store {
         Ok(outcome)
     }
 
+    pub fn create_task(&self, request: &TaskCreateRequest) -> Result<TaskOutcome> {
+        require_text("session_id", &request.session_id)?;
+        require_text("objective", &request.objective)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        require_nonempty_texts("acceptance_criteria", &request.acceptance_criteria)?;
+        require_texts("write_scope", &request.write_scope)?;
+        require_texts("depends_on", &request.depends_on)?;
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+
+        if let Some(mut outcome) = duplicate_result::<TaskOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "task_created",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        require_open_session(&transaction, &request.session_id)?;
+        let project_id = transaction.query_row(
+            "SELECT project_id FROM sessions WHERE session_id = ?1",
+            [&request.session_id],
+            |row| row.get::<_, String>(0),
+        )?;
+        let duplicate_objective = transaction
+            .query_row(
+                "SELECT task_id FROM tasks
+             WHERE project_id = ?1 AND status IN ('queued', 'leased')
+               AND lower(trim(objective)) = lower(trim(?2))
+             LIMIT 1",
+                params![project_id, request.objective],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        if let Some(task_id) = duplicate_objective {
+            return Err(Error::Conflict(format!(
+                "an active task already has this objective: {task_id}"
+            )));
+        }
+        for dependency in &request.depends_on {
+            let dependency_project = transaction
+                .query_row(
+                    "SELECT project_id FROM tasks WHERE task_id = ?1",
+                    [dependency],
+                    |row| row.get::<_, String>(0),
+                )
+                .optional()?
+                .ok_or_else(|| Error::NotFound(format!("task {dependency}")))?;
+            if dependency_project != project_id {
+                return Err(Error::Conflict(
+                    "task dependencies must belong to the same project".to_owned(),
+                ));
+            }
+        }
+
+        let task_id = Uuid::now_v7().to_string();
+        transaction.execute(
+            "INSERT INTO tasks
+             (task_id, project_id, session_id, objective, acceptance_criteria_json,
+              write_scope_json, depends_on_json, status, created_at_unix_ms,
+              updated_at_unix_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'queued', ?8, ?8)",
+            params![
+                task_id,
+                project_id,
+                request.session_id,
+                request.objective,
+                serde_json::to_string(&request.acceptance_criteria)?,
+                serde_json::to_string(&request.write_scope)?,
+                serde_json::to_string(&request.depends_on)?,
+                now,
+            ],
+        )?;
+        let task = load_task(&transaction, &task_id)?
+            .ok_or_else(|| Error::NotFound(format!("task {task_id}")))?;
+        let outcome = TaskOutcome {
+            task,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &task_id,
+            "task_created",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn list_tasks(&self, request: &TaskListRequest) -> Result<Vec<CoordinatedTask>> {
+        let workspace = canonical_workspace(&request.workspace)?;
+        let limit = request.limit.unwrap_or(50).clamp(1, 200);
+        let connection = self.connection()?;
+        let project_id = connection
+            .query_row(
+                "SELECT project_id FROM projects WHERE workspace = ?1",
+                [&workspace],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        let Some(project_id) = project_id else {
+            return Ok(Vec::new());
+        };
+        list_project_tasks(&connection, &project_id, i64::from(limit))
+    }
+
+    pub fn claim_task(&self, request: &TaskClaimRequest) -> Result<TaskOutcome> {
+        require_text("task_id", &request.task_id)?;
+        require_text("worker_id", &request.worker_id)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        if !(30..=86_400).contains(&request.lease_seconds) {
+            return Err(Error::Invalid(
+                "lease_seconds must be between 30 and 86400".to_owned(),
+            ));
+        }
+        let now = unix_millis()?;
+        let lease_millis = i64::try_from(request.lease_seconds)
+            .map_err(|_| Error::Invalid("lease_seconds is too large".to_owned()))?
+            .saturating_mul(1000);
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<TaskOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "task_claimed",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        let task = load_task(&transaction, &request.task_id)?
+            .ok_or_else(|| Error::NotFound(format!("task {}", request.task_id)))?;
+        match task.status {
+            TaskStatus::Completed | TaskStatus::Cancelled => {
+                return Err(Error::Conflict(format!(
+                    "task {} is already {}",
+                    request.task_id,
+                    task.status.as_str()
+                )));
+            }
+            TaskStatus::Leased
+                if task
+                    .lease_expires_at_unix_ms
+                    .is_some_and(|expires| expires > now) =>
+            {
+                return Err(Error::Conflict(format!(
+                    "task {} has an active lease",
+                    request.task_id
+                )));
+            }
+            TaskStatus::Queued | TaskStatus::Leased => {}
+        }
+        for dependency in &task.depends_on {
+            let status = transaction
+                .query_row(
+                    "SELECT status FROM tasks WHERE task_id = ?1",
+                    [dependency],
+                    |row| row.get::<_, String>(0),
+                )
+                .optional()?
+                .ok_or_else(|| Error::NotFound(format!("task {dependency}")))?;
+            if status != TaskStatus::Completed.as_str() {
+                return Err(Error::Conflict(format!(
+                    "dependency {dependency} is not completed"
+                )));
+            }
+        }
+        ensure_write_scope_available(&transaction, &task, now)?;
+        let expires = now.saturating_add(lease_millis);
+        transaction.execute(
+            "UPDATE tasks
+             SET status = 'leased', lease_owner = ?1, lease_expires_at_unix_ms = ?2,
+                 updated_at_unix_ms = ?3
+             WHERE task_id = ?4",
+            params![request.worker_id, expires, now, request.task_id],
+        )?;
+        let task = load_task(&transaction, &request.task_id)?
+            .ok_or_else(|| Error::NotFound(format!("task {}", request.task_id)))?;
+        let outcome = TaskOutcome {
+            task,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &request.task_id,
+            "task_claimed",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn complete_task(&self, request: &TaskCompleteRequest) -> Result<TaskOutcome> {
+        require_text("task_id", &request.task_id)?;
+        require_text("worker_id", &request.worker_id)?;
+        require_text("outcome_summary", &request.outcome_summary)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<TaskOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "task_completed",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        let task = load_task(&transaction, &request.task_id)?
+            .ok_or_else(|| Error::NotFound(format!("task {}", request.task_id)))?;
+        if task.status != TaskStatus::Leased
+            || task.lease_owner.as_deref() != Some(request.worker_id.as_str())
+            || task
+                .lease_expires_at_unix_ms
+                .is_none_or(|expires| expires <= now)
+        {
+            return Err(Error::Conflict(
+                "task completion requires the worker's active lease".to_owned(),
+            ));
+        }
+        validate_criterion_evidence(&task.acceptance_criteria, &request.criterion_evidence)?;
+        transaction.execute(
+            "UPDATE tasks
+             SET status = 'completed', outcome_summary = ?1, completion_evidence_json = ?2,
+                 lease_expires_at_unix_ms = NULL, updated_at_unix_ms = ?3
+             WHERE task_id = ?4",
+            params![
+                request.outcome_summary,
+                serde_json::to_string(&request.criterion_evidence)?,
+                now,
+                request.task_id,
+            ],
+        )?;
+        let task = load_task(&transaction, &request.task_id)?
+            .ok_or_else(|| Error::NotFound(format!("task {}", request.task_id)))?;
+        let outcome = TaskOutcome {
+            task,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &request.task_id,
+            "task_completed",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn cancel_task(&self, request: &TaskCancelRequest) -> Result<TaskOutcome> {
+        require_text("task_id", &request.task_id)?;
+        require_text("reason", &request.reason)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<TaskOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "task_cancelled",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        let task = load_task(&transaction, &request.task_id)?
+            .ok_or_else(|| Error::NotFound(format!("task {}", request.task_id)))?;
+        if matches!(task.status, TaskStatus::Completed | TaskStatus::Cancelled) {
+            return Err(Error::Conflict(format!(
+                "task {} is already {}",
+                request.task_id,
+                task.status.as_str()
+            )));
+        }
+        transaction.execute(
+            "UPDATE tasks
+             SET status = 'cancelled', outcome_summary = ?1, lease_expires_at_unix_ms = NULL,
+                 updated_at_unix_ms = ?2
+             WHERE task_id = ?3",
+            params![request.reason, now, request.task_id],
+        )?;
+        let task = load_task(&transaction, &request.task_id)?
+            .ok_or_else(|| Error::NotFound(format!("task {}", request.task_id)))?;
+        let outcome = TaskOutcome {
+            task,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &request.task_id,
+            "task_cancelled",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
     pub fn event_count(&self) -> Result<u64> {
         let connection = self.connection()?;
         let count = connection.query_row("SELECT COUNT(*) FROM events", [], |row| {
@@ -399,6 +718,8 @@ impl Store {
             abandoned_session_count: table_count(&connection, "sessions", "abandoned = 1")?,
             record_count: table_count(&connection, "records", "1 = 1")?,
             event_count: table_count(&connection, "events", "1 = 1")?,
+            queued_task_count: table_count(&connection, "tasks", "status = 'queued'")?,
+            leased_task_count: table_count(&connection, "tasks", "status = 'leased'")?,
         })
     }
 
@@ -465,6 +786,8 @@ impl Store {
                 .collect::<std::result::Result<Vec<_>, _>>()?
         };
 
+        let tasks = list_project_tasks(&connection, &project_id, i64::MAX)?;
+
         let events = {
             let mut statement = connection.prepare(
                 "SELECT sequence, event_id, idempotency_key, stream_id, kind, payload_json,
@@ -511,6 +834,7 @@ impl Store {
             workspace,
             sessions,
             records,
+            tasks,
             events,
         })
     }
@@ -539,6 +863,30 @@ fn require_text(name: &str, value: &str) -> Result<()> {
     } else {
         Ok(())
     }
+}
+
+fn require_texts(name: &str, values: &[String]) -> Result<()> {
+    for value in values {
+        require_text(name, value)?;
+    }
+    let unique = values
+        .iter()
+        .map(|value| value.trim().to_lowercase())
+        .collect::<std::collections::BTreeSet<_>>();
+    if unique.len() != values.len() {
+        Err(Error::Invalid(format!(
+            "{name} must not contain duplicates"
+        )))
+    } else {
+        Ok(())
+    }
+}
+
+fn require_nonempty_texts(name: &str, values: &[String]) -> Result<()> {
+    if values.is_empty() {
+        return Err(Error::Invalid(format!("{name} must not be empty")));
+    }
+    require_texts(name, values)
 }
 
 fn unix_millis() -> Result<i64> {
@@ -742,6 +1090,160 @@ fn require_verified_effects(transaction: &Transaction<'_>, session_id: &str) -> 
 fn table_count(connection: &Connection, table: &str, predicate: &str) -> Result<u64> {
     let sql = format!("SELECT COUNT(*) FROM {table} WHERE {predicate}");
     Ok(connection.query_row(&sql, [], |row| row.get(0))?)
+}
+
+fn load_task(connection: &Connection, task_id: &str) -> Result<Option<CoordinatedTask>> {
+    Ok(connection
+        .query_row(
+            "SELECT task_id, project_id, session_id, objective, acceptance_criteria_json,
+                    write_scope_json, depends_on_json, status, lease_owner,
+                    lease_expires_at_unix_ms, outcome_summary, completion_evidence_json,
+                    created_at_unix_ms, updated_at_unix_ms
+             FROM tasks WHERE task_id = ?1",
+            [task_id],
+            task_from_row,
+        )
+        .optional()?)
+}
+
+fn list_project_tasks(
+    connection: &Connection,
+    project_id: &str,
+    limit: i64,
+) -> Result<Vec<CoordinatedTask>> {
+    let mut statement = connection.prepare(
+        "SELECT task_id, project_id, session_id, objective, acceptance_criteria_json,
+                write_scope_json, depends_on_json, status, lease_owner,
+                lease_expires_at_unix_ms, outcome_summary, completion_evidence_json,
+                created_at_unix_ms, updated_at_unix_ms
+         FROM tasks WHERE project_id = ?1
+         ORDER BY CASE status
+                    WHEN 'leased' THEN 0
+                    WHEN 'queued' THEN 1
+                    WHEN 'completed' THEN 2
+                    ELSE 3
+                  END,
+                  updated_at_unix_ms DESC
+         LIMIT ?2",
+    )?;
+    Ok(statement
+        .query_map(params![project_id, limit], task_from_row)?
+        .collect::<std::result::Result<Vec<_>, _>>()?)
+}
+
+fn task_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<CoordinatedTask> {
+    Ok(CoordinatedTask {
+        task_id: row.get(0)?,
+        project_id: row.get(1)?,
+        session_id: row.get(2)?,
+        objective: row.get(3)?,
+        acceptance_criteria: json_column(row, 4)?,
+        write_scope: json_column(row, 5)?,
+        depends_on: json_column(row, 6)?,
+        status: parse_task_status(row.get(7)?)?,
+        lease_owner: row.get(8)?,
+        lease_expires_at_unix_ms: row.get(9)?,
+        outcome_summary: row.get(10)?,
+        completion_evidence: json_column(row, 11)?,
+        created_at_unix_ms: row.get(12)?,
+        updated_at_unix_ms: row.get(13)?,
+    })
+}
+
+fn json_column<T: DeserializeOwned>(row: &rusqlite::Row<'_>, index: usize) -> rusqlite::Result<T> {
+    let json = row.get::<_, String>(index)?;
+    serde_json::from_str(&json).map_err(|error| {
+        rusqlite::Error::FromSqlConversionFailure(
+            index,
+            rusqlite::types::Type::Text,
+            Box::new(error),
+        )
+    })
+}
+
+fn parse_task_status(value: String) -> rusqlite::Result<TaskStatus> {
+    match value.as_str() {
+        "queued" => Ok(TaskStatus::Queued),
+        "leased" => Ok(TaskStatus::Leased),
+        "completed" => Ok(TaskStatus::Completed),
+        "cancelled" => Ok(TaskStatus::Cancelled),
+        _ => Err(rusqlite::Error::InvalidQuery),
+    }
+}
+
+fn ensure_write_scope_available(
+    transaction: &Transaction<'_>,
+    requested: &CoordinatedTask,
+    now: i64,
+) -> Result<()> {
+    if requested.write_scope.is_empty() {
+        return Ok(());
+    }
+    let mut statement = transaction.prepare(
+        "SELECT task_id, write_scope_json
+         FROM tasks
+         WHERE project_id = ?1 AND task_id != ?2 AND status = 'leased'
+           AND lease_expires_at_unix_ms > ?3",
+    )?;
+    let active = statement.query_map(
+        params![requested.project_id, requested.task_id, now],
+        |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+    )?;
+    for row in active {
+        let (task_id, scopes_json) = row?;
+        let scopes: Vec<String> = serde_json::from_str(&scopes_json)?;
+        if requested
+            .write_scope
+            .iter()
+            .any(|left| scopes.iter().any(|right| write_scopes_overlap(left, right)))
+        {
+            return Err(Error::Conflict(format!(
+                "task write scope overlaps active lease for task {task_id}"
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn write_scopes_overlap(left: &str, right: &str) -> bool {
+    let left = left.trim_end_matches('/');
+    let right = right.trim_end_matches('/');
+    left == right
+        || left
+            .strip_prefix(right)
+            .is_some_and(|suffix| suffix.starts_with('/'))
+        || right
+            .strip_prefix(left)
+            .is_some_and(|suffix| suffix.starts_with('/'))
+}
+
+fn validate_criterion_evidence(criteria: &[String], evidence: &[CriterionEvidence]) -> Result<()> {
+    if criteria.len() != evidence.len() {
+        return Err(Error::Invalid(
+            "criterion_evidence must cover every acceptance criterion exactly once".to_owned(),
+        ));
+    }
+    let expected = criteria
+        .iter()
+        .map(|criterion| criterion.trim())
+        .collect::<std::collections::BTreeSet<_>>();
+    let mut observed = std::collections::BTreeSet::new();
+    for item in evidence {
+        require_text("criterion", &item.criterion)?;
+        require_text("criterion evidence", &item.evidence)?;
+        if !observed.insert(item.criterion.trim()) {
+            return Err(Error::Invalid(
+                "criterion_evidence contains duplicate criteria".to_owned(),
+            ));
+        }
+    }
+    if observed != expected {
+        Err(Error::Invalid(
+            "criterion_evidence does not match the task acceptance criteria".to_owned(),
+        ))
+    } else {
+        Ok(())
+    }
 }
 
 fn duplicate_result<T: DeserializeOwned, P: Serialize>(

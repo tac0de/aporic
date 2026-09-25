@@ -214,7 +214,7 @@ fn migrates_v1_state_and_exports_complete_project_history() {
     drop(connection);
 
     let hub = Hub::open(&database).unwrap();
-    assert_eq!(hub.stats().unwrap().schema_version, 2);
+    assert_eq!(hub.stats().unwrap().schema_version, 3);
     let workspace = workspace.to_string_lossy().into_owned();
     let opened = hub
         .open_session(&OpenRequest {
@@ -238,5 +238,6 @@ fn migrates_v1_state_and_exports_complete_project_history() {
     assert_eq!(exported.format_version, 1);
     assert_eq!(exported.sessions.len(), 1);
     assert_eq!(exported.records.len(), 1);
+    assert!(exported.tasks.is_empty());
     assert_eq!(exported.events.len(), 2);
 }

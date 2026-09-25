@@ -33,7 +33,7 @@ saves.
 
 ## Current stage
 
-The product is in the continuity-hardening stage. The product question is:
+The product is in the simulated-coordination stage. The product question is:
 
 > Can a local MCP hub restore and preserve the minimum useful work context
 > across Codex tasks with less overhead than manually restating it?
@@ -60,6 +60,9 @@ manual evaluation.
   session may claim completion.
 - A newer decision or constraint can explicitly supersede one older record;
   stale records remain in history but are omitted from active recall.
+- Coordination is advisory: task contracts, dependencies, write scopes, leases,
+  cancellations, and criterion evidence are recorded, but Aporic does not launch
+  workers or grant host authority.
 
 ## Material unknowns
 
@@ -92,6 +95,12 @@ Observed on 2026-09-25:
   from the v0.1 baseline of 1/5 to 5/5 for restart memory, stale-decision
   suppression, verified completion, duplicate-work rejection, and stale-session
   reconciliation;
+- a deterministic coordination suite scores 6/6 for dependency gating,
+  overlapping-write prevention, criterion evidence, duplicate rejection, and
+  expired-lease recovery plus cancellation without implied completion;
+- a long-horizon workload preserves one active decision across 30 revisions and
+  six process restarts, completes 24 leased tasks, and rejects 77 injected stale,
+  duplicate, or unsupported state transitions;
 - an already initialized release database opens below the resolution of the
   local `time` measurement, while first-time database creation was about 0.57
   seconds and remains an optimization target.
@@ -99,9 +108,9 @@ Observed on 2026-09-25:
 Not yet established:
 
 - generalized performance on model-generated adversarial scenarios beyond the
-  deterministic regression suite;
+  deterministic and long-horizon regression suites;
 - reduced restatement or coordination cost across a long synthetic workload;
-- agent dispatch or parallel worker operation.
+- actual agent dispatch or parallel worker execution.
 
 The protocol slice and its live Codex bridge are operating. The broader product
 hypothesis remains open until automated long-horizon simulations show that the
