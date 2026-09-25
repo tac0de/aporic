@@ -352,6 +352,7 @@ fn doctor() -> Result<(), Box<dyn Error>> {
     let government = hub.audit_government()?;
     let orchestration = hub.audit_orchestration()?;
     let research = hub.audit_research()?;
+    let accountability = hub.audit_accountability()?;
     let replay_ok = execution_replay.mismatches.is_empty()
         && memory_projection.consistent
         && runtime_projection.consistent
@@ -362,7 +363,7 @@ fn doctor() -> Result<(), Box<dyn Error>> {
         && role_appointments.consistent
         && government.consistent
         && orchestration.consistent;
-    let replay_ok = replay_ok && research.consistent;
+    let replay_ok = replay_ok && research.consistent && accountability.consistent;
     println!(
         "{}",
         serde_json::to_string(&serde_json::json!({
@@ -381,6 +382,7 @@ fn doctor() -> Result<(), Box<dyn Error>> {
             "government": government,
             "orchestration": orchestration,
             "research": research,
+            "accountability": accountability,
             "sandbox": aporic::sandbox_backend_status()
         }))?
     );

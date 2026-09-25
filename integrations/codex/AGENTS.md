@@ -18,6 +18,14 @@ constraints, progress, observations, effects, verification, or material
 unknowns with `aporic_record`, then use `aporic_close` when the work is complete
 or has one concrete next action.
 
+Inspect any `open_repair_obligations` returned by `aporic_open`. When a material
+mistake is observed, state what happened and preserve its evidence, then use
+`aporic_accountability_open` to record an advisory case. Use
+`aporic_accountability_plan` to link a later repair task and record a candid
+root-cause hypothesis and prevention change. A reflection does not prove the
+cause or the fix. Resolve the case only after that task completes with verified
+criterion proofs. Open cases do not deny host tools or change permissions.
+
 Use `aporic_trace_list`/`aporic_trace_get` to inspect observed lifecycle events,
 `aporic_capability_report` to see inferred capabilities actually observed, and
 `aporic_hook_health` to check visible gaps or schema drift. These are read-only

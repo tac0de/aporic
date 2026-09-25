@@ -438,6 +438,107 @@ pub struct ProductCellOutcome {
     pub duplicate: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountabilityOpenRequest {
+    pub session_id: String,
+    pub source_task_id: String,
+    pub evidence_id: String,
+    #[serde(default)]
+    pub reported_assignee_id: Option<String>,
+    pub expected_behavior: String,
+    pub observed_behavior: String,
+    pub impact: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountabilityPlanRequest {
+    pub case_id: String,
+    pub repair_task_id: String,
+    pub root_cause_hypothesis: String,
+    pub prevention_change: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountabilityResolveRequest {
+    pub case_id: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AccountabilityListRequest {
+    pub workspace: String,
+    #[serde(default)]
+    pub reported_assignee_id: Option<String>,
+    #[serde(default)]
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AccountabilityStatus {
+    Open,
+    Repaired,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AccountabilityCase {
+    pub case_id: String,
+    pub project_id: String,
+    pub session_id: String,
+    pub source_task_id: String,
+    pub evidence_id: String,
+    pub evidence_grade: EvidenceGrade,
+    pub reported_assignee_id: Option<String>,
+    pub expected_behavior: String,
+    pub observed_behavior: String,
+    pub impact: String,
+    pub case_sha256: String,
+    pub status: AccountabilityStatus,
+    pub repair_task_id: Option<String>,
+    pub root_cause_hypothesis: Option<String>,
+    pub prevention_change: Option<String>,
+    pub plan_revision: u32,
+    pub created_at_unix_ms: i64,
+    pub repaired_at_unix_ms: Option<i64>,
+    pub advisory: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AccountabilityOutcome {
+    pub case: AccountabilityCase,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AccountabilityNotice {
+    pub case_id: String,
+    pub source_task_id: String,
+    pub observed_behavior: String,
+    pub repair_task_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AccountabilityReport {
+    pub open_count: u64,
+    pub repaired_count: u64,
+    pub cases: Vec<AccountabilityCase>,
+    pub advisory: bool,
+    pub authority_notice: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AccountabilityAudit {
+    pub case_count: u64,
+    pub invalid_count: u64,
+    pub consistent: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct GovernmentAudit {
     pub office_appointment_count: u64,
@@ -2169,6 +2270,12 @@ pub struct OpenOutcome {
     pub project_id: String,
     pub kernel_sha256: String,
     pub context: ContextCapsule,
+    #[serde(default)]
+    pub open_repair_count: u64,
+    #[serde(default)]
+    pub open_repair_obligations: Vec<AccountabilityNotice>,
+    #[serde(default)]
+    pub accountability_notice: String,
     pub duplicate: bool,
 }
 
@@ -2219,6 +2326,7 @@ pub struct HubStats {
     pub security_assessment_count: u64,
     pub orchestration_run_count: u64,
     pub shadow_evaluation_count: u64,
+    pub open_repair_case_count: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -2806,6 +2914,7 @@ pub struct ProjectExport {
     pub role_appointments: Vec<RoleAppointment>,
     pub office_appointments: Vec<OfficeAppointment>,
     pub product_cells: Vec<ProductCell>,
+    pub accountability_cases: Vec<AccountabilityCase>,
     pub research_revisions: Vec<crate::research::ResearchRevision>,
     pub events: Vec<ExportEvent>,
 }

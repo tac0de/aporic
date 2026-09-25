@@ -195,6 +195,15 @@ An optional product cell supplies query context. Search results carry source
 URLs, fetch times, hashes, and an untrusted-content notice. The corpus never
 enters verified claims or authorization state.
 
+Schema v19 adds task-bound accountability cases as advisory repair obligations.
+The opening record is digest-bound and source evidence retains its grade; any
+assignee attribution remains reported. Plan revisions preserve model-authored
+causal hypotheses and prevention proposals in the append-only event stream.
+The latest plan links a later task in the same workspace. Resolution requires
+that task's existing verified criterion proofs, while the original failure and
+all plan revisions remain readable. Open cases are summarized on `aporic_open`
+and do not narrow host permissions or change authorization decisions.
+
 ## MCP surface
 
 - `aporic_open`: start an idempotent session and return recent context.
@@ -225,6 +234,10 @@ enters verified claims or authorization state.
   `aporic_task_complete`, and `aporic_task_cancel`: maintain advisory task
   contracts, dependency gates, non-overlapping write leases, and
   criterion-by-criterion verified proofs.
+- `aporic_accountability_open`, `aporic_accountability_plan`,
+  `aporic_accountability_resolve`, and `aporic_accountability_list`: preserve
+  evidence-labelled failure reports and repair obligations without changing
+  host permissions or treating model reflection as verification.
 - `aporic_trace_list`, `aporic_trace_get`, `aporic_capability_report`, and
   `aporic_hook_health`: inspect runtime observations, inferred capability
   projections, and observable hook gaps without exposing a control surface.

@@ -7,14 +7,16 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     domain::{
-        AdvisoryRoleReportRequest, CapabilityGetRequest, CapabilityManifest, CapabilityOutcome,
-        CapabilityRegisterRequest, CapabilityReport, CapabilitySearchRequest, CapabilitySummary,
-        ClaimOutcome, ClaimRequest, CloseOutcome, CloseRequest, CommandSpecOutcome,
-        CommandSpecRequest, Consequence, ContextCapsule, CoordinatedTask, DeliberationAudit,
-        DeliberationCreateRequest, DeliberationDecisionRequest, DeliberationGetRequest,
-        DeliberationGraph, DeliberationListRequest, DeliberationNodeAddRequest,
-        DeliberationOutcome, DeliberationSummary, DissentAssessment, DissentRequest,
-        EvidenceOutcome, EvidenceRequest, ExecutionFinish, ExecutionGetRequest,
+        AccountabilityAudit, AccountabilityListRequest, AccountabilityOpenRequest,
+        AccountabilityOutcome, AccountabilityPlanRequest, AccountabilityReport,
+        AccountabilityResolveRequest, AdvisoryRoleReportRequest, CapabilityGetRequest,
+        CapabilityManifest, CapabilityOutcome, CapabilityRegisterRequest, CapabilityReport,
+        CapabilitySearchRequest, CapabilitySummary, ClaimOutcome, ClaimRequest, CloseOutcome,
+        CloseRequest, CommandSpecOutcome, CommandSpecRequest, Consequence, ContextCapsule,
+        CoordinatedTask, DeliberationAudit, DeliberationCreateRequest, DeliberationDecisionRequest,
+        DeliberationGetRequest, DeliberationGraph, DeliberationListRequest,
+        DeliberationNodeAddRequest, DeliberationOutcome, DeliberationSummary, DissentAssessment,
+        DissentRequest, EvidenceOutcome, EvidenceRequest, ExecutionFinish, ExecutionGetRequest,
         ExecutionListRequest, ExecutionOutcome, ExecutionReplayAudit, ExecutionRun, ExecutionStart,
         ExperimentCreateRequest, ExperimentDecisionRequest, ExperimentGetRequest,
         ExperimentListRequest, ExperimentMeasurementAddRequest, ExperimentOutcome,
@@ -151,6 +153,38 @@ impl Hub {
 
     pub fn audit_government(&self) -> Result<GovernmentAudit> {
         self.store.audit_government()
+    }
+
+    pub fn open_accountability_case(
+        &self,
+        request: &AccountabilityOpenRequest,
+    ) -> Result<AccountabilityOutcome> {
+        self.store.open_accountability_case(request)
+    }
+
+    pub fn plan_accountability_repair(
+        &self,
+        request: &AccountabilityPlanRequest,
+    ) -> Result<AccountabilityOutcome> {
+        self.store.plan_accountability_repair(request)
+    }
+
+    pub fn resolve_accountability_case(
+        &self,
+        request: &AccountabilityResolveRequest,
+    ) -> Result<AccountabilityOutcome> {
+        self.store.resolve_accountability_case(request)
+    }
+
+    pub fn list_accountability_cases(
+        &self,
+        request: &AccountabilityListRequest,
+    ) -> Result<AccountabilityReport> {
+        self.store.list_accountability_cases(request)
+    }
+
+    pub fn audit_accountability(&self) -> Result<AccountabilityAudit> {
+        self.store.audit_accountability()
     }
 
     pub fn memory_search(&self, request: &MemorySearchRequest) -> Result<MemorySearchResult> {

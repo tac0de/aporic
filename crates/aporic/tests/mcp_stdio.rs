@@ -26,6 +26,10 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
     assert_eq!(
         tool_names,
         [
+            "aporic_accountability_list",
+            "aporic_accountability_open",
+            "aporic_accountability_plan",
+            "aporic_accountability_resolve",
             "aporic_capability_get",
             "aporic_capability_register",
             "aporic_capability_report",
@@ -107,6 +111,14 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
         .as_str()
         .expect("open result has a session id")
         .to_owned();
+    let accountability = call_json(
+        &client,
+        "aporic_accountability_list",
+        json!({ "workspace": workspace }),
+    )
+    .await?;
+    assert_eq!(accountability["result"]["open_count"], 0);
+    assert_eq!(accountability["result"]["advisory"], true);
 
     let stored = Store::open(&database)?.ingest_research_document(
         workspace.to_str().unwrap(),

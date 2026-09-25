@@ -14,7 +14,8 @@ See [PRODUCT.md](PRODUCT.md) for the product objective and
 
 ## Current product surface
 
-The hub exposes sixty-one MCP tools in sixteen groups.
+The hub exposes MCP tools for continuity, coordination, evidence, research,
+accountability, and other advisory project work.
 
 Continuity:
 
@@ -60,6 +61,18 @@ Advisory coordination:
 - `aporic_task_complete`: complete only when every criterion exactly matches a
   verified mechanical claim;
 - `aporic_task_cancel`: cancel without implying completion.
+
+Accountability and repair:
+
+- `aporic_accountability_open`: record an evidence-labelled task failure as an
+  advisory case; any assignee attribution remains reported, not established;
+- `aporic_accountability_plan`: preserve a model-authored root-cause hypothesis
+  and prevention change while linking a later repair task; revisions remain in
+  the event log;
+- `aporic_accountability_resolve`: mark a case repaired only when the linked
+  task has completed with verified criterion proofs;
+- `aporic_accountability_list`: inspect bounded open and repaired cases,
+  evidence grades, and the outstanding repair count.
 
 Epistemic gate:
 
@@ -554,6 +567,7 @@ The Codex bridge template is under `integrations/codex/`. Nothing in the build
 installs or changes global Codex configuration.
 
 Licensed under MIT or Apache-2.0.
+
 ## v0.18 external research retrieval
 
 External GitHub issues and Stack Overflow questions can be imported on demand
@@ -579,3 +593,25 @@ have bounded excerpts and citations; `aporic_research_get` reads a current
 document. The external index is separate from Aporic's durable memory index.
 `aporic doctor` checks revision hashes and current pointers. `aporic export`
 includes the revision history. There are no embeddings or model API calls.
+
+## v0.19 accountability and repair
+
+Aporic records material mistakes as evidence-labelled, task-bound advisory
+cases. A case preserves expected and observed behavior, impact, source evidence
+grade, and optional *reported* assignee. Opening a new work session returns the
+count and up to five recent unresolved cases so a repair obligation remains
+visible. The case report exposes both open and repaired history.
+
+The agent may record a root-cause hypothesis and a prevention change, but that
+reflection is model-authored analysis, not proof of fault or repair. It links a
+newer repair task in the same workspace. The case can become `repaired` only
+after that task completes with Aporic-verified criterion proofs. Replanning is
+append-only in the event history, and the original case remains in export.
+`aporic doctor` checks case digests, workspace bindings, task state, and plan
+history. Schema v19 adds the accountability projection; export format v15
+includes its cases and events.
+
+This is the requested concrete cost: unresolved repair work stays visible and
+requires independently checkable completion before it can be closed. It does
+not make a model experience remorse, prove an assignee caused the issue, assign
+punitive scores, deny host tools, or alter host permissions.

@@ -35,6 +35,10 @@ Historical Git commits and tags are context, not current design authority.
   not timeless answers. Preserve meaningful revisions and counterarguments.
 - Before material changes, state the intended scope and acceptance checks.
 - Preserve unrelated user work and keep changes reversible.
+- When a material agent mistake is observed, disclose the concrete effect and
+  evidence. Use Aporic's accountability case and repair task workflow for
+  durable recovery, keeping a model-authored reflection separate from proof.
+  An open case is an advisory obligation, never a host tool or permission gate.
 - For any browser interaction in this project, use Playwright CLI by default.
   Never use the Codex in-app browser. For UI prototype or visual review work,
   also use `.agents/skills/aporic-ui-ux/SKILL.md` and inspect the rendered UI.

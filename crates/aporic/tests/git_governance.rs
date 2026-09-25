@@ -72,7 +72,7 @@ fn migrates_v8_to_v9_without_git_snapshots() {
         .unwrap();
     drop(connection);
     let hub = Hub::open(database).unwrap();
-    assert_eq!(hub.stats().unwrap().schema_version, 18);
+    assert_eq!(hub.stats().unwrap().schema_version, 19);
     let audit = hub.audit_git_snapshots().unwrap();
     assert_eq!(audit.snapshot_count, 0);
     assert!(audit.consistent);

@@ -19,7 +19,10 @@ use crate::{
         MAX_RECEIPT_ARTIFACTS, sha256_file_bounded,
     },
     domain::{
-        AbandonedSession, ActiveSession, ActualTaskOutcome, AdvisoryDisposition, AdvisoryMode,
+        AbandonedSession, AccountabilityAudit, AccountabilityCase, AccountabilityListRequest,
+        AccountabilityNotice, AccountabilityOpenRequest, AccountabilityOutcome,
+        AccountabilityPlanRequest, AccountabilityReport, AccountabilityResolveRequest,
+        AccountabilityStatus, ActiveSession, ActualTaskOutcome, AdvisoryDisposition, AdvisoryMode,
         AdvisoryRoleKind, AdvisoryRoleReport, AdvisoryRoleReportRequest, AdvisorySourceKind,
         CapabilityCatalogState, CapabilityClass, CapabilityEffectClass, CapabilityGetRequest,
         CapabilityManifest, CapabilityMaturity, CapabilityObservation, CapabilityOutcome,
@@ -85,7 +88,8 @@ const MIGRATION_15: &str = include_str!("../../../migrations/0015_roles.sql");
 const MIGRATION_16: &str = include_str!("../../../migrations/0016_role_run_link.sql");
 const MIGRATION_17: &str = include_str!("../../../migrations/0017_product_government.sql");
 const MIGRATION_18: &str = include_str!("../../../migrations/0018_external_research.sql");
-const SCHEMA_VERSION: u32 = 18;
+const MIGRATION_19: &str = include_str!("../../../migrations/0019_accountability.sql");
+const SCHEMA_VERSION: u32 = 19;
 const MIGRATIONS: &[(u32, &str)] = &[
     (2, MIGRATION_2),
     (3, MIGRATION_3),
@@ -104,6 +108,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (16, MIGRATION_16),
     (17, MIGRATION_17),
     (18, MIGRATION_18),
+    (19, MIGRATION_19),
 ];
 
 #[derive(Debug, Error)]
@@ -262,6 +267,27 @@ impl Store {
             &[],
             16_384,
         )?;
+        let open_repair_count = transaction.query_row(
+            "SELECT COUNT(*) FROM accountability_cases
+             WHERE project_id = ?1 AND status = 'open'",
+            [&project_id],
+            |row| row.get::<_, u64>(0),
+        )?;
+        let open_repair_obligations = transaction
+            .prepare(
+                "SELECT case_id, source_task_id, observed_behavior, repair_task_id
+             FROM accountability_cases WHERE project_id = ?1 AND status = 'open'
+             ORDER BY created_at_unix_ms DESC, case_id DESC LIMIT 5",
+            )?
+            .query_map([&project_id], |row| {
+                Ok(AccountabilityNotice {
+                    case_id: row.get(0)?,
+                    source_task_id: row.get(1)?,
+                    observed_behavior: row.get(2)?,
+                    repair_task_id: row.get(3)?,
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
         let session_id = Uuid::now_v7().to_string();
         transaction.execute(
             "INSERT INTO sessions
@@ -276,6 +302,9 @@ impl Store {
             project_id,
             kernel_sha256: kernel_sha256.to_owned(),
             context,
+            open_repair_count,
+            open_repair_obligations,
+            accountability_notice: accountability_authority_notice(),
             duplicate: false,
         };
         append_event(
@@ -1054,6 +1083,332 @@ impl Store {
         Ok(GovernmentAudit {
             office_appointment_count: office_ids.len() as u64,
             product_cell_count: cell_ids.len() as u64,
+            invalid_count,
+            consistent: invalid_count == 0,
+        })
+    }
+
+    pub fn open_accountability_case(
+        &self,
+        request: &AccountabilityOpenRequest,
+    ) -> Result<AccountabilityOutcome> {
+        require_text("session_id", &request.session_id)?;
+        require_text("source_task_id", &request.source_task_id)?;
+        require_text("evidence_id", &request.evidence_id)?;
+        require_bounded_public_text("expected_behavior", &request.expected_behavior, 2048)?;
+        require_bounded_public_text("observed_behavior", &request.observed_behavior, 2048)?;
+        require_bounded_public_text("impact", &request.impact, 2048)?;
+        if let Some(assignee) = &request.reported_assignee_id {
+            require_identifier("reported_assignee_id", assignee, 128)?;
+        }
+        require_text("idempotency_key", &request.idempotency_key)?;
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<AccountabilityOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "accountability_case_opened",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        require_open_session(&transaction, &request.session_id)?;
+        let project_id: String = transaction.query_row(
+            "SELECT project_id FROM sessions WHERE session_id = ?1",
+            [&request.session_id],
+            |row| row.get(0),
+        )?;
+        let source_task = load_task(&transaction, &request.source_task_id)?
+            .ok_or_else(|| Error::NotFound(format!("task {}", request.source_task_id)))?;
+        if source_task.project_id != project_id {
+            return Err(Error::Conflict(
+                "source task belongs to another workspace".to_owned(),
+            ));
+        }
+        let evidence_project = transaction
+            .query_row(
+                "SELECT sessions.project_id FROM evidence_artifacts AS evidence
+             JOIN sessions ON sessions.session_id = evidence.session_id
+             WHERE evidence.evidence_id = ?1",
+                [&request.evidence_id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+            .ok_or_else(|| Error::NotFound(format!("evidence {}", request.evidence_id)))?;
+        if evidence_project != project_id {
+            return Err(Error::Conflict(
+                "evidence belongs to another workspace".to_owned(),
+            ));
+        }
+        let existing = transaction
+            .query_row(
+                "SELECT case_id FROM accountability_cases
+             WHERE source_task_id = ?1 AND evidence_id = ?2 AND observed_behavior = ?3
+               AND status = 'open' LIMIT 1",
+                params![
+                    request.source_task_id,
+                    request.evidence_id,
+                    request.observed_behavior
+                ],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        if let Some(case_id) = existing {
+            return Err(Error::Conflict(format!(
+                "open case already records this finding: {case_id}"
+            )));
+        }
+        let case_id = Uuid::now_v7().to_string();
+        let case_sha256 = accountability_case_digest(&case_id, &project_id, request)?;
+        transaction.execute(
+            "INSERT INTO accountability_cases
+             (case_id, project_id, session_id, source_task_id, evidence_id,
+              reported_assignee_id, expected_behavior, observed_behavior, impact,
+              case_sha256, status, created_at_unix_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'open', ?11)",
+            params![
+                case_id,
+                project_id,
+                request.session_id,
+                request.source_task_id,
+                request.evidence_id,
+                request.reported_assignee_id,
+                request.expected_behavior,
+                request.observed_behavior,
+                request.impact,
+                case_sha256,
+                now
+            ],
+        )?;
+        let outcome = AccountabilityOutcome {
+            case: load_accountability_case(&transaction, &case_id)?,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &case_id,
+            "accountability_case_opened",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn plan_accountability_repair(
+        &self,
+        request: &AccountabilityPlanRequest,
+    ) -> Result<AccountabilityOutcome> {
+        require_text("case_id", &request.case_id)?;
+        require_text("repair_task_id", &request.repair_task_id)?;
+        require_bounded_public_text(
+            "root_cause_hypothesis",
+            &request.root_cause_hypothesis,
+            4096,
+        )?;
+        require_bounded_public_text("prevention_change", &request.prevention_change, 4096)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<AccountabilityOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "accountability_repair_planned",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        let case = load_accountability_case(&transaction, &request.case_id)?;
+        if case.status != AccountabilityStatus::Open {
+            return Err(Error::Conflict(
+                "repaired case cannot be replanned".to_owned(),
+            ));
+        }
+        let repair_task = load_task(&transaction, &request.repair_task_id)?
+            .ok_or_else(|| Error::NotFound(format!("task {}", request.repair_task_id)))?;
+        if repair_task.project_id != case.project_id
+            || repair_task.task_id == case.source_task_id
+            || repair_task.created_at_unix_ms < case.created_at_unix_ms
+            || matches!(
+                repair_task.status,
+                TaskStatus::Cancelled | TaskStatus::Completed
+            )
+        {
+            return Err(Error::Conflict(
+                "repair task must be a later, unfinished task in the same workspace".to_owned(),
+            ));
+        }
+        transaction.execute(
+            "UPDATE accountability_cases
+             SET repair_task_id = ?1, root_cause_hypothesis = ?2, prevention_change = ?3,
+                 plan_revision = plan_revision + 1 WHERE case_id = ?4",
+            params![
+                request.repair_task_id,
+                request.root_cause_hypothesis,
+                request.prevention_change,
+                request.case_id
+            ],
+        )?;
+        let outcome = AccountabilityOutcome {
+            case: load_accountability_case(&transaction, &request.case_id)?,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &request.case_id,
+            "accountability_repair_planned",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn resolve_accountability_case(
+        &self,
+        request: &AccountabilityResolveRequest,
+    ) -> Result<AccountabilityOutcome> {
+        require_text("case_id", &request.case_id)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<AccountabilityOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "accountability_case_repaired",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        let case = load_accountability_case(&transaction, &request.case_id)?;
+        if case.status != AccountabilityStatus::Open {
+            return Err(Error::Conflict("case is already repaired".to_owned()));
+        }
+        let repair_task_id = case.repair_task_id.as_ref().ok_or_else(|| {
+            Error::Conflict("case has no linked repair task and reflection".to_owned())
+        })?;
+        let repair_task = load_task(&transaction, repair_task_id)?
+            .ok_or_else(|| Error::NotFound(format!("task {repair_task_id}")))?;
+        if repair_task.status != TaskStatus::Completed || repair_task.completion_proofs.is_empty() {
+            return Err(Error::Conflict(
+                "repair case requires a completed task with verified criterion proofs".to_owned(),
+            ));
+        }
+        transaction.execute(
+            "UPDATE accountability_cases SET status = 'repaired', repaired_at_unix_ms = ?1
+             WHERE case_id = ?2",
+            params![now, request.case_id],
+        )?;
+        let outcome = AccountabilityOutcome {
+            case: load_accountability_case(&transaction, &request.case_id)?,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &request.case_id,
+            "accountability_case_repaired",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn list_accountability_cases(
+        &self,
+        request: &AccountabilityListRequest,
+    ) -> Result<AccountabilityReport> {
+        let workspace = canonical_workspace(&request.workspace)?;
+        if let Some(assignee) = &request.reported_assignee_id {
+            require_identifier("reported_assignee_id", assignee, 128)?;
+        }
+        let connection = self.connection()?;
+        let project_id = connection
+            .query_row(
+                "SELECT project_id FROM projects WHERE workspace = ?1",
+                [&workspace],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        let Some(project_id) = project_id else {
+            return Ok(AccountabilityReport {
+                open_count: 0,
+                repaired_count: 0,
+                cases: Vec::new(),
+                advisory: true,
+                authority_notice: accountability_authority_notice(),
+            });
+        };
+        let (open_count, repaired_count): (u64, u64) = connection.query_row(
+            "SELECT SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END),
+                    SUM(CASE WHEN status = 'repaired' THEN 1 ELSE 0 END)
+             FROM accountability_cases WHERE project_id = ?1
+               AND (?2 IS NULL OR reported_assignee_id = ?2)",
+            params![project_id, request.reported_assignee_id],
+            |row| {
+                Ok((
+                    row.get::<_, Option<u64>>(0)?.unwrap_or(0),
+                    row.get::<_, Option<u64>>(1)?.unwrap_or(0),
+                ))
+            },
+        )?;
+        let mut statement = connection.prepare(
+            "SELECT case_id FROM accountability_cases WHERE project_id = ?1
+               AND (?2 IS NULL OR reported_assignee_id = ?2)
+             ORDER BY CASE status WHEN 'open' THEN 0 ELSE 1 END,
+                      created_at_unix_ms DESC, case_id DESC LIMIT ?3",
+        )?;
+        let ids = statement
+            .query_map(
+                params![
+                    project_id,
+                    request.reported_assignee_id,
+                    i64::from(request.limit.unwrap_or(50).clamp(1, 200))
+                ],
+                |row| row.get::<_, String>(0),
+            )?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let cases = ids
+            .iter()
+            .map(|id| load_accountability_case(&connection, id))
+            .collect::<Result<Vec<_>>>()?;
+        Ok(AccountabilityReport {
+            open_count,
+            repaired_count,
+            cases,
+            advisory: true,
+            authority_notice: accountability_authority_notice(),
+        })
+    }
+
+    pub fn audit_accountability(&self) -> Result<AccountabilityAudit> {
+        let connection = self.connection()?;
+        let ids = connection
+            .prepare("SELECT case_id FROM accountability_cases ORDER BY sequence")?
+            .query_map([], |row| row.get::<_, String>(0))?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let invalid_count = ids
+            .iter()
+            .filter(|id| {
+                load_accountability_case(&connection, id)
+                    .and_then(|case| validate_accountability_history(&connection, &case))
+                    .is_err()
+            })
+            .count() as u64;
+        Ok(AccountabilityAudit {
+            case_count: ids.len() as u64,
             invalid_count,
             consistent: invalid_count == 0,
         })
@@ -5313,6 +5668,11 @@ impl Store {
             security_assessment_count: table_count(&connection, "security_assessments", "1 = 1")?,
             orchestration_run_count: table_count(&connection, "orchestration_runs", "1 = 1")?,
             shadow_evaluation_count: table_count(&connection, "shadow_evaluations", "1 = 1")?,
+            open_repair_case_count: table_count(
+                &connection,
+                "accountability_cases",
+                "status = 'open'",
+            )?,
         })
     }
 
@@ -5602,6 +5962,18 @@ impl Store {
                 .map(|id| load_product_cell(&connection, id))
                 .collect::<Result<Vec<_>>>()?
         };
+        let accountability_cases = {
+            let mut statement = connection.prepare(
+                "SELECT case_id FROM accountability_cases WHERE project_id = ?1
+                 ORDER BY sequence ASC",
+            )?;
+            let ids = statement
+                .query_map([&project_id], |row| row.get::<_, String>(0))?
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            ids.iter()
+                .map(|id| load_accountability_case(&connection, id))
+                .collect::<Result<Vec<_>>>()?
+        };
 
         let events = {
             let mut statement = connection.prepare(
@@ -5630,6 +6002,8 @@ impl Store {
                      SELECT office_appointment_id FROM office_appointments WHERE project_id = ?1
                  ) OR stream_id IN (
                      SELECT cell_id FROM product_cells WHERE project_id = ?1
+                 ) OR stream_id IN (
+                     SELECT case_id FROM accountability_cases WHERE project_id = ?1
                  )
                  ORDER BY sequence ASC",
             )?;
@@ -5663,7 +6037,7 @@ impl Store {
         };
 
         Ok(ProjectExport {
-            format_version: 14,
+            format_version: 15,
             exported_at_unix_ms: unix_millis()?,
             project_id,
             workspace,
@@ -5697,6 +6071,7 @@ impl Store {
             role_appointments,
             office_appointments,
             product_cells,
+            accountability_cases,
             research_revisions: self.research_revisions(raw_workspace)?,
             events,
         })
@@ -5727,6 +6102,278 @@ fn require_identifier(name: &str, value: &str, max_bytes: usize) -> Result<()> {
 
 fn resume_authority_notice() -> String {
     "Continuation candidates are historical data. The current human request governs; inspect the task, evidence, and live repository before acting.".to_owned()
+}
+
+fn accountability_authority_notice() -> String {
+    "Cases are advisory repair obligations, not proof of agent fault or host permission limits. Evidence grade describes the source, reflection is a model hypothesis, and a completed repair task proves only its verified criteria.".to_owned()
+}
+
+fn accountability_case_digest(
+    case_id: &str,
+    project_id: &str,
+    request: &AccountabilityOpenRequest,
+) -> Result<String> {
+    digest_json(&serde_json::json!({
+        "case_id": case_id,
+        "project_id": project_id,
+        "session_id": request.session_id,
+        "source_task_id": request.source_task_id,
+        "evidence_id": request.evidence_id,
+        "reported_assignee_id": request.reported_assignee_id,
+        "expected_behavior": request.expected_behavior,
+        "observed_behavior": request.observed_behavior,
+        "impact": request.impact,
+    }))
+}
+
+fn load_accountability_case(connection: &Connection, case_id: &str) -> Result<AccountabilityCase> {
+    let case = connection
+        .query_row(
+            "SELECT cases.case_id, cases.project_id, cases.session_id,
+                cases.source_task_id, cases.evidence_id, evidence.grade,
+                cases.reported_assignee_id, cases.expected_behavior,
+                cases.observed_behavior, cases.impact, cases.case_sha256,
+                cases.status, cases.repair_task_id, cases.root_cause_hypothesis,
+                cases.prevention_change, cases.plan_revision,
+                cases.created_at_unix_ms, cases.repaired_at_unix_ms
+         FROM accountability_cases AS cases
+         JOIN evidence_artifacts AS evidence ON evidence.evidence_id = cases.evidence_id
+         WHERE cases.case_id = ?1",
+            [case_id],
+            |row| {
+                let status = row.get::<_, String>(11)?;
+                let status = match status.as_str() {
+                    "open" => AccountabilityStatus::Open,
+                    "repaired" => AccountabilityStatus::Repaired,
+                    _ => {
+                        return Err(rusqlite::Error::InvalidColumnType(
+                            11,
+                            "status".to_owned(),
+                            rusqlite::types::Type::Text,
+                        ));
+                    }
+                };
+                Ok(AccountabilityCase {
+                    case_id: row.get(0)?,
+                    project_id: row.get(1)?,
+                    session_id: row.get(2)?,
+                    source_task_id: row.get(3)?,
+                    evidence_id: row.get(4)?,
+                    evidence_grade: parse_evidence_grade_value(&row.get::<_, String>(5)?)?,
+                    reported_assignee_id: row.get(6)?,
+                    expected_behavior: row.get(7)?,
+                    observed_behavior: row.get(8)?,
+                    impact: row.get(9)?,
+                    case_sha256: row.get(10)?,
+                    status,
+                    repair_task_id: row.get(12)?,
+                    root_cause_hypothesis: row.get(13)?,
+                    prevention_change: row.get(14)?,
+                    plan_revision: row.get(15)?,
+                    created_at_unix_ms: row.get(16)?,
+                    repaired_at_unix_ms: row.get(17)?,
+                    advisory: true,
+                })
+            },
+        )
+        .optional()?
+        .ok_or_else(|| Error::NotFound(format!("accountability case {case_id}")))?;
+    let expected_digest = accountability_case_digest(
+        &case.case_id,
+        &case.project_id,
+        &AccountabilityOpenRequest {
+            session_id: case.session_id.clone(),
+            source_task_id: case.source_task_id.clone(),
+            evidence_id: case.evidence_id.clone(),
+            reported_assignee_id: case.reported_assignee_id.clone(),
+            expected_behavior: case.expected_behavior.clone(),
+            observed_behavior: case.observed_behavior.clone(),
+            impact: case.impact.clone(),
+            idempotency_key: String::new(),
+        },
+    )?;
+    if expected_digest != case.case_sha256 {
+        return Err(Error::Conflict(
+            "accountability case digest mismatch".to_owned(),
+        ));
+    }
+    let session_project: String = connection.query_row(
+        "SELECT project_id FROM sessions WHERE session_id = ?1",
+        [&case.session_id],
+        |row| row.get(0),
+    )?;
+    let evidence_project: String = connection.query_row(
+        "SELECT sessions.project_id FROM evidence_artifacts AS evidence
+         JOIN sessions ON sessions.session_id = evidence.session_id
+         WHERE evidence.evidence_id = ?1",
+        [&case.evidence_id],
+        |row| row.get(0),
+    )?;
+    let source_task = load_task(connection, &case.source_task_id)?
+        .ok_or_else(|| Error::NotFound(format!("task {}", case.source_task_id)))?;
+    if session_project != case.project_id
+        || evidence_project != case.project_id
+        || source_task.project_id != case.project_id
+    {
+        return Err(Error::Conflict(
+            "accountability case workspace binding mismatch".to_owned(),
+        ));
+    }
+    match (
+        &case.repair_task_id,
+        &case.root_cause_hypothesis,
+        &case.prevention_change,
+        case.plan_revision,
+    ) {
+        (None, None, None, 0) => {}
+        (Some(repair_id), Some(_), Some(_), revision) if revision > 0 => {
+            let repair = load_task(connection, repair_id)?
+                .ok_or_else(|| Error::NotFound(format!("task {repair_id}")))?;
+            if repair.project_id != case.project_id
+                || repair.task_id == case.source_task_id
+                || repair.created_at_unix_ms < case.created_at_unix_ms
+            {
+                return Err(Error::Conflict(
+                    "accountability repair task binding mismatch".to_owned(),
+                ));
+            }
+            if case.status == AccountabilityStatus::Repaired
+                && (repair.status != TaskStatus::Completed || repair.completion_proofs.is_empty())
+            {
+                return Err(Error::Conflict(
+                    "repaired case lacks verified repair task".to_owned(),
+                ));
+            }
+            if case.status == AccountabilityStatus::Repaired {
+                validate_criterion_proofs(connection, &repair, &repair.completion_proofs)?;
+            }
+        }
+        _ => {
+            return Err(Error::Conflict(
+                "accountability plan state mismatch".to_owned(),
+            ));
+        }
+    }
+    if (case.status == AccountabilityStatus::Open) != case.repaired_at_unix_ms.is_none() {
+        return Err(Error::Conflict(
+            "accountability repair status mismatch".to_owned(),
+        ));
+    }
+    Ok(case)
+}
+
+fn validate_accountability_history(
+    connection: &Connection,
+    case: &AccountabilityCase,
+) -> Result<()> {
+    let mut statement = connection.prepare(
+        "SELECT kind, payload_json, result_json FROM events
+         WHERE stream_id = ?1 AND kind IN (
+             'accountability_case_opened', 'accountability_repair_planned',
+             'accountability_case_repaired')
+         ORDER BY sequence ASC",
+    )?;
+    let events = statement
+        .query_map([&case.case_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    let mut opened = 0_u32;
+    let mut plans = 0_u32;
+    let mut repaired = 0_u32;
+    let mut latest_plan: Option<AccountabilityPlanRequest> = None;
+    let mut last_event_case: Option<AccountabilityCase> = None;
+    for (kind, payload, result) in events {
+        let outcome: AccountabilityOutcome = serde_json::from_str(&result)?;
+        if outcome.case.case_id != case.case_id || outcome.duplicate {
+            return Err(Error::Conflict(
+                "accountability event result mismatch".to_owned(),
+            ));
+        }
+        match kind.as_str() {
+            "accountability_case_opened" if opened == 0 && plans == 0 && repaired == 0 => {
+                opened += 1;
+                let request: AccountabilityOpenRequest = serde_json::from_str(&payload)?;
+                if request.session_id != case.session_id
+                    || request.source_task_id != case.source_task_id
+                    || request.evidence_id != case.evidence_id
+                    || request.reported_assignee_id != case.reported_assignee_id
+                    || request.expected_behavior != case.expected_behavior
+                    || request.observed_behavior != case.observed_behavior
+                    || request.impact != case.impact
+                    || outcome.case.plan_revision != 0
+                    || outcome.case.status != AccountabilityStatus::Open
+                {
+                    return Err(Error::Conflict(
+                        "accountability opening event mismatch".to_owned(),
+                    ));
+                }
+            }
+            "accountability_repair_planned" if opened == 1 && repaired == 0 => {
+                plans += 1;
+                let request: AccountabilityPlanRequest = serde_json::from_str(&payload)?;
+                if request.case_id != case.case_id
+                    || outcome.case.plan_revision != plans
+                    || outcome.case.repair_task_id.as_deref()
+                        != Some(request.repair_task_id.as_str())
+                    || outcome.case.root_cause_hypothesis.as_deref()
+                        != Some(request.root_cause_hypothesis.as_str())
+                    || outcome.case.prevention_change.as_deref()
+                        != Some(request.prevention_change.as_str())
+                {
+                    return Err(Error::Conflict(
+                        "accountability plan event mismatch".to_owned(),
+                    ));
+                }
+                latest_plan = Some(request);
+            }
+            "accountability_case_repaired" if opened == 1 && plans > 0 && repaired == 0 => {
+                repaired += 1;
+                let request: AccountabilityResolveRequest = serde_json::from_str(&payload)?;
+                if request.case_id != case.case_id
+                    || outcome.case.status != AccountabilityStatus::Repaired
+                    || outcome.case.plan_revision != plans
+                {
+                    return Err(Error::Conflict(
+                        "accountability repair event mismatch".to_owned(),
+                    ));
+                }
+            }
+            _ => {
+                return Err(Error::Conflict(
+                    "accountability event order mismatch".to_owned(),
+                ));
+            }
+        }
+        last_event_case = Some(outcome.case);
+    }
+    if opened != 1
+        || plans != case.plan_revision
+        || repaired != u32::from(case.status == AccountabilityStatus::Repaired)
+    {
+        return Err(Error::Conflict(
+            "accountability event count mismatch".to_owned(),
+        ));
+    }
+    if let Some(plan) = latest_plan
+        && (case.repair_task_id.as_deref() != Some(plan.repair_task_id.as_str())
+            || case.root_cause_hypothesis.as_deref() != Some(plan.root_cause_hypothesis.as_str())
+            || case.prevention_change.as_deref() != Some(plan.prevention_change.as_str()))
+    {
+        return Err(Error::Conflict(
+            "accountability plan projection mismatch".to_owned(),
+        ));
+    }
+    if last_event_case.as_ref() != Some(case) {
+        return Err(Error::Conflict(
+            "accountability latest event projection mismatch".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 fn role_appointment_digest(id: &str, request: &RoleAppointmentCreateRequest) -> Result<String> {

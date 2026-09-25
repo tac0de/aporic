@@ -47,7 +47,7 @@ fn migrates_v7_to_v8_without_runtime_events() {
         .unwrap();
     drop(connection);
     let hub = Hub::open(database).unwrap();
-    assert_eq!(hub.stats().unwrap().schema_version, 18);
+    assert_eq!(hub.stats().unwrap().schema_version, 19);
     assert!(hub.audit_runtime_projection().unwrap().consistent);
 }
 
