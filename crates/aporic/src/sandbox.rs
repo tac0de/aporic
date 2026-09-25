@@ -13,19 +13,20 @@ use crate::domain::{
     SandboxWorkspaceAccess,
 };
 
+#[cfg(target_os = "linux")]
 pub(crate) fn backend_status() -> SandboxBackendStatus {
-    #[cfg(target_os = "linux")]
-    {
-        return SandboxBackendStatus {
-            platform: env::consts::OS.to_owned(),
-            backend: "linux_bubblewrap".to_owned(),
-            supported: true,
-            installed: resolve_bwrap().is_some(),
-            required_profiles_fail_closed: true,
-            network_policy: "deny_only".to_owned(),
-        };
+    SandboxBackendStatus {
+        platform: env::consts::OS.to_owned(),
+        backend: "linux_bubblewrap".to_owned(),
+        supported: true,
+        installed: resolve_bwrap().is_some(),
+        required_profiles_fail_closed: true,
+        network_policy: "deny_only".to_owned(),
     }
-    #[cfg(not(target_os = "linux"))]
+}
+
+#[cfg(not(target_os = "linux"))]
+pub(crate) fn backend_status() -> SandboxBackendStatus {
     SandboxBackendStatus {
         platform: env::consts::OS.to_owned(),
         backend: "none".to_owned(),
