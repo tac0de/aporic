@@ -1026,6 +1026,543 @@ pub struct DeliberationAudit {
     pub consistent: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum CapabilityProviderKind {
+    BuiltIn,
+    ExternalArtifact,
+    WorkspaceManifest,
+}
+
+impl CapabilityProviderKind {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::BuiltIn => "built_in",
+            Self::ExternalArtifact => "external_artifact",
+            Self::WorkspaceManifest => "workspace_manifest",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum CapabilityEffectClass {
+    Observe,
+    RecordLocal,
+    VerifyLocal,
+    ExternalEffect,
+    Privileged,
+}
+
+impl CapabilityEffectClass {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Observe => "observe",
+            Self::RecordLocal => "record_local",
+            Self::VerifyLocal => "verify_local",
+            Self::ExternalEffect => "external_effect",
+            Self::Privileged => "privileged",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum CapabilityCatalogState {
+    Registered,
+    Available,
+    Disabled,
+    Deprecated,
+    Revoked,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CapabilityRegisterRequest {
+    pub session_id: String,
+    pub capability_id: String,
+    pub version: String,
+    pub provider_kind: CapabilityProviderKind,
+    pub title: String,
+    pub description: String,
+    pub effect_class: CapabilityEffectClass,
+    #[serde(default)]
+    pub reads_private_data: bool,
+    #[serde(default)]
+    pub sees_untrusted_content: bool,
+    #[serde(default)]
+    pub uses_network: bool,
+    #[serde(default)]
+    pub requires_credentials: bool,
+    #[serde(default)]
+    pub idempotent: bool,
+    #[serde(default)]
+    pub reversible: bool,
+    pub input_schema: serde_json::Value,
+    pub output_schema: serde_json::Value,
+    pub evidence_contract: String,
+    #[serde(default)]
+    pub implementation_sha256: Option<String>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CapabilitySearchRequest {
+    pub workspace: String,
+    #[serde(default)]
+    pub query: Option<String>,
+    #[serde(default)]
+    pub include_unavailable: bool,
+    #[serde(default)]
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CapabilityGetRequest {
+    pub workspace: String,
+    pub capability_id: String,
+    pub version: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CapabilityManifest {
+    pub sequence: u64,
+    pub capability_id: String,
+    pub version: String,
+    pub provider_kind: CapabilityProviderKind,
+    pub title: String,
+    pub description: String,
+    pub effect_class: CapabilityEffectClass,
+    pub reads_private_data: bool,
+    pub sees_untrusted_content: bool,
+    pub uses_network: bool,
+    pub requires_credentials: bool,
+    pub idempotent: bool,
+    pub reversible: bool,
+    pub input_schema: serde_json::Value,
+    pub output_schema: serde_json::Value,
+    pub evidence_contract: String,
+    pub implementation_sha256: Option<String>,
+    pub manifest_sha256: String,
+    pub state: CapabilityCatalogState,
+    pub created_at_unix_ms: i64,
+    pub executable: bool,
+    pub authority_notice: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CapabilitySummary {
+    pub capability_id: String,
+    pub version: String,
+    pub title: String,
+    pub effect_class: CapabilityEffectClass,
+    pub state: CapabilityCatalogState,
+    pub manifest_sha256: String,
+    pub executable: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CapabilityOutcome {
+    pub capability: CapabilityManifest,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ExperimentCriterionKind {
+    HardGate,
+    ParetoDimension,
+}
+
+impl ExperimentCriterionKind {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::HardGate => "hard_gate",
+            Self::ParetoDimension => "pareto_dimension",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ExperimentComparison {
+    MustPass,
+    Minimize,
+    Maximize,
+    Gte,
+    Lte,
+}
+
+impl ExperimentComparison {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::MustPass => "must_pass",
+            Self::Minimize => "minimize",
+            Self::Maximize => "maximize",
+            Self::Gte => "gte",
+            Self::Lte => "lte",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ExperimentCriterionInput {
+    pub name: String,
+    pub kind: ExperimentCriterionKind,
+    pub comparison: ExperimentComparison,
+    #[serde(default)]
+    pub threshold: Option<i64>,
+    pub unit: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ExperimentCreateRequest {
+    pub workspace: String,
+    pub title: String,
+    pub problem: String,
+    pub target_user: String,
+    pub desired_outcome: String,
+    pub hypothesis: String,
+    pub git_snapshot_id: String,
+    pub max_variants: u32,
+    #[serde(default)]
+    pub max_token_budget: Option<u64>,
+    pub criteria: Vec<ExperimentCriterionInput>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ExperimentDiversityAxis {
+    ProductAssumption,
+    Ux,
+    Architecture,
+    DataModel,
+    Automation,
+    CostSafety,
+}
+
+impl ExperimentDiversityAxis {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::ProductAssumption => "product_assumption",
+            Self::Ux => "ux",
+            Self::Architecture => "architecture",
+            Self::DataModel => "data_model",
+            Self::Automation => "automation",
+            Self::CostSafety => "cost_safety",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ExperimentVariantAddRequest {
+    pub workspace: String,
+    pub campaign_id: String,
+    pub name: String,
+    pub diversity_axis: ExperimentDiversityAxis,
+    pub approach: String,
+    pub git_snapshot_id: String,
+    #[serde(default)]
+    pub parent_variant_ids: Vec<String>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ExperimentMeasurementAddRequest {
+    pub workspace: String,
+    pub campaign_id: String,
+    pub variant_id: String,
+    pub criterion_id: String,
+    pub value: i64,
+    #[serde(default)]
+    pub evidence_id: Option<String>,
+    #[serde(default)]
+    pub claim_id: Option<String>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ExperimentDecisionKind {
+    Advance,
+    Eliminate,
+    Synthesize,
+    Abandon,
+    Select,
+}
+
+impl ExperimentDecisionKind {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Advance => "advance",
+            Self::Eliminate => "eliminate",
+            Self::Synthesize => "synthesize",
+            Self::Abandon => "abandon",
+            Self::Select => "select",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ExperimentDecisionRequest {
+    pub workspace: String,
+    pub campaign_id: String,
+    pub kind: ExperimentDecisionKind,
+    #[serde(default)]
+    pub variant_id: Option<String>,
+    pub summary: String,
+    #[serde(default)]
+    pub deliberation_id: Option<String>,
+    #[serde(default)]
+    pub deliberation_decision_id: Option<String>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ExperimentGetRequest {
+    pub workspace: String,
+    pub campaign_id: String,
+    #[serde(default)]
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ExperimentListRequest {
+    pub workspace: String,
+    #[serde(default)]
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExperimentCampaign {
+    pub sequence: u64,
+    pub campaign_id: String,
+    pub title: String,
+    pub problem: String,
+    pub target_user: String,
+    pub desired_outcome: String,
+    pub hypothesis: String,
+    pub git_snapshot_id: String,
+    pub bound_base_commit: String,
+    pub bound_base_tree: String,
+    pub max_variants: u32,
+    pub max_token_budget: Option<u64>,
+    pub campaign_sha256: String,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExperimentCriterion {
+    pub sequence: u64,
+    pub criterion_id: String,
+    pub contract_revision: u32,
+    pub name: String,
+    pub kind: ExperimentCriterionKind,
+    pub comparison: ExperimentComparison,
+    pub threshold: Option<i64>,
+    pub unit: String,
+    pub criterion_sha256: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExperimentVariant {
+    pub sequence: u64,
+    pub variant_id: String,
+    pub name: String,
+    pub diversity_axis: ExperimentDiversityAxis,
+    pub approach: String,
+    pub approach_sha256: String,
+    pub git_snapshot_id: String,
+    pub head_commit: String,
+    pub head_tree: String,
+    pub parent_variant_ids: Vec<String>,
+    pub variant_sha256: String,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExperimentMeasurement {
+    pub sequence: u64,
+    pub measurement_id: String,
+    pub variant_id: String,
+    pub criterion_id: String,
+    pub value: i64,
+    pub evidence_id: Option<String>,
+    pub claim_id: Option<String>,
+    pub evidence_qualified: bool,
+    pub measurement_sha256: String,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExperimentDecision {
+    pub sequence: u64,
+    pub decision_id: String,
+    pub kind: ExperimentDecisionKind,
+    pub variant_id: Option<String>,
+    pub summary: String,
+    pub deliberation_id: Option<String>,
+    pub deliberation_decision_id: Option<String>,
+    pub qualified: bool,
+    pub decision_sha256: String,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExperimentPortfolio {
+    pub campaign: ExperimentCampaign,
+    pub criteria: Vec<ExperimentCriterion>,
+    pub variants: Vec<ExperimentVariant>,
+    pub measurements: Vec<ExperimentMeasurement>,
+    pub decisions: Vec<ExperimentDecision>,
+    pub pareto_variant_ids: Vec<String>,
+    pub hard_gate_failed_variant_ids: Vec<String>,
+    pub evidence_incomplete_variant_ids: Vec<String>,
+    pub budget_exhausted: bool,
+    pub current_git_snapshot_id: Option<String>,
+    pub integration_stale: bool,
+    pub executable: bool,
+    pub approval_proven: bool,
+    pub authority_notice: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExperimentSummary {
+    pub campaign_id: String,
+    pub title: String,
+    pub variant_count: u64,
+    pub decision_count: u64,
+    pub budget_exhausted: bool,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExperimentOutcome {
+    pub portfolio: ExperimentPortfolio,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum SecurityCoverage {
+    Complete,
+    Partial,
+    Unknown,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecurityImportRequest {
+    pub session_id: String,
+    pub provider_capability_id: String,
+    pub provider_version: String,
+    pub source_scan_id: String,
+    pub git_snapshot_id: String,
+    pub manifest_path: String,
+    pub findings_path: String,
+    pub coverage_path: String,
+    pub idempotency_key: String,
+}
+
+impl SecurityCoverage {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Complete => "complete",
+            Self::Partial => "partial",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SecurityArtifactImport {
+    pub session_id: String,
+    pub provider_capability_id: String,
+    pub provider_version: String,
+    pub source_scan_id: String,
+    pub git_snapshot_id: String,
+    pub coverage: SecurityCoverage,
+    pub reportable_critical: u32,
+    pub reportable_high: u32,
+    pub reportable_medium: u32,
+    pub reportable_low: u32,
+    pub manifest_locator: String,
+    pub manifest_sha256: String,
+    pub findings_locator: String,
+    pub findings_sha256: String,
+    pub coverage_locator: String,
+    pub coverage_sha256: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SecurityAssessmentGetRequest {
+    pub workspace: String,
+    pub assessment_id: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SecurityAssessmentListRequest {
+    pub workspace: String,
+    #[serde(default)]
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SecurityAssessment {
+    pub sequence: u64,
+    pub assessment_id: String,
+    pub provider_capability_id: String,
+    pub provider_version: String,
+    pub source_scan_id: String,
+    pub git_snapshot_id: String,
+    pub target_commit: String,
+    pub target_tree: String,
+    pub coverage: SecurityCoverage,
+    pub reportable_critical: u32,
+    pub reportable_high: u32,
+    pub reportable_medium: u32,
+    pub reportable_low: u32,
+    pub manifest_evidence_id: String,
+    pub findings_evidence_id: String,
+    pub coverage_evidence_id: String,
+    pub assessment_sha256: String,
+    pub created_at_unix_ms: i64,
+    pub safety_proven: bool,
+    pub authority_notice: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SecurityAssessmentOutcome {
+    pub assessment: SecurityAssessment,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SecureCapabilityAudit {
+    pub capability_manifest_count: u64,
+    pub capability_state_event_count: u64,
+    pub experiment_campaign_count: u64,
+    pub experiment_criterion_count: u64,
+    pub experiment_variant_count: u64,
+    pub experiment_measurement_count: u64,
+    pub experiment_decision_count: u64,
+    pub security_assessment_count: u64,
+    pub integrity_failure_count: u64,
+    pub consistent: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OpenOutcome {
     pub session_id: String,
@@ -1077,6 +1614,9 @@ pub struct HubStats {
     pub token_usage_receipt_count: u64,
     pub deliberation_count: u64,
     pub deliberation_decision_count: u64,
+    pub capability_manifest_count: u64,
+    pub experiment_campaign_count: u64,
+    pub security_assessment_count: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -1593,5 +2133,8 @@ pub struct ProjectExport {
     pub deliberation_nodes: Vec<DeliberationNode>,
     pub deliberation_edges: Vec<DeliberationEdge>,
     pub deliberation_decisions: Vec<DeliberationDecision>,
+    pub capability_manifests: Vec<CapabilityManifest>,
+    pub experiments: Vec<ExperimentPortfolio>,
+    pub security_assessments: Vec<SecurityAssessment>,
     pub events: Vec<ExportEvent>,
 }

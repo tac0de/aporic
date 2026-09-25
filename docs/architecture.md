@@ -122,6 +122,16 @@ responses cap nodes, edges, and decisions at fixed limits while reporting total
 counts, truncation, and continuation sequences, preventing old argument history
 from becoming an unbounded or inaccessible context payload.
 
+Schema v12 adds immutable `capability_manifests` with append-only catalog-state
+events, plus commit-bound experiment campaigns, criteria, variants,
+measurements, and decisions. Manifests are bounded catalog data and always
+report `executable: false`; the MCP surface has no generic invocation tool.
+Hard-gate qualification requires direct evidence or an observed/verified claim,
+while Pareto comparison cannot override a failed gate. Imported
+`security_assessments` bind locally hashed Codex Security manifest, findings,
+and coverage artifacts to one clean Git snapshot. They prove observed bytes and
+normalized coverage/counts, never safety or approval.
+
 ## MCP surface
 
 - `aporic_open`: start an idempotent session and return recent context.
@@ -156,6 +166,16 @@ from becoming an unbounded or inaccessible context payload.
   `aporic_deliberation_decide`, `aporic_deliberation_get`, and
   `aporic_deliberation_list`: maintain and inspect public commit-bound argument
   graphs without storing hidden reasoning, granting approval, or gating tools.
+- `aporic_capability_register`, `aporic_capability_search`, and
+  `aporic_capability_get`: maintain a progressively disclosed catalog without
+  loading provider code or granting execution authority.
+- `aporic_experiment_create`, `aporic_experiment_variant_add`,
+  `aporic_experiment_measurement_add`, `aporic_experiment_decide`,
+  `aporic_experiment_get`, and `aporic_experiment_list`: maintain an advisory,
+  evidence-gated prototype tournament bound to immutable Git evidence.
+- `aporic_security_assessment_get` and `aporic_security_assessment_list`:
+  inspect imported security-artifact summaries; scanner execution remains a
+  host-owned operation outside MCP.
 
 Recall excludes records and claims superseded by newer state. Its selector
 combines unresolved material unknowns, active constraints and decisions, active
@@ -244,6 +264,13 @@ objections, explicit revision, provisional decisions with retained aporia,
 Git-state staleness, export, and post-write digest corruption detection. `eval
 deliberation` fixes adversarial policy cases and asserts zero approvals, hidden
 reasoning fields, network calls, or model/API calls.
+
+`secure_capabilities` exercises v11 migration, manifest bounds,
+non-executability, direct-evidence hard gates, exact-clone and budget rejection,
+Pareto selection, Codex Security artifact import, partial-coverage honesty, and
+backup integrity. `eval capabilities`, `eval experiments`, and `eval
+security-import` remain fixed offline contracts with zero provider, network,
+scanner, or model calls.
 
 ## Later growth
 

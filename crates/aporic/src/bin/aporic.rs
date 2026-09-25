@@ -1,4 +1,4 @@
-use std::{error::Error, io::Read};
+use std::{error::Error, fs, io::Read, path::Path};
 
 use aporic::{AporicMcp, Hub, default_database_path};
 use rmcp::{ServiceExt, transport::stdio};
@@ -10,6 +10,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
         [command] if command == "doctor" => doctor(),
         [command, flag, workspace] if command == "export" && flag == "--workspace" => {
             export(workspace)
+        }
+        [backup_command, flag, target] if backup_command == "backup" && flag == "--to" => {
+            backup(target)
+        }
+        [restore_command, dry_run, source]
+            if restore_command == "restore" && dry_run == "--dry-run" =>
+        {
+            validate_backup(source)
+        }
+        [security, import, flag, request]
+            if security == "security" && import == "import-codex" && flag == "--request" =>
+        {
+            import_codex_security(request)
         }
         [trace, export_command, flag, workspace]
             if trace == "trace" && export_command == "export" && flag == "--workspace" =>
@@ -36,6 +49,27 @@ async fn main() -> Result<(), Box<dyn Error>> {
         [eval, tokens] if eval == "eval" && tokens == "tokens" => simulate_token_eval(),
         [eval, deliberation] if eval == "eval" && deliberation == "deliberation" => {
             simulate_deliberation_eval()
+        }
+        [eval, capabilities] if eval == "eval" && capabilities == "capabilities" => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&aporic::eval::simulate_capability_fabric())?
+            );
+            Ok(())
+        }
+        [eval, experiments] if eval == "eval" && experiments == "experiments" => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&aporic::eval::simulate_experiment_portfolio())?
+            );
+            Ok(())
+        }
+        [eval, security_import] if eval == "eval" && security_import == "security-import" => {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&aporic::eval::simulate_security_import())?
+            );
+            Ok(())
         }
         [tokens, report, flag, workspace]
             if tokens == "tokens" && report == "report" && flag == "--workspace" =>
@@ -69,11 +103,55 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         _ => {
             eprintln!(
-                "usage: aporic doctor | aporic export --workspace PATH | aporic trace export --workspace PATH | aporic git inspect --workspace PATH | aporic tokens report --workspace PATH | aporic deliberation show --workspace PATH --id ID | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic eval context | aporic eval memory | aporic eval runtime | aporic eval git | aporic eval tokens | aporic eval deliberation | aporic executions reconcile --stale-after SECONDS | aporic hook codex | aporic mcp serve --stdio"
+                "usage: aporic doctor | aporic backup --to PATH | aporic restore --dry-run PATH | aporic security import-codex --request REQUEST.json | aporic export --workspace PATH | aporic trace export --workspace PATH | aporic git inspect --workspace PATH | aporic tokens report --workspace PATH | aporic deliberation show --workspace PATH --id ID | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic eval context | aporic eval memory | aporic eval runtime | aporic eval git | aporic eval tokens | aporic eval deliberation | aporic eval capabilities | aporic eval experiments | aporic eval security-import | aporic executions reconcile --stale-after SECONDS | aporic hook codex | aporic mcp serve --stdio"
             );
             std::process::exit(2);
         }
     }
+}
+
+fn backup(target: &str) -> Result<(), Box<dyn Error>> {
+    let database = default_database_path().map_err(std::io::Error::other)?;
+    let hub = Hub::open(database)?;
+    hub.backup_to(Path::new(target))?;
+    println!(
+        "{}",
+        serde_json::to_string(&serde_json::json!({
+            "ok": true,
+            "backup": fs::canonicalize(target)?,
+            "schema_version": 12,
+        }))?
+    );
+    Ok(())
+}
+
+fn validate_backup(source: &str) -> Result<(), Box<dyn Error>> {
+    let schema_version = Hub::validate_backup(Path::new(source))?;
+    println!(
+        "{}",
+        serde_json::to_string(&serde_json::json!({
+            "ok": true,
+            "backup": fs::canonicalize(source)?,
+            "schema_version": schema_version,
+            "restored": false,
+        }))?
+    );
+    Ok(())
+}
+
+fn import_codex_security(request_path: &str) -> Result<(), Box<dyn Error>> {
+    let bytes = fs::read(request_path)?;
+    if bytes.len() > 65_536 {
+        return Err("security import request exceeds 65536 bytes".into());
+    }
+    let request: aporic::domain::SecurityImportRequest = serde_json::from_slice(&bytes)?;
+    let database = default_database_path().map_err(std::io::Error::other)?;
+    let hub = Hub::open(database)?;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&hub.import_codex_security(&request)?)?
+    );
+    Ok(())
 }
 
 fn simulate_context_eval() -> Result<(), Box<dyn Error>> {
@@ -216,12 +294,14 @@ fn doctor() -> Result<(), Box<dyn Error>> {
     let git_snapshots = hub.audit_git_snapshots()?;
     let token_usage = hub.audit_token_usage()?;
     let deliberations = hub.audit_deliberations()?;
+    let secure_capabilities = hub.audit_secure_capabilities()?;
     let replay_ok = execution_replay.mismatches.is_empty()
         && memory_projection.consistent
         && runtime_projection.consistent
         && git_snapshots.consistent
         && token_usage.consistent
-        && deliberations.consistent;
+        && deliberations.consistent
+        && secure_capabilities.consistent;
     println!(
         "{}",
         serde_json::to_string(&serde_json::json!({
@@ -231,10 +311,11 @@ fn doctor() -> Result<(), Box<dyn Error>> {
             "stats": stats,
             "execution_replay": execution_replay,
             "memory_projection": memory_projection,
-            "runtime_projection": runtime_projection
-            ,"git_snapshots": git_snapshots,
+            "runtime_projection": runtime_projection,
+            "git_snapshots": git_snapshots,
             "token_usage": token_usage,
-            "deliberations": deliberations
+            "deliberations": deliberations,
+            "secure_capabilities": secure_capabilities
         }))?
     );
     Ok(())

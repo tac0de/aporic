@@ -5,36 +5,48 @@ use std::{
 };
 
 use hmac::{Hmac, Mac};
-use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
+use rusqlite::{
+    Connection, OpenFlags, OptionalExtension, Transaction, TransactionBehavior, params,
+};
 use serde::{Serialize, de::DeserializeOwned};
 use sha2::{Digest, Sha256};
 use thiserror::Error;
 use uuid::Uuid;
 
 use crate::domain::{
-    AbandonedSession, ActiveSession, CapabilityClass, CapabilityObservation, CapabilityReport,
-    ClaimOutcome, ClaimRequest, ClaimStatus, CloseDisposition, CloseOutcome, CloseRequest,
-    CommandSpec, CommandSpecOutcome, CommandSpecRequest, Consequence, ContextCapsule,
-    CoordinatedTask, CriterionProof, Deliberation, DeliberationAudit, DeliberationCreateRequest,
-    DeliberationDecision, DeliberationDecisionRequest, DeliberationEdge, DeliberationEdgeKind,
-    DeliberationGetRequest, DeliberationGraph, DeliberationListRequest, DeliberationNode,
-    DeliberationNodeAddRequest, DeliberationNodeKind, DeliberationOutcome, DeliberationSummary,
-    DissentAssessment, DissentRequest, DurableRecord, EpistemicClaim, EvidenceArtifact,
-    EvidenceGrade, EvidenceKind, EvidenceOutcome, EvidenceRequest, ExecutionFinish,
-    ExecutionGetRequest, ExecutionListRequest, ExecutionOutcome, ExecutionReceipt,
-    ExecutionReplayAudit, ExecutionRun, ExecutionStart, ExecutionStatus, ExportEvent,
-    ExportSession, GitSnapshot, GitSnapshotAudit, GitSnapshotDraft, GitSnapshotGetRequest,
-    GitSnapshotListRequest, Handoff, HookHealthReport, HubStats, InfluenceClass, MemoryClass,
-    MemoryEdge, MemoryExposure, MemoryGetRequest, MemoryItem, MemoryLifecycle,
-    MemoryProjectionAudit, MemorySearchRequest, MemorySearchResult, OpenOutcome, OpenRequest,
-    OriginChannel, ProjectExport, RecallRequest, ReceiptArtifact, ReconcileOutcome,
-    ReconcileRequest, RecordKind, RecordOutcome, RecordRequest, RuntimeEvent, RuntimeEventKind,
-    RuntimeObservation, RuntimeOutcomeStatus, RuntimeProjectionAudit, RuntimeTraceGetRequest,
-    RuntimeTraceListRequest, RuntimeWorkspaceRequest, ShadowDisposition, TaskCancelRequest,
-    TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskOutcome,
-    TaskStatus, TokenCountSource, TokenEfficiencyReport, TokenEfficiencyReportRequest,
-    TokenUsageAudit, TokenUsageListRequest, TokenUsageOutcome, TokenUsageReceipt,
-    TokenUsageRecordRequest, UsageOutcome, workspace_file_claim,
+    AbandonedSession, ActiveSession, CapabilityCatalogState, CapabilityClass,
+    CapabilityEffectClass, CapabilityGetRequest, CapabilityManifest, CapabilityObservation,
+    CapabilityOutcome, CapabilityProviderKind, CapabilityRegisterRequest, CapabilityReport,
+    CapabilitySearchRequest, CapabilitySummary, ClaimOutcome, ClaimRequest, ClaimStatus,
+    CloseDisposition, CloseOutcome, CloseRequest, CommandSpec, CommandSpecOutcome,
+    CommandSpecRequest, Consequence, ContextCapsule, CoordinatedTask, CriterionProof, Deliberation,
+    DeliberationAudit, DeliberationCreateRequest, DeliberationDecision,
+    DeliberationDecisionRequest, DeliberationEdge, DeliberationEdgeKind, DeliberationGetRequest,
+    DeliberationGraph, DeliberationListRequest, DeliberationNode, DeliberationNodeAddRequest,
+    DeliberationNodeKind, DeliberationOutcome, DeliberationSummary, DissentAssessment,
+    DissentRequest, DurableRecord, EpistemicClaim, EvidenceArtifact, EvidenceGrade, EvidenceKind,
+    EvidenceOutcome, EvidenceRequest, ExecutionFinish, ExecutionGetRequest, ExecutionListRequest,
+    ExecutionOutcome, ExecutionReceipt, ExecutionReplayAudit, ExecutionRun, ExecutionStart,
+    ExecutionStatus, ExperimentCampaign, ExperimentComparison, ExperimentCreateRequest,
+    ExperimentCriterion, ExperimentCriterionKind, ExperimentDecision, ExperimentDecisionKind,
+    ExperimentDecisionRequest, ExperimentDiversityAxis, ExperimentGetRequest,
+    ExperimentListRequest, ExperimentMeasurement, ExperimentMeasurementAddRequest,
+    ExperimentOutcome, ExperimentPortfolio, ExperimentSummary, ExperimentVariant,
+    ExperimentVariantAddRequest, ExportEvent, ExportSession, GitSnapshot, GitSnapshotAudit,
+    GitSnapshotDraft, GitSnapshotGetRequest, GitSnapshotListRequest, Handoff, HookHealthReport,
+    HubStats, InfluenceClass, MemoryClass, MemoryEdge, MemoryExposure, MemoryGetRequest,
+    MemoryItem, MemoryLifecycle, MemoryProjectionAudit, MemorySearchRequest, MemorySearchResult,
+    OpenOutcome, OpenRequest, OriginChannel, ProjectExport, RecallRequest, ReceiptArtifact,
+    ReconcileOutcome, ReconcileRequest, RecordKind, RecordOutcome, RecordRequest, RuntimeEvent,
+    RuntimeEventKind, RuntimeObservation, RuntimeOutcomeStatus, RuntimeProjectionAudit,
+    RuntimeTraceGetRequest, RuntimeTraceListRequest, RuntimeWorkspaceRequest,
+    SecureCapabilityAudit, SecurityArtifactImport, SecurityAssessment,
+    SecurityAssessmentGetRequest, SecurityAssessmentListRequest, SecurityAssessmentOutcome,
+    SecurityCoverage, ShadowDisposition, TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest,
+    TaskCreateRequest, TaskListRequest, TaskOutcome, TaskStatus, TokenCountSource,
+    TokenEfficiencyReport, TokenEfficiencyReportRequest, TokenUsageAudit, TokenUsageListRequest,
+    TokenUsageOutcome, TokenUsageReceipt, TokenUsageRecordRequest, UsageOutcome,
+    workspace_file_claim,
 };
 
 const SCHEMA: &str = include_str!("../../../migrations/0001_initial.sql");
@@ -48,6 +60,7 @@ const MIGRATION_8: &str = include_str!("../../../migrations/0008_runtime_trace.s
 const MIGRATION_9: &str = include_str!("../../../migrations/0009_git_governance.sql");
 const MIGRATION_10: &str = include_str!("../../../migrations/0010_token_efficiency.sql");
 const MIGRATION_11: &str = include_str!("../../../migrations/0011_commit_bound_deliberation.sql");
+const MIGRATION_12: &str = include_str!("../../../migrations/0012_secure_capability_fabric.sql");
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -90,6 +103,7 @@ impl Store {
                 connection.execute_batch(MIGRATION_9)?;
                 connection.execute_batch(MIGRATION_10)?;
                 connection.execute_batch(MIGRATION_11)?;
+                connection.execute_batch(MIGRATION_12)?;
             }
             1 => {
                 connection.execute_batch(MIGRATION_2)?;
@@ -102,6 +116,7 @@ impl Store {
                 connection.execute_batch(MIGRATION_9)?;
                 connection.execute_batch(MIGRATION_10)?;
                 connection.execute_batch(MIGRATION_11)?;
+                connection.execute_batch(MIGRATION_12)?;
             }
             2 => {
                 connection.execute_batch(MIGRATION_3)?;
@@ -113,6 +128,7 @@ impl Store {
                 connection.execute_batch(MIGRATION_9)?;
                 connection.execute_batch(MIGRATION_10)?;
                 connection.execute_batch(MIGRATION_11)?;
+                connection.execute_batch(MIGRATION_12)?;
             }
             3 => {
                 connection.execute_batch(MIGRATION_4)?;
@@ -123,6 +139,7 @@ impl Store {
                 connection.execute_batch(MIGRATION_9)?;
                 connection.execute_batch(MIGRATION_10)?;
                 connection.execute_batch(MIGRATION_11)?;
+                connection.execute_batch(MIGRATION_12)?;
             }
             4 => {
                 connection.execute_batch(MIGRATION_5)?;
@@ -132,6 +149,7 @@ impl Store {
                 connection.execute_batch(MIGRATION_9)?;
                 connection.execute_batch(MIGRATION_10)?;
                 connection.execute_batch(MIGRATION_11)?;
+                connection.execute_batch(MIGRATION_12)?;
             }
             5 => {
                 connection.execute_batch(MIGRATION_6)?;
@@ -140,6 +158,7 @@ impl Store {
                 connection.execute_batch(MIGRATION_9)?;
                 connection.execute_batch(MIGRATION_10)?;
                 connection.execute_batch(MIGRATION_11)?;
+                connection.execute_batch(MIGRATION_12)?;
             }
             6 => {
                 connection.execute_batch(MIGRATION_7)?;
@@ -147,27 +166,35 @@ impl Store {
                 connection.execute_batch(MIGRATION_9)?;
                 connection.execute_batch(MIGRATION_10)?;
                 connection.execute_batch(MIGRATION_11)?;
+                connection.execute_batch(MIGRATION_12)?;
             }
             7 => {
                 connection.execute_batch(MIGRATION_8)?;
                 connection.execute_batch(MIGRATION_9)?;
                 connection.execute_batch(MIGRATION_10)?;
                 connection.execute_batch(MIGRATION_11)?;
+                connection.execute_batch(MIGRATION_12)?;
             }
             8 => {
                 connection.execute_batch(MIGRATION_9)?;
                 connection.execute_batch(MIGRATION_10)?;
                 connection.execute_batch(MIGRATION_11)?;
+                connection.execute_batch(MIGRATION_12)?;
             }
             9 => {
                 connection.execute_batch(MIGRATION_10)?;
                 connection.execute_batch(MIGRATION_11)?;
+                connection.execute_batch(MIGRATION_12)?;
             }
-            10 => connection.execute_batch(MIGRATION_11)?,
-            11 => {}
+            10 => {
+                connection.execute_batch(MIGRATION_11)?;
+                connection.execute_batch(MIGRATION_12)?;
+            }
+            11 => connection.execute_batch(MIGRATION_12)?,
+            12 => {}
             version => {
                 return Err(Error::Invalid(format!(
-                    "database schema version {version} is newer than supported version 11"
+                    "database schema version {version} is newer than supported version 12"
                 )));
             }
         }
@@ -176,6 +203,54 @@ impl Store {
 
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    pub fn backup_to(&self, target: &Path) -> Result<()> {
+        if target.exists() {
+            return Err(Error::Conflict(format!(
+                "backup target {} already exists",
+                target.display()
+            )));
+        }
+        let parent = target.parent().ok_or_else(|| {
+            Error::Invalid("backup target must have a parent directory".to_owned())
+        })?;
+        fs::create_dir_all(parent)?;
+        let connection = self.connection()?;
+        connection.execute("VACUUM INTO ?1", [target.to_string_lossy().as_ref()])?;
+        let validation = Self::validate_backup(target)?;
+        if validation != 12 {
+            return Err(Error::Conflict(format!(
+                "backup schema version {validation} does not match 12"
+            )));
+        }
+        Ok(())
+    }
+
+    pub fn validate_backup(path: &Path) -> Result<u32> {
+        if !path.is_file() {
+            return Err(Error::Invalid(
+                "backup path must be an existing file".to_owned(),
+            ));
+        }
+        let connection = Connection::open_with_flags(
+            path,
+            OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )?;
+        let integrity: String =
+            connection.query_row("PRAGMA integrity_check", [], |row| row.get(0))?;
+        if integrity != "ok" {
+            return Err(Error::Conflict(format!(
+                "backup integrity check failed: {integrity}"
+            )));
+        }
+        let version = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
+        if version > 12 {
+            return Err(Error::Invalid(format!(
+                "backup schema version {version} is newer than supported version 12"
+            )));
+        }
+        Ok(version)
     }
 
     pub fn open_session(&self, request: &OpenRequest, kernel_sha256: &str) -> Result<OpenOutcome> {
@@ -2434,6 +2509,1040 @@ impl Store {
         })
     }
 
+    pub fn register_capability(
+        &self,
+        request: &CapabilityRegisterRequest,
+    ) -> Result<CapabilityOutcome> {
+        require_text("session_id", &request.session_id)?;
+        require_identifier("capability_id", &request.capability_id, 128)?;
+        require_identifier("version", &request.version, 64)?;
+        require_bounded_public_text("title", &request.title, 256)?;
+        require_bounded_public_text("description", &request.description, 2_048)?;
+        require_bounded_public_text("evidence_contract", &request.evidence_contract, 2_048)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        validate_capability_schema("input_schema", &request.input_schema, true)?;
+        validate_capability_schema("output_schema", &request.output_schema, false)?;
+        if request
+            .implementation_sha256
+            .as_deref()
+            .is_some_and(|value| !is_sha256(value))
+        {
+            return Err(Error::Invalid(
+                "implementation_sha256 must be 64 lowercase hexadecimal characters".to_owned(),
+            ));
+        }
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<CapabilityOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "capability_registered",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        require_open_session(&transaction, &request.session_id)?;
+        let project_id = transaction.query_row(
+            "SELECT project_id FROM sessions WHERE session_id = ?1",
+            [&request.session_id],
+            |row| row.get::<_, String>(0),
+        )?;
+        let input_schema_json = serde_json::to_string(&request.input_schema)?;
+        let output_schema_json = serde_json::to_string(&request.output_schema)?;
+        let manifest_sha256 = digest_json(&serde_json::json!({
+            "capability_id": request.capability_id.trim(),
+            "version": request.version.trim(),
+            "provider_kind": request.provider_kind.as_str(),
+            "title": request.title.trim(),
+            "description": request.description.trim(),
+            "effect_class": request.effect_class.as_str(),
+            "reads_private_data": request.reads_private_data,
+            "sees_untrusted_content": request.sees_untrusted_content,
+            "uses_network": request.uses_network,
+            "requires_credentials": request.requires_credentials,
+            "idempotent": request.idempotent,
+            "reversible": request.reversible,
+            "input_schema": request.input_schema,
+            "output_schema": request.output_schema,
+            "evidence_contract": request.evidence_contract.trim(),
+            "implementation_sha256": request.implementation_sha256,
+        }))?;
+        transaction.execute(
+            "INSERT INTO capability_manifests(
+                capability_id, version, project_id, provider_kind, title, description,
+                effect_class, reads_private_data, sees_untrusted_content, uses_network,
+                requires_credentials, idempotent, reversible, input_schema_json,
+                output_schema_json, evidence_contract, implementation_sha256,
+                manifest_sha256, created_at_unix_ms
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
+                       ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
+            params![
+                request.capability_id.trim(),
+                request.version.trim(),
+                project_id,
+                request.provider_kind.as_str(),
+                request.title.trim(),
+                request.description.trim(),
+                request.effect_class.as_str(),
+                request.reads_private_data,
+                request.sees_untrusted_content,
+                request.uses_network,
+                request.requires_credentials,
+                request.idempotent,
+                request.reversible,
+                input_schema_json,
+                output_schema_json,
+                request.evidence_contract.trim(),
+                request.implementation_sha256,
+                manifest_sha256,
+                now,
+            ],
+        )?;
+        let event_id = Uuid::now_v7().to_string();
+        let event_sha256 = digest_json(&serde_json::json!({
+            "capability_id": request.capability_id.trim(),
+            "version": request.version.trim(),
+            "state": "registered",
+            "reason": "manifest accepted as untrusted catalog data",
+            "created_at_unix_ms": now,
+        }))?;
+        transaction.execute(
+            "INSERT INTO capability_state_events(
+                state_event_id, project_id, capability_id, version, state, reason,
+                event_sha256, created_at_unix_ms
+             ) VALUES (?1, ?2, ?3, ?4, 'registered', ?5, ?6, ?7)",
+            params![
+                event_id,
+                project_id,
+                request.capability_id.trim(),
+                request.version.trim(),
+                "manifest accepted as untrusted catalog data",
+                event_sha256,
+                now
+            ],
+        )?;
+        let capability = load_capability_manifest(
+            &transaction,
+            &project_id,
+            request.capability_id.trim(),
+            request.version.trim(),
+        )?;
+        let outcome = CapabilityOutcome {
+            capability,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &request.session_id,
+            "capability_registered",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn get_capability(&self, request: &CapabilityGetRequest) -> Result<CapabilityManifest> {
+        require_identifier("capability_id", &request.capability_id, 128)?;
+        require_identifier("version", &request.version, 64)?;
+        let workspace = canonical_workspace(&request.workspace)?;
+        let connection = self.connection()?;
+        let project_id = project_id_for_workspace(&connection, &workspace)?
+            .ok_or_else(|| Error::NotFound(format!("project for workspace {workspace}")))?;
+        load_capability_manifest(
+            &connection,
+            &project_id,
+            &request.capability_id,
+            &request.version,
+        )
+    }
+
+    pub fn search_capabilities(
+        &self,
+        request: &CapabilitySearchRequest,
+    ) -> Result<Vec<CapabilitySummary>> {
+        let workspace = canonical_workspace(&request.workspace)?;
+        let connection = self.connection()?;
+        let Some(project_id) = project_id_for_workspace(&connection, &workspace)? else {
+            return Ok(Vec::new());
+        };
+        let query = request.query.as_deref().unwrap_or("").trim().to_lowercase();
+        let limit = request.limit.unwrap_or(20).clamp(1, 100) as usize;
+        let mut statement = connection.prepare(
+            "SELECT capability_id, version, title, effect_class, manifest_sha256
+             FROM capability_manifests WHERE project_id = ?1
+             ORDER BY sequence DESC",
+        )?;
+        let rows = statement.query_map([&project_id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+            ))
+        })?;
+        let mut summaries = Vec::new();
+        for row in rows {
+            let (capability_id, version, title, effect_class, manifest_sha256) = row?;
+            if !query.is_empty()
+                && !capability_id.to_lowercase().contains(&query)
+                && !title.to_lowercase().contains(&query)
+            {
+                continue;
+            }
+            let state =
+                latest_capability_state(&connection, &project_id, &capability_id, &version)?;
+            if !request.include_unavailable
+                && !matches!(
+                    state,
+                    CapabilityCatalogState::Registered | CapabilityCatalogState::Available
+                )
+            {
+                continue;
+            }
+            summaries.push(CapabilitySummary {
+                capability_id,
+                version,
+                title,
+                effect_class: parse_capability_effect_class(effect_class)?,
+                state,
+                manifest_sha256,
+                executable: false,
+            });
+            if summaries.len() == limit {
+                break;
+            }
+        }
+        Ok(summaries)
+    }
+
+    pub fn audit_secure_capabilities(&self) -> Result<SecureCapabilityAudit> {
+        let connection = self.connection()?;
+        let capabilities = {
+            let mut statement = connection.prepare(
+                "SELECT project_id, capability_id, version
+                 FROM capability_manifests ORDER BY sequence ASC",
+            )?;
+            statement
+                .query_map([], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                    ))
+                })?
+                .collect::<std::result::Result<Vec<_>, _>>()?
+        };
+        let state_events = {
+            let mut statement = connection.prepare(
+                "SELECT capability_id, version, state, reason, event_sha256,
+                        created_at_unix_ms
+                 FROM capability_state_events ORDER BY sequence ASC",
+            )?;
+            statement
+                .query_map([], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, String>(3)?,
+                        row.get::<_, String>(4)?,
+                        row.get::<_, i64>(5)?,
+                    ))
+                })?
+                .collect::<std::result::Result<Vec<_>, _>>()?
+        };
+        let campaigns = {
+            let mut statement = connection.prepare(
+                "SELECT project_id, campaign_id
+                 FROM experiment_campaigns ORDER BY sequence ASC",
+            )?;
+            statement
+                .query_map([], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                })?
+                .collect::<std::result::Result<Vec<_>, _>>()?
+        };
+        let assessments = {
+            let mut statement = connection.prepare(
+                "SELECT project_id, assessment_id
+                 FROM security_assessments ORDER BY sequence ASC",
+            )?;
+            statement
+                .query_map([], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                })?
+                .collect::<std::result::Result<Vec<_>, _>>()?
+        };
+
+        let mut integrity_failure_count = 0_u64;
+        for (project_id, capability_id, version) in &capabilities {
+            if load_capability_manifest(&connection, project_id, capability_id, version).is_err() {
+                integrity_failure_count += 1;
+            }
+        }
+        for (capability_id, version, state, reason, expected, created_at_unix_ms) in &state_events {
+            let observed = digest_json(&serde_json::json!({
+                "capability_id": capability_id,
+                "version": version,
+                "state": state,
+                "reason": reason,
+                "created_at_unix_ms": created_at_unix_ms,
+            }))?;
+            if observed != *expected {
+                integrity_failure_count += 1;
+            }
+        }
+        for (project_id, campaign_id) in &campaigns {
+            if load_experiment_portfolio(&connection, project_id, campaign_id, 500).is_err() {
+                integrity_failure_count += 1;
+            }
+        }
+        for (project_id, assessment_id) in &assessments {
+            if load_security_assessment(&connection, project_id, assessment_id).is_err() {
+                integrity_failure_count += 1;
+            }
+        }
+
+        let count = |table: &str| -> Result<u64> {
+            let allowed = [
+                "experiment_criteria",
+                "experiment_variants",
+                "experiment_measurements",
+                "experiment_decisions",
+            ];
+            if !allowed.contains(&table) {
+                return Err(Error::Invalid("unsupported audit table".to_owned()));
+            }
+            Ok(
+                connection.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                    row.get(0)
+                })?,
+            )
+        };
+        Ok(SecureCapabilityAudit {
+            capability_manifest_count: capabilities.len() as u64,
+            capability_state_event_count: state_events.len() as u64,
+            experiment_campaign_count: campaigns.len() as u64,
+            experiment_criterion_count: count("experiment_criteria")?,
+            experiment_variant_count: count("experiment_variants")?,
+            experiment_measurement_count: count("experiment_measurements")?,
+            experiment_decision_count: count("experiment_decisions")?,
+            security_assessment_count: assessments.len() as u64,
+            integrity_failure_count,
+            consistent: integrity_failure_count == 0,
+        })
+    }
+
+    pub fn create_experiment(
+        &self,
+        request: &ExperimentCreateRequest,
+    ) -> Result<ExperimentOutcome> {
+        require_bounded_public_text("title", &request.title, 256)?;
+        require_bounded_public_text("problem", &request.problem, 4_096)?;
+        require_bounded_public_text("target_user", &request.target_user, 1_024)?;
+        require_bounded_public_text("desired_outcome", &request.desired_outcome, 2_048)?;
+        require_bounded_public_text("hypothesis", &request.hypothesis, 2_048)?;
+        require_text("git_snapshot_id", &request.git_snapshot_id)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        if !(2..=16).contains(&request.max_variants) {
+            return Err(Error::Invalid(
+                "max_variants must be between 2 and 16".to_owned(),
+            ));
+        }
+        if request.criteria.is_empty() || request.criteria.len() > 32 {
+            return Err(Error::Invalid(
+                "an experiment requires 1 to 32 criteria".to_owned(),
+            ));
+        }
+        let mut criterion_names = std::collections::BTreeSet::new();
+        for criterion in &request.criteria {
+            require_bounded_public_text("criterion name", &criterion.name, 128)?;
+            require_identifier("criterion unit", &criterion.unit, 32)?;
+            if !criterion_names.insert(criterion.name.trim().to_lowercase()) {
+                return Err(Error::Invalid("criterion names must be unique".to_owned()));
+            }
+            validate_criterion(criterion)?;
+        }
+        let workspace = canonical_workspace(&request.workspace)?;
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<ExperimentOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "experiment_created",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        let project_id = find_or_create_project(&transaction, &workspace, now)?;
+        let snapshot = load_clean_project_snapshot(
+            &transaction,
+            &project_id,
+            &request.git_snapshot_id,
+            "experiment",
+        )?;
+        let campaign_id = Uuid::now_v7().to_string();
+        let mut campaign = ExperimentCampaign {
+            sequence: 0,
+            campaign_id: campaign_id.clone(),
+            title: request.title.trim().to_owned(),
+            problem: request.problem.trim().to_owned(),
+            target_user: request.target_user.trim().to_owned(),
+            desired_outcome: request.desired_outcome.trim().to_owned(),
+            hypothesis: request.hypothesis.trim().to_owned(),
+            git_snapshot_id: request.git_snapshot_id.clone(),
+            bound_base_commit: snapshot.head_commit.expect("clean snapshot has commit"),
+            bound_base_tree: snapshot.head_tree.expect("clean snapshot has tree"),
+            max_variants: request.max_variants,
+            max_token_budget: request.max_token_budget,
+            campaign_sha256: String::new(),
+            created_at_unix_ms: now,
+        };
+        campaign.campaign_sha256 = experiment_campaign_digest(&campaign)?;
+        transaction.execute(
+            "INSERT INTO experiment_campaigns(
+                campaign_id, project_id, title, problem, target_user, desired_outcome,
+                hypothesis, git_snapshot_id, bound_base_commit, bound_base_tree,
+                max_variants, max_token_budget, campaign_sha256, created_at_unix_ms
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+            params![
+                campaign.campaign_id,
+                project_id,
+                campaign.title,
+                campaign.problem,
+                campaign.target_user,
+                campaign.desired_outcome,
+                campaign.hypothesis,
+                campaign.git_snapshot_id,
+                campaign.bound_base_commit,
+                campaign.bound_base_tree,
+                campaign.max_variants,
+                campaign.max_token_budget,
+                campaign.campaign_sha256,
+                campaign.created_at_unix_ms
+            ],
+        )?;
+        campaign.sequence = u64::try_from(transaction.last_insert_rowid())
+            .map_err(|_| Error::Invalid("campaign sequence overflow".to_owned()))?;
+        for input in &request.criteria {
+            let criterion_id = Uuid::now_v7().to_string();
+            let threshold = normalized_threshold(input);
+            let digest = digest_json(&serde_json::json!({
+                "campaign_id": campaign_id,
+                "contract_revision": 1,
+                "name": input.name.trim(),
+                "kind": input.kind.as_str(),
+                "comparison": input.comparison.as_str(),
+                "threshold": threshold,
+                "unit": input.unit.trim(),
+            }))?;
+            transaction.execute(
+                "INSERT INTO experiment_criteria(
+                    criterion_id, campaign_id, contract_revision, name, kind,
+                    comparison, threshold, unit, criterion_sha256, created_at_unix_ms
+                 ) VALUES (?1, ?2, 1, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                params![
+                    criterion_id,
+                    campaign_id,
+                    input.name.trim(),
+                    input.kind.as_str(),
+                    input.comparison.as_str(),
+                    threshold,
+                    input.unit.trim(),
+                    digest,
+                    now
+                ],
+            )?;
+        }
+        let portfolio = load_experiment_portfolio(&transaction, &project_id, &campaign_id, 500)?;
+        let outcome = ExperimentOutcome {
+            portfolio,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &campaign_id,
+            "experiment_created",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn add_experiment_variant(
+        &self,
+        request: &ExperimentVariantAddRequest,
+    ) -> Result<ExperimentOutcome> {
+        require_text("campaign_id", &request.campaign_id)?;
+        require_bounded_public_text("name", &request.name, 256)?;
+        require_bounded_public_text("approach", &request.approach, 4_096)?;
+        require_texts("parent_variant_ids", &request.parent_variant_ids)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        if request.parent_variant_ids.len() > 8 {
+            return Err(Error::Invalid(
+                "a variant may have at most 8 parents".to_owned(),
+            ));
+        }
+        let workspace = canonical_workspace(&request.workspace)?;
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<ExperimentOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "experiment_variant_added",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        let project_id = project_id_for_workspace(&transaction, &workspace)?
+            .ok_or_else(|| Error::NotFound(format!("project for workspace {workspace}")))?;
+        let campaign = load_experiment_campaign(&transaction, &project_id, &request.campaign_id)?;
+        let existing_count = transaction.query_row(
+            "SELECT COUNT(*) FROM experiment_variants WHERE campaign_id = ?1",
+            [&request.campaign_id],
+            |row| row.get::<_, u64>(0),
+        )?;
+        if existing_count >= u64::from(campaign.max_variants) {
+            return Err(Error::Conflict(
+                "experiment variant budget is exhausted".to_owned(),
+            ));
+        }
+        let snapshot = load_clean_project_snapshot(
+            &transaction,
+            &project_id,
+            &request.git_snapshot_id,
+            "variant",
+        )?;
+        for parent in &request.parent_variant_ids {
+            require_variant_owner(&transaction, &request.campaign_id, parent)?;
+        }
+        let approach_sha256 = format!("{:x}", Sha256::digest(request.approach.trim().as_bytes()));
+        if transaction
+            .query_row(
+                "SELECT 1 FROM experiment_variants WHERE campaign_id = ?1 AND approach_sha256 = ?2",
+                params![request.campaign_id, approach_sha256],
+                |_| Ok(()),
+            )
+            .optional()?
+            .is_some()
+        {
+            return Err(Error::Conflict(
+                "an exact approach duplicate already exists".to_owned(),
+            ));
+        }
+        let variant_id = Uuid::now_v7().to_string();
+        let parents_json = serde_json::to_string(&request.parent_variant_ids)?;
+        let mut variant = ExperimentVariant {
+            sequence: 0,
+            variant_id: variant_id.clone(),
+            name: request.name.trim().to_owned(),
+            diversity_axis: request.diversity_axis.clone(),
+            approach: request.approach.trim().to_owned(),
+            approach_sha256,
+            git_snapshot_id: request.git_snapshot_id.clone(),
+            head_commit: snapshot.head_commit.expect("clean snapshot has commit"),
+            head_tree: snapshot.head_tree.expect("clean snapshot has tree"),
+            parent_variant_ids: request.parent_variant_ids.clone(),
+            variant_sha256: String::new(),
+            created_at_unix_ms: now,
+        };
+        variant.variant_sha256 = experiment_variant_digest(&request.campaign_id, &variant)?;
+        transaction.execute(
+            "INSERT INTO experiment_variants(
+                variant_id, campaign_id, name, diversity_axis, approach, approach_sha256,
+                git_snapshot_id, head_commit, head_tree, parent_variant_ids_json,
+                variant_sha256, created_at_unix_ms
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+            params![
+                variant.variant_id,
+                request.campaign_id,
+                variant.name,
+                variant.diversity_axis.as_str(),
+                variant.approach,
+                variant.approach_sha256,
+                variant.git_snapshot_id,
+                variant.head_commit,
+                variant.head_tree,
+                parents_json,
+                variant.variant_sha256,
+                variant.created_at_unix_ms
+            ],
+        )?;
+        let portfolio =
+            load_experiment_portfolio(&transaction, &project_id, &request.campaign_id, 500)?;
+        let outcome = ExperimentOutcome {
+            portfolio,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &request.campaign_id,
+            "experiment_variant_added",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn add_experiment_measurement(
+        &self,
+        request: &ExperimentMeasurementAddRequest,
+    ) -> Result<ExperimentOutcome> {
+        require_text("campaign_id", &request.campaign_id)?;
+        require_text("variant_id", &request.variant_id)?;
+        require_text("criterion_id", &request.criterion_id)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        let workspace = canonical_workspace(&request.workspace)?;
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<ExperimentOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "experiment_measurement_added",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        let project_id = project_id_for_workspace(&transaction, &workspace)?
+            .ok_or_else(|| Error::NotFound(format!("project for workspace {workspace}")))?;
+        load_experiment_campaign(&transaction, &project_id, &request.campaign_id)?;
+        require_variant_owner(&transaction, &request.campaign_id, &request.variant_id)?;
+        let criterion_campaign = transaction
+            .query_row(
+                "SELECT campaign_id FROM experiment_criteria WHERE criterion_id = ?1",
+                [&request.criterion_id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+            .ok_or_else(|| Error::NotFound(format!("criterion {}", request.criterion_id)))?;
+        if criterion_campaign != request.campaign_id {
+            return Err(Error::Conflict(
+                "criterion belongs to another campaign".to_owned(),
+            ));
+        }
+        validate_deliberation_evidence(
+            &transaction,
+            &project_id,
+            request.evidence_id.as_deref(),
+            request.claim_id.as_deref(),
+        )?;
+        let measurement_id = Uuid::now_v7().to_string();
+        let digest = digest_json(&serde_json::json!({
+            "campaign_id": request.campaign_id,
+            "variant_id": request.variant_id,
+            "criterion_id": request.criterion_id,
+            "value": request.value,
+            "evidence_id": request.evidence_id,
+            "claim_id": request.claim_id,
+            "created_at_unix_ms": now,
+        }))?;
+        transaction.execute(
+            "INSERT INTO experiment_measurements(
+                measurement_id, campaign_id, variant_id, criterion_id, value,
+                evidence_id, claim_id, measurement_sha256, created_at_unix_ms
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            params![
+                measurement_id,
+                request.campaign_id,
+                request.variant_id,
+                request.criterion_id,
+                request.value,
+                request.evidence_id,
+                request.claim_id,
+                digest,
+                now
+            ],
+        )?;
+        let portfolio =
+            load_experiment_portfolio(&transaction, &project_id, &request.campaign_id, 500)?;
+        let outcome = ExperimentOutcome {
+            portfolio,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &request.campaign_id,
+            "experiment_measurement_added",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn decide_experiment(
+        &self,
+        request: &ExperimentDecisionRequest,
+    ) -> Result<ExperimentOutcome> {
+        require_text("campaign_id", &request.campaign_id)?;
+        require_bounded_public_text("summary", &request.summary, 4_096)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        let workspace = canonical_workspace(&request.workspace)?;
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<ExperimentOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "experiment_decided",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        let project_id = project_id_for_workspace(&transaction, &workspace)?
+            .ok_or_else(|| Error::NotFound(format!("project for workspace {workspace}")))?;
+        load_experiment_campaign(&transaction, &project_id, &request.campaign_id)?;
+        if request.kind != ExperimentDecisionKind::Abandon && request.variant_id.is_none() {
+            return Err(Error::Invalid(
+                "this decision kind requires variant_id".to_owned(),
+            ));
+        }
+        if let Some(variant_id) = request.variant_id.as_deref() {
+            require_variant_owner(&transaction, &request.campaign_id, variant_id)?;
+        }
+        let deliberation_pair = match (
+            request.deliberation_id.as_deref(),
+            request.deliberation_decision_id.as_deref(),
+        ) {
+            (None, None) => false,
+            (Some(deliberation_id), Some(decision_id)) => {
+                require_deliberation_owner(&transaction, &project_id, deliberation_id)?;
+                let open: u64 = transaction
+                    .query_row(
+                        "SELECT open_material_issues FROM deliberation_decisions
+                     WHERE deliberation_id = ?1 AND decision_id = ?2",
+                        params![deliberation_id, decision_id],
+                        |row| row.get(0),
+                    )
+                    .optional()?
+                    .ok_or_else(|| {
+                        Error::NotFound(format!("deliberation decision {decision_id}"))
+                    })?;
+                open == 0
+            }
+            _ => {
+                return Err(Error::Invalid(
+                    "deliberation_id and deliberation_decision_id must be supplied together"
+                        .to_owned(),
+                ));
+            }
+        };
+        let before =
+            load_experiment_portfolio(&transaction, &project_id, &request.campaign_id, 500)?;
+        let variant_qualified = request.variant_id.as_ref().is_some_and(|id| {
+            !before.hard_gate_failed_variant_ids.contains(id)
+                && !before.evidence_incomplete_variant_ids.contains(id)
+                && before
+                    .variants
+                    .iter()
+                    .any(|variant| &variant.variant_id == id)
+        });
+        let qualified = match request.kind {
+            ExperimentDecisionKind::Select => variant_qualified && deliberation_pair,
+            ExperimentDecisionKind::Advance | ExperimentDecisionKind::Synthesize => {
+                variant_qualified
+            }
+            ExperimentDecisionKind::Eliminate | ExperimentDecisionKind::Abandon => true,
+        };
+        if matches!(request.kind, ExperimentDecisionKind::Select) && !qualified {
+            return Err(Error::Conflict(
+                "selection requires all hard gates to pass with direct evidence and a deliberation decision with no open material issues"
+                    .to_owned(),
+            ));
+        }
+        let decision_id = Uuid::now_v7().to_string();
+        let digest = digest_json(&serde_json::json!({
+            "campaign_id": request.campaign_id,
+            "kind": request.kind.as_str(),
+            "variant_id": request.variant_id,
+            "summary": request.summary.trim(),
+            "deliberation_id": request.deliberation_id,
+            "deliberation_decision_id": request.deliberation_decision_id,
+            "qualified": qualified,
+            "created_at_unix_ms": now,
+        }))?;
+        transaction.execute(
+            "INSERT INTO experiment_decisions(
+                decision_id, campaign_id, kind, variant_id, summary, deliberation_id,
+                deliberation_decision_id, qualified, decision_sha256, created_at_unix_ms
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![
+                decision_id,
+                request.campaign_id,
+                request.kind.as_str(),
+                request.variant_id,
+                request.summary.trim(),
+                request.deliberation_id,
+                request.deliberation_decision_id,
+                qualified,
+                digest,
+                now
+            ],
+        )?;
+        let portfolio =
+            load_experiment_portfolio(&transaction, &project_id, &request.campaign_id, 500)?;
+        let outcome = ExperimentOutcome {
+            portfolio,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &request.campaign_id,
+            "experiment_decided",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn get_experiment(&self, request: &ExperimentGetRequest) -> Result<ExperimentPortfolio> {
+        require_text("campaign_id", &request.campaign_id)?;
+        let workspace = canonical_workspace(&request.workspace)?;
+        let connection = self.connection()?;
+        let project_id = project_id_for_workspace(&connection, &workspace)?
+            .ok_or_else(|| Error::NotFound(format!("project for workspace {workspace}")))?;
+        load_experiment_portfolio(
+            &connection,
+            &project_id,
+            &request.campaign_id,
+            request.limit.unwrap_or(200).clamp(1, 500) as usize,
+        )
+    }
+
+    pub fn list_experiments(
+        &self,
+        request: &ExperimentListRequest,
+    ) -> Result<Vec<ExperimentSummary>> {
+        let workspace = canonical_workspace(&request.workspace)?;
+        let connection = self.connection()?;
+        let Some(project_id) = project_id_for_workspace(&connection, &workspace)? else {
+            return Ok(Vec::new());
+        };
+        let limit = request.limit.unwrap_or(20).clamp(1, 100);
+        let mut statement = connection.prepare(
+            "SELECT campaign_id, title, created_at_unix_ms,
+                (SELECT COUNT(*) FROM experiment_variants v WHERE v.campaign_id = c.campaign_id),
+                (SELECT COUNT(*) FROM experiment_decisions d WHERE d.campaign_id = c.campaign_id),
+                max_variants
+             FROM experiment_campaigns c WHERE project_id = ?1
+             ORDER BY sequence DESC LIMIT ?2",
+        )?;
+        Ok(statement
+            .query_map(params![project_id, limit], |row| {
+                let variants = row.get::<_, u64>(3)?;
+                let max_variants = row.get::<_, u64>(5)?;
+                Ok(ExperimentSummary {
+                    campaign_id: row.get(0)?,
+                    title: row.get(1)?,
+                    created_at_unix_ms: row.get(2)?,
+                    variant_count: variants,
+                    decision_count: row.get(4)?,
+                    budget_exhausted: variants >= max_variants,
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?)
+    }
+
+    pub(crate) fn import_security_assessment(
+        &self,
+        request: &SecurityArtifactImport,
+    ) -> Result<SecurityAssessmentOutcome> {
+        require_text("session_id", &request.session_id)?;
+        require_identifier(
+            "provider_capability_id",
+            &request.provider_capability_id,
+            128,
+        )?;
+        require_identifier("provider_version", &request.provider_version, 64)?;
+        require_identifier("source_scan_id", &request.source_scan_id, 128)?;
+        require_text("git_snapshot_id", &request.git_snapshot_id)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        for digest in [
+            &request.manifest_sha256,
+            &request.findings_sha256,
+            &request.coverage_sha256,
+        ] {
+            if !is_sha256(digest) {
+                return Err(Error::Invalid(
+                    "security artifact digests must be lowercase SHA-256".to_owned(),
+                ));
+            }
+        }
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<SecurityAssessmentOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "security_assessment_imported",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        require_open_session(&transaction, &request.session_id)?;
+        let project_id = transaction.query_row(
+            "SELECT project_id FROM sessions WHERE session_id = ?1",
+            [&request.session_id],
+            |row| row.get::<_, String>(0),
+        )?;
+        let snapshot = load_clean_project_snapshot(
+            &transaction,
+            &project_id,
+            &request.git_snapshot_id,
+            "security assessment",
+        )?;
+        let manifest_evidence_id = insert_imported_security_evidence(
+            &transaction,
+            &request.session_id,
+            &request.manifest_locator,
+            "Codex Security scan manifest bytes observed by Aporic",
+            &request.manifest_sha256,
+            now,
+        )?;
+        let findings_evidence_id = insert_imported_security_evidence(
+            &transaction,
+            &request.session_id,
+            &request.findings_locator,
+            "Codex Security findings bytes observed by Aporic",
+            &request.findings_sha256,
+            now,
+        )?;
+        let coverage_evidence_id = insert_imported_security_evidence(
+            &transaction,
+            &request.session_id,
+            &request.coverage_locator,
+            "Codex Security coverage bytes observed by Aporic",
+            &request.coverage_sha256,
+            now,
+        )?;
+        let assessment_id = Uuid::now_v7().to_string();
+        let target_commit = snapshot.head_commit.expect("clean snapshot has commit");
+        let target_tree = snapshot.head_tree.expect("clean snapshot has tree");
+        let assessment_sha256 = digest_json(&serde_json::json!({
+            "assessment_id": assessment_id,
+            "provider_capability_id": request.provider_capability_id,
+            "provider_version": request.provider_version,
+            "source_scan_id": request.source_scan_id,
+            "git_snapshot_id": request.git_snapshot_id,
+            "target_commit": target_commit,
+            "target_tree": target_tree,
+            "coverage": request.coverage.as_str(),
+            "reportable_critical": request.reportable_critical,
+            "reportable_high": request.reportable_high,
+            "reportable_medium": request.reportable_medium,
+            "reportable_low": request.reportable_low,
+            "manifest_evidence_id": manifest_evidence_id,
+            "findings_evidence_id": findings_evidence_id,
+            "coverage_evidence_id": coverage_evidence_id,
+            "created_at_unix_ms": now,
+        }))?;
+        transaction.execute(
+            "INSERT INTO security_assessments(
+                assessment_id, project_id, provider_capability_id, provider_version,
+                source_scan_id, git_snapshot_id, target_commit, target_tree, coverage,
+                reportable_critical, reportable_high, reportable_medium, reportable_low,
+                manifest_evidence_id, findings_evidence_id, coverage_evidence_id,
+                assessment_sha256, created_at_unix_ms
+             ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
+                       ?13, ?14, ?15, ?16, ?17, ?18)",
+            params![
+                assessment_id,
+                project_id,
+                request.provider_capability_id,
+                request.provider_version,
+                request.source_scan_id,
+                request.git_snapshot_id,
+                target_commit,
+                target_tree,
+                request.coverage.as_str(),
+                request.reportable_critical,
+                request.reportable_high,
+                request.reportable_medium,
+                request.reportable_low,
+                manifest_evidence_id,
+                findings_evidence_id,
+                coverage_evidence_id,
+                assessment_sha256,
+                now
+            ],
+        )?;
+        let assessment = load_security_assessment(&transaction, &project_id, &assessment_id)?;
+        let outcome = SecurityAssessmentOutcome {
+            assessment,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &assessment_id,
+            "security_assessment_imported",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn get_security_assessment(
+        &self,
+        request: &SecurityAssessmentGetRequest,
+    ) -> Result<SecurityAssessment> {
+        require_text("assessment_id", &request.assessment_id)?;
+        let workspace = canonical_workspace(&request.workspace)?;
+        let connection = self.connection()?;
+        let project_id = project_id_for_workspace(&connection, &workspace)?
+            .ok_or_else(|| Error::NotFound(format!("project for workspace {workspace}")))?;
+        load_security_assessment(&connection, &project_id, &request.assessment_id)
+    }
+
+    pub fn list_security_assessments(
+        &self,
+        request: &SecurityAssessmentListRequest,
+    ) -> Result<Vec<SecurityAssessment>> {
+        let workspace = canonical_workspace(&request.workspace)?;
+        let connection = self.connection()?;
+        let Some(project_id) = project_id_for_workspace(&connection, &workspace)? else {
+            return Ok(Vec::new());
+        };
+        let limit = request.limit.unwrap_or(20).clamp(1, 100);
+        let mut statement = connection.prepare(
+            "SELECT assessment_id FROM security_assessments WHERE project_id = ?1
+             ORDER BY sequence DESC LIMIT ?2",
+        )?;
+        let ids = statement
+            .query_map(params![project_id, limit], |row| row.get::<_, String>(0))?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        ids.iter()
+            .map(|id| load_security_assessment(&connection, &project_id, id))
+            .collect()
+    }
+
     pub fn create_deliberation(
         &self,
         request: &DeliberationCreateRequest,
@@ -2929,6 +4038,9 @@ impl Store {
                 "deliberation_decisions",
                 "1 = 1",
             )?,
+            capability_manifest_count: table_count(&connection, "capability_manifests", "1 = 1")?,
+            experiment_campaign_count: table_count(&connection, "experiment_campaigns", "1 = 1")?,
+            security_assessment_count: table_count(&connection, "security_assessments", "1 = 1")?,
         })
     }
 
@@ -3101,6 +4213,46 @@ impl Store {
         let deliberation_nodes = load_project_deliberation_nodes(&connection, &project_id)?;
         let deliberation_edges = load_project_deliberation_edges(&connection, &project_id)?;
         let deliberation_decisions = load_project_deliberation_decisions(&connection, &project_id)?;
+        let capability_manifests = {
+            let mut statement = connection.prepare(
+                "SELECT capability_id, version FROM capability_manifests
+                 WHERE project_id = ?1 ORDER BY sequence ASC",
+            )?;
+            let keys = statement
+                .query_map([&project_id], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                })?
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            keys.iter()
+                .map(|(id, version)| {
+                    load_capability_manifest(&connection, &project_id, id, version)
+                })
+                .collect::<Result<Vec<_>>>()?
+        };
+        let experiments = {
+            let mut statement = connection.prepare(
+                "SELECT campaign_id FROM experiment_campaigns
+                 WHERE project_id = ?1 ORDER BY sequence ASC",
+            )?;
+            let ids = statement
+                .query_map([&project_id], |row| row.get::<_, String>(0))?
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            ids.iter()
+                .map(|id| load_experiment_portfolio(&connection, &project_id, id, 500))
+                .collect::<Result<Vec<_>>>()?
+        };
+        let security_assessments = {
+            let mut statement = connection.prepare(
+                "SELECT assessment_id FROM security_assessments
+                 WHERE project_id = ?1 ORDER BY sequence ASC",
+            )?;
+            let ids = statement
+                .query_map([&project_id], |row| row.get::<_, String>(0))?
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            ids.iter()
+                .map(|id| load_security_assessment(&connection, &project_id, id))
+                .collect::<Result<Vec<_>>>()?
+        };
 
         let events = {
             let mut statement = connection.prepare(
@@ -3117,6 +4269,10 @@ impl Store {
                      WHERE sessions.project_id = ?1
                  ) OR stream_id IN (
                      SELECT deliberation_id FROM deliberations WHERE project_id = ?1
+                 ) OR stream_id IN (
+                     SELECT campaign_id FROM experiment_campaigns WHERE project_id = ?1
+                 ) OR stream_id IN (
+                     SELECT assessment_id FROM security_assessments WHERE project_id = ?1
                  )
                  ORDER BY sequence ASC",
             )?;
@@ -3150,7 +4306,7 @@ impl Store {
         };
 
         Ok(ProjectExport {
-            format_version: 9,
+            format_version: 10,
             exported_at_unix_ms: unix_millis()?,
             project_id,
             workspace,
@@ -3174,6 +4330,9 @@ impl Store {
             deliberation_nodes,
             deliberation_edges,
             deliberation_decisions,
+            capability_manifests,
+            experiments,
+            security_assessments,
             events,
         })
     }
@@ -3185,6 +4344,828 @@ impl Store {
         connection.pragma_update(None, "foreign_keys", "ON")?;
         Ok(connection)
     }
+}
+
+fn require_identifier(name: &str, value: &str, max_bytes: usize) -> Result<()> {
+    require_text(name, value)?;
+    if value.len() > max_bytes
+        || !value.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '.' | '-' | '_' | '/')
+        })
+    {
+        return Err(Error::Invalid(format!(
+            "{name} must be at most {max_bytes} bytes and contain only ASCII letters, digits, '.', '-', '_', or '/'"
+        )));
+    }
+    Ok(())
+}
+
+fn is_sha256(value: &str) -> bool {
+    value.len() == 64
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+fn validate_capability_schema(
+    name: &str,
+    schema: &serde_json::Value,
+    require_object_root: bool,
+) -> Result<()> {
+    let encoded = serde_json::to_vec(schema)?;
+    if encoded.len() > 65_536 {
+        return Err(Error::Invalid(format!("{name} exceeds 65536 bytes")));
+    }
+    let object = schema
+        .as_object()
+        .ok_or_else(|| Error::Invalid(format!("{name} must be a JSON object")))?;
+    if require_object_root
+        && object.get("type").and_then(serde_json::Value::as_str) != Some("object")
+    {
+        return Err(Error::Invalid(format!("{name} root type must be object")));
+    }
+    if json_depth(schema) > 32 {
+        return Err(Error::Invalid(format!(
+            "{name} exceeds the maximum nesting depth"
+        )));
+    }
+    if contains_secret_material(schema) {
+        return Err(Error::Invalid(format!(
+            "{name} contains a credential-like field; manifests may describe credentials but never contain them"
+        )));
+    }
+    Ok(())
+}
+
+fn json_depth(value: &serde_json::Value) -> usize {
+    match value {
+        serde_json::Value::Array(values) => 1 + values.iter().map(json_depth).max().unwrap_or(0),
+        serde_json::Value::Object(values) => 1 + values.values().map(json_depth).max().unwrap_or(0),
+        _ => 1,
+    }
+}
+
+fn contains_secret_material(value: &serde_json::Value) -> bool {
+    match value {
+        serde_json::Value::Object(values) => values.iter().any(|(key, value)| {
+            let key = key.to_ascii_lowercase();
+            matches!(
+                key.as_str(),
+                "password" | "secret" | "token" | "authorization" | "api_key" | "apikey"
+            ) && !value.is_null()
+                || contains_secret_material(value)
+        }),
+        serde_json::Value::Array(values) => values.iter().any(contains_secret_material),
+        _ => false,
+    }
+}
+
+fn parse_capability_provider_kind(value: String) -> rusqlite::Result<CapabilityProviderKind> {
+    match value.as_str() {
+        "built_in" => Ok(CapabilityProviderKind::BuiltIn),
+        "external_artifact" => Ok(CapabilityProviderKind::ExternalArtifact),
+        "workspace_manifest" => Ok(CapabilityProviderKind::WorkspaceManifest),
+        _ => Err(rusqlite::Error::InvalidQuery),
+    }
+}
+
+fn parse_capability_effect_class(value: String) -> rusqlite::Result<CapabilityEffectClass> {
+    match value.as_str() {
+        "observe" => Ok(CapabilityEffectClass::Observe),
+        "record_local" => Ok(CapabilityEffectClass::RecordLocal),
+        "verify_local" => Ok(CapabilityEffectClass::VerifyLocal),
+        "external_effect" => Ok(CapabilityEffectClass::ExternalEffect),
+        "privileged" => Ok(CapabilityEffectClass::Privileged),
+        _ => Err(rusqlite::Error::InvalidQuery),
+    }
+}
+
+fn parse_capability_state(value: String) -> rusqlite::Result<CapabilityCatalogState> {
+    match value.as_str() {
+        "registered" => Ok(CapabilityCatalogState::Registered),
+        "available" => Ok(CapabilityCatalogState::Available),
+        "disabled" => Ok(CapabilityCatalogState::Disabled),
+        "deprecated" => Ok(CapabilityCatalogState::Deprecated),
+        "revoked" => Ok(CapabilityCatalogState::Revoked),
+        _ => Err(rusqlite::Error::InvalidQuery),
+    }
+}
+
+fn latest_capability_state(
+    connection: &Connection,
+    project_id: &str,
+    capability_id: &str,
+    version: &str,
+) -> Result<CapabilityCatalogState> {
+    let state = connection.query_row(
+        "SELECT state FROM capability_state_events
+         WHERE project_id = ?1 AND capability_id = ?2 AND version = ?3
+         ORDER BY sequence DESC LIMIT 1",
+        params![project_id, capability_id, version],
+        |row| row.get::<_, String>(0),
+    )?;
+    Ok(parse_capability_state(state)?)
+}
+
+fn load_capability_manifest(
+    connection: &Connection,
+    project_id: &str,
+    capability_id: &str,
+    version: &str,
+) -> Result<CapabilityManifest> {
+    let state = latest_capability_state(connection, project_id, capability_id, version)?;
+    connection.query_row(
+        "SELECT sequence, capability_id, version, provider_kind, title, description,
+                effect_class, reads_private_data, sees_untrusted_content, uses_network,
+                requires_credentials, idempotent, reversible, input_schema_json,
+                output_schema_json, evidence_contract, implementation_sha256,
+                manifest_sha256, created_at_unix_ms
+         FROM capability_manifests
+         WHERE project_id = ?1 AND capability_id = ?2 AND version = ?3",
+        params![project_id, capability_id, version],
+        |row| {
+            Ok((
+                row.get::<_, u64>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?, row.get::<_, String>(4)?, row.get::<_, String>(5)?,
+                row.get::<_, String>(6)?, row.get::<_, bool>(7)?, row.get::<_, bool>(8)?,
+                row.get::<_, bool>(9)?, row.get::<_, bool>(10)?, row.get::<_, bool>(11)?,
+                row.get::<_, bool>(12)?, row.get::<_, String>(13)?, row.get::<_, String>(14)?,
+                row.get::<_, String>(15)?, row.get::<_, Option<String>>(16)?,
+                row.get::<_, String>(17)?, row.get::<_, i64>(18)?,
+            ))
+        },
+    ).optional()?.map(|row| -> Result<CapabilityManifest> {
+        let manifest = CapabilityManifest {
+        sequence: row.0,
+        capability_id: row.1,
+        version: row.2,
+        provider_kind: parse_capability_provider_kind(row.3)?,
+        title: row.4,
+        description: row.5,
+        effect_class: parse_capability_effect_class(row.6)?,
+        reads_private_data: row.7,
+        sees_untrusted_content: row.8,
+        uses_network: row.9,
+        requires_credentials: row.10,
+        idempotent: row.11,
+        reversible: row.12,
+        input_schema: serde_json::from_str(&row.13)?,
+        output_schema: serde_json::from_str(&row.14)?,
+        evidence_contract: row.15,
+        implementation_sha256: row.16,
+        manifest_sha256: row.17,
+        state,
+        created_at_unix_ms: row.18,
+        executable: false,
+            authority_notice: "Capability manifests are catalog data, not executable authority. Aporic v0.12 never invokes registered providers.".to_owned(),
+        };
+        if capability_manifest_digest(&manifest)? != manifest.manifest_sha256 {
+            return Err(Error::Conflict(format!("capability {capability_id}@{version} digest mismatch")));
+        }
+        Ok(manifest)
+    }).transpose()?.ok_or_else(|| Error::NotFound(format!("capability {capability_id}@{version}")))
+}
+
+fn capability_manifest_digest(value: &CapabilityManifest) -> Result<String> {
+    digest_json(&serde_json::json!({
+        "capability_id": value.capability_id,
+        "version": value.version,
+        "provider_kind": value.provider_kind.as_str(),
+        "title": value.title,
+        "description": value.description,
+        "effect_class": value.effect_class.as_str(),
+        "reads_private_data": value.reads_private_data,
+        "sees_untrusted_content": value.sees_untrusted_content,
+        "uses_network": value.uses_network,
+        "requires_credentials": value.requires_credentials,
+        "idempotent": value.idempotent,
+        "reversible": value.reversible,
+        "input_schema": value.input_schema,
+        "output_schema": value.output_schema,
+        "evidence_contract": value.evidence_contract,
+        "implementation_sha256": value.implementation_sha256,
+    }))
+}
+
+fn validate_criterion(input: &crate::domain::ExperimentCriterionInput) -> Result<()> {
+    match (&input.kind, &input.comparison) {
+        (ExperimentCriterionKind::HardGate, ExperimentComparison::MustPass) => {
+            if input.threshold.is_some_and(|value| value != 1) {
+                return Err(Error::Invalid(
+                    "must_pass threshold, when supplied, must equal 1".to_owned(),
+                ));
+            }
+        }
+        (
+            ExperimentCriterionKind::HardGate,
+            ExperimentComparison::Gte | ExperimentComparison::Lte,
+        ) => {
+            if input.threshold.is_none() {
+                return Err(Error::Invalid(
+                    "gte/lte hard gates require a threshold".to_owned(),
+                ));
+            }
+        }
+        (
+            ExperimentCriterionKind::ParetoDimension,
+            ExperimentComparison::Minimize | ExperimentComparison::Maximize,
+        ) => {
+            if input.threshold.is_some() {
+                return Err(Error::Invalid(
+                    "Pareto dimensions do not accept thresholds".to_owned(),
+                ));
+            }
+        }
+        _ => {
+            return Err(Error::Invalid(
+                "hard gates use must_pass/gte/lte; Pareto dimensions use minimize/maximize"
+                    .to_owned(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn normalized_threshold(input: &crate::domain::ExperimentCriterionInput) -> Option<i64> {
+    if input.comparison == ExperimentComparison::MustPass {
+        Some(1)
+    } else {
+        input.threshold
+    }
+}
+
+fn load_clean_project_snapshot(
+    connection: &Connection,
+    project_id: &str,
+    snapshot_id: &str,
+    purpose: &str,
+) -> Result<GitSnapshot> {
+    let snapshot = connection
+        .query_row(
+            &format!(
+                "{} FROM git_snapshots WHERE project_id = ?1 AND snapshot_id = ?2",
+                git_snapshot_select()
+            ),
+            params![project_id, snapshot_id],
+            git_snapshot_from_row,
+        )
+        .optional()?
+        .ok_or_else(|| Error::NotFound(format!("Git snapshot {snapshot_id}")))?;
+    if git_snapshot_digest(&snapshot)? != snapshot.snapshot_sha256 {
+        return Err(Error::Conflict(format!(
+            "cannot bind {purpose} to a Git snapshot with a digest mismatch"
+        )));
+    }
+    if snapshot.dirty || snapshot.head_commit.is_none() || snapshot.head_tree.is_none() {
+        return Err(Error::Invalid(format!(
+            "{purpose} requires a clean committed Git snapshot"
+        )));
+    }
+    Ok(snapshot)
+}
+
+fn experiment_campaign_digest(value: &ExperimentCampaign) -> Result<String> {
+    digest_json(&serde_json::json!({
+        "campaign_id": value.campaign_id, "title": value.title, "problem": value.problem,
+        "target_user": value.target_user, "desired_outcome": value.desired_outcome,
+        "hypothesis": value.hypothesis, "git_snapshot_id": value.git_snapshot_id,
+        "bound_base_commit": value.bound_base_commit, "bound_base_tree": value.bound_base_tree,
+        "max_variants": value.max_variants, "max_token_budget": value.max_token_budget,
+        "created_at_unix_ms": value.created_at_unix_ms,
+    }))
+}
+
+fn experiment_variant_digest(campaign_id: &str, value: &ExperimentVariant) -> Result<String> {
+    digest_json(&serde_json::json!({
+        "campaign_id": campaign_id, "variant_id": value.variant_id, "name": value.name,
+        "diversity_axis": value.diversity_axis.as_str(), "approach": value.approach,
+        "approach_sha256": value.approach_sha256, "git_snapshot_id": value.git_snapshot_id,
+        "head_commit": value.head_commit, "head_tree": value.head_tree,
+        "parent_variant_ids": value.parent_variant_ids,
+        "created_at_unix_ms": value.created_at_unix_ms,
+    }))
+}
+
+fn load_experiment_campaign(
+    connection: &Connection,
+    project_id: &str,
+    campaign_id: &str,
+) -> Result<ExperimentCampaign> {
+    connection
+        .query_row(
+            "SELECT sequence, campaign_id, title, problem, target_user, desired_outcome,
+                hypothesis, git_snapshot_id, bound_base_commit, bound_base_tree,
+                max_variants, max_token_budget, campaign_sha256, created_at_unix_ms
+         FROM experiment_campaigns WHERE project_id = ?1 AND campaign_id = ?2",
+            params![project_id, campaign_id],
+            |row| {
+                Ok(ExperimentCampaign {
+                    sequence: row.get(0)?,
+                    campaign_id: row.get(1)?,
+                    title: row.get(2)?,
+                    problem: row.get(3)?,
+                    target_user: row.get(4)?,
+                    desired_outcome: row.get(5)?,
+                    hypothesis: row.get(6)?,
+                    git_snapshot_id: row.get(7)?,
+                    bound_base_commit: row.get(8)?,
+                    bound_base_tree: row.get(9)?,
+                    max_variants: row.get(10)?,
+                    max_token_budget: row.get(11)?,
+                    campaign_sha256: row.get(12)?,
+                    created_at_unix_ms: row.get(13)?,
+                })
+            },
+        )
+        .optional()?
+        .ok_or_else(|| Error::NotFound(format!("experiment campaign {campaign_id}")))
+}
+
+fn require_variant_owner(
+    connection: &Connection,
+    campaign_id: &str,
+    variant_id: &str,
+) -> Result<()> {
+    let belongs = connection.query_row(
+        "SELECT EXISTS(SELECT 1 FROM experiment_variants WHERE campaign_id = ?1 AND variant_id = ?2)",
+        params![campaign_id, variant_id], |row| row.get::<_, bool>(0),
+    )?;
+    if belongs {
+        Ok(())
+    } else {
+        Err(Error::NotFound(format!("variant {variant_id}")))
+    }
+}
+
+fn parse_experiment_criterion_kind(value: String) -> rusqlite::Result<ExperimentCriterionKind> {
+    match value.as_str() {
+        "hard_gate" => Ok(ExperimentCriterionKind::HardGate),
+        "pareto_dimension" => Ok(ExperimentCriterionKind::ParetoDimension),
+        _ => Err(rusqlite::Error::InvalidQuery),
+    }
+}
+
+fn parse_experiment_comparison(value: String) -> rusqlite::Result<ExperimentComparison> {
+    match value.as_str() {
+        "must_pass" => Ok(ExperimentComparison::MustPass),
+        "minimize" => Ok(ExperimentComparison::Minimize),
+        "maximize" => Ok(ExperimentComparison::Maximize),
+        "gte" => Ok(ExperimentComparison::Gte),
+        "lte" => Ok(ExperimentComparison::Lte),
+        _ => Err(rusqlite::Error::InvalidQuery),
+    }
+}
+
+fn parse_experiment_diversity_axis(value: String) -> rusqlite::Result<ExperimentDiversityAxis> {
+    match value.as_str() {
+        "product_assumption" => Ok(ExperimentDiversityAxis::ProductAssumption),
+        "ux" => Ok(ExperimentDiversityAxis::Ux),
+        "architecture" => Ok(ExperimentDiversityAxis::Architecture),
+        "data_model" => Ok(ExperimentDiversityAxis::DataModel),
+        "automation" => Ok(ExperimentDiversityAxis::Automation),
+        "cost_safety" => Ok(ExperimentDiversityAxis::CostSafety),
+        _ => Err(rusqlite::Error::InvalidQuery),
+    }
+}
+
+fn parse_experiment_decision_kind(value: String) -> rusqlite::Result<ExperimentDecisionKind> {
+    match value.as_str() {
+        "advance" => Ok(ExperimentDecisionKind::Advance),
+        "eliminate" => Ok(ExperimentDecisionKind::Eliminate),
+        "synthesize" => Ok(ExperimentDecisionKind::Synthesize),
+        "abandon" => Ok(ExperimentDecisionKind::Abandon),
+        "select" => Ok(ExperimentDecisionKind::Select),
+        _ => Err(rusqlite::Error::InvalidQuery),
+    }
+}
+
+fn load_experiment_portfolio(
+    connection: &Connection,
+    project_id: &str,
+    campaign_id: &str,
+    limit: usize,
+) -> Result<ExperimentPortfolio> {
+    let campaign = load_experiment_campaign(connection, project_id, campaign_id)?;
+    if experiment_campaign_digest(&campaign)? != campaign.campaign_sha256 {
+        return Err(Error::Conflict(
+            "experiment campaign digest mismatch".to_owned(),
+        ));
+    }
+    let criteria = {
+        let mut statement = connection.prepare(
+            "SELECT sequence, criterion_id, contract_revision, name, kind, comparison,
+                    threshold, unit, criterion_sha256
+             FROM experiment_criteria WHERE campaign_id = ?1 ORDER BY sequence ASC LIMIT ?2",
+        )?;
+        statement
+            .query_map(params![campaign_id, limit as u64], |row| {
+                Ok(ExperimentCriterion {
+                    sequence: row.get(0)?,
+                    criterion_id: row.get(1)?,
+                    contract_revision: row.get(2)?,
+                    name: row.get(3)?,
+                    kind: parse_experiment_criterion_kind(row.get(4)?)?,
+                    comparison: parse_experiment_comparison(row.get(5)?)?,
+                    threshold: row.get(6)?,
+                    unit: row.get(7)?,
+                    criterion_sha256: row.get(8)?,
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?
+    };
+    for criterion in &criteria {
+        let observed = digest_json(&serde_json::json!({
+            "campaign_id": campaign_id,
+            "contract_revision": criterion.contract_revision,
+            "name": criterion.name,
+            "kind": criterion.kind.as_str(),
+            "comparison": criterion.comparison.as_str(),
+            "threshold": criterion.threshold,
+            "unit": criterion.unit,
+        }))?;
+        if observed != criterion.criterion_sha256 {
+            return Err(Error::Conflict(format!(
+                "criterion {} digest mismatch",
+                criterion.criterion_id
+            )));
+        }
+    }
+    let variants = {
+        let mut statement = connection.prepare(
+            "SELECT sequence, variant_id, name, diversity_axis, approach, approach_sha256,
+                    git_snapshot_id, head_commit, head_tree, parent_variant_ids_json,
+                    variant_sha256, created_at_unix_ms
+             FROM experiment_variants WHERE campaign_id = ?1 ORDER BY sequence ASC LIMIT ?2",
+        )?;
+        let rows = statement.query_map(params![campaign_id, limit as u64], |row| {
+            Ok((
+                row.get::<_, u64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, String>(4)?,
+                row.get::<_, String>(5)?,
+                row.get::<_, String>(6)?,
+                row.get::<_, String>(7)?,
+                row.get::<_, String>(8)?,
+                row.get::<_, String>(9)?,
+                row.get::<_, String>(10)?,
+                row.get::<_, i64>(11)?,
+            ))
+        })?;
+        rows.map(|row| {
+            let row = row?;
+            Ok(ExperimentVariant {
+                sequence: row.0,
+                variant_id: row.1,
+                name: row.2,
+                diversity_axis: parse_experiment_diversity_axis(row.3)?,
+                approach: row.4,
+                approach_sha256: row.5,
+                git_snapshot_id: row.6,
+                head_commit: row.7,
+                head_tree: row.8,
+                parent_variant_ids: serde_json::from_str(&row.9)?,
+                variant_sha256: row.10,
+                created_at_unix_ms: row.11,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?
+    };
+    for variant in &variants {
+        if experiment_variant_digest(campaign_id, variant)? != variant.variant_sha256 {
+            return Err(Error::Conflict(format!(
+                "variant {} digest mismatch",
+                variant.variant_id
+            )));
+        }
+    }
+    let measurements = {
+        let mut statement = connection.prepare(
+            "SELECT sequence, measurement_id, variant_id, criterion_id, value,
+                    evidence_id, claim_id, measurement_sha256, created_at_unix_ms
+             FROM experiment_measurements WHERE campaign_id = ?1 ORDER BY sequence ASC LIMIT ?2",
+        )?;
+        let rows = statement.query_map(params![campaign_id, limit as u64], |row| {
+            Ok((
+                row.get::<_, u64>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, String>(3)?,
+                row.get::<_, i64>(4)?,
+                row.get::<_, Option<String>>(5)?,
+                row.get::<_, Option<String>>(6)?,
+                row.get::<_, String>(7)?,
+                row.get::<_, i64>(8)?,
+            ))
+        })?;
+        rows.map(|row| {
+            let row = row?;
+            let qualified = validate_deliberation_evidence(
+                connection,
+                project_id,
+                row.5.as_deref(),
+                row.6.as_deref(),
+            )?;
+            Ok(ExperimentMeasurement {
+                sequence: row.0,
+                measurement_id: row.1,
+                variant_id: row.2,
+                criterion_id: row.3,
+                value: row.4,
+                evidence_id: row.5,
+                claim_id: row.6,
+                evidence_qualified: qualified,
+                measurement_sha256: row.7,
+                created_at_unix_ms: row.8,
+            })
+        })
+        .collect::<Result<Vec<_>>>()?
+    };
+    for measurement in &measurements {
+        let observed = digest_json(&serde_json::json!({
+            "campaign_id": campaign_id,
+            "variant_id": measurement.variant_id,
+            "criterion_id": measurement.criterion_id,
+            "value": measurement.value,
+            "evidence_id": measurement.evidence_id,
+            "claim_id": measurement.claim_id,
+            "created_at_unix_ms": measurement.created_at_unix_ms,
+        }))?;
+        if observed != measurement.measurement_sha256 {
+            return Err(Error::Conflict(format!(
+                "measurement {} digest mismatch",
+                measurement.measurement_id
+            )));
+        }
+    }
+    let decisions = {
+        let mut statement = connection.prepare(
+            "SELECT sequence, decision_id, kind, variant_id, summary, deliberation_id,
+                    deliberation_decision_id, qualified, decision_sha256, created_at_unix_ms
+             FROM experiment_decisions WHERE campaign_id = ?1 ORDER BY sequence ASC LIMIT ?2",
+        )?;
+        statement
+            .query_map(params![campaign_id, limit as u64], |row| {
+                Ok(ExperimentDecision {
+                    sequence: row.get(0)?,
+                    decision_id: row.get(1)?,
+                    kind: parse_experiment_decision_kind(row.get(2)?)?,
+                    variant_id: row.get(3)?,
+                    summary: row.get(4)?,
+                    deliberation_id: row.get(5)?,
+                    deliberation_decision_id: row.get(6)?,
+                    qualified: row.get(7)?,
+                    decision_sha256: row.get(8)?,
+                    created_at_unix_ms: row.get(9)?,
+                })
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?
+    };
+    for decision in &decisions {
+        let observed = digest_json(&serde_json::json!({
+            "campaign_id": campaign_id,
+            "kind": decision.kind.as_str(),
+            "variant_id": decision.variant_id,
+            "summary": decision.summary,
+            "deliberation_id": decision.deliberation_id,
+            "deliberation_decision_id": decision.deliberation_decision_id,
+            "qualified": decision.qualified,
+            "created_at_unix_ms": decision.created_at_unix_ms,
+        }))?;
+        if observed != decision.decision_sha256 {
+            return Err(Error::Conflict(format!(
+                "experiment decision {} digest mismatch",
+                decision.decision_id
+            )));
+        }
+    }
+    let (hard_gate_failed_variant_ids, evidence_incomplete_variant_ids, pareto_variant_ids) =
+        classify_experiment_variants(&criteria, &variants, &measurements);
+    let current = connection
+        .query_row(
+            "SELECT snapshot_id, head_commit, head_tree FROM git_snapshots
+         WHERE project_id = ?1 ORDER BY sequence DESC LIMIT 1",
+            [project_id],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                ))
+            },
+        )
+        .optional()?;
+    let integration_stale = current.as_ref().is_none_or(|(_, commit, tree)| {
+        commit.as_deref() != Some(campaign.bound_base_commit.as_str())
+            || tree.as_deref() != Some(campaign.bound_base_tree.as_str())
+    });
+    Ok(ExperimentPortfolio {
+        budget_exhausted: variants.len() >= campaign.max_variants as usize,
+        campaign, criteria, variants, measurements, decisions, pareto_variant_ids,
+        hard_gate_failed_variant_ids, evidence_incomplete_variant_ids,
+        current_git_snapshot_id: current.map(|value| value.0), integration_stale,
+        executable: false, approval_proven: false,
+        authority_notice: "Experiment results are advisory evidence. Aporic does not build variants, invoke providers, approve changes, or mutate Git.".to_owned(),
+    })
+}
+
+fn classify_experiment_variants(
+    criteria: &[ExperimentCriterion],
+    variants: &[ExperimentVariant],
+    measurements: &[ExperimentMeasurement],
+) -> (Vec<String>, Vec<String>, Vec<String>) {
+    let mut failed = Vec::new();
+    let mut incomplete = Vec::new();
+    let mut qualified = Vec::new();
+    for variant in variants {
+        let mut missing = false;
+        let mut hard_failed = false;
+        for criterion in criteria
+            .iter()
+            .filter(|value| value.kind == ExperimentCriterionKind::HardGate)
+        {
+            let measurement = measurements.iter().find(|value| {
+                value.variant_id == variant.variant_id
+                    && value.criterion_id == criterion.criterion_id
+            });
+            let Some(measurement) = measurement else {
+                missing = true;
+                continue;
+            };
+            if !measurement.evidence_qualified {
+                missing = true;
+                continue;
+            }
+            let passes = match criterion.comparison {
+                ExperimentComparison::MustPass => measurement.value == 1,
+                ExperimentComparison::Gte => criterion
+                    .threshold
+                    .is_some_and(|value| measurement.value >= value),
+                ExperimentComparison::Lte => criterion
+                    .threshold
+                    .is_some_and(|value| measurement.value <= value),
+                _ => false,
+            };
+            hard_failed |= !passes;
+        }
+        if hard_failed {
+            failed.push(variant.variant_id.clone());
+        } else if missing {
+            incomplete.push(variant.variant_id.clone());
+        } else {
+            qualified.push(variant.variant_id.clone());
+        }
+    }
+    let pareto_criteria = criteria
+        .iter()
+        .filter(|value| value.kind == ExperimentCriterionKind::ParetoDimension)
+        .collect::<Vec<_>>();
+    let complete = qualified
+        .into_iter()
+        .filter(|variant_id| {
+            pareto_criteria.iter().all(|criterion| {
+                measurements.iter().any(|value| {
+                    value.variant_id == *variant_id
+                        && value.criterion_id == criterion.criterion_id
+                        && value.evidence_qualified
+                })
+            })
+        })
+        .collect::<Vec<_>>();
+    let pareto = complete
+        .iter()
+        .filter(|candidate| {
+            !complete.iter().any(|other| {
+                if candidate == &other {
+                    return false;
+                }
+                let mut no_worse = true;
+                let mut strictly_better = false;
+                for criterion in &pareto_criteria {
+                    let candidate_value = measurements
+                        .iter()
+                        .find(|value| {
+                            value.variant_id == **candidate
+                                && value.criterion_id == criterion.criterion_id
+                        })
+                        .map(|value| value.value)
+                        .unwrap_or_default();
+                    let other_value = measurements
+                        .iter()
+                        .find(|value| {
+                            value.variant_id == **other
+                                && value.criterion_id == criterion.criterion_id
+                        })
+                        .map(|value| value.value)
+                        .unwrap_or_default();
+                    match criterion.comparison {
+                        ExperimentComparison::Minimize => {
+                            no_worse &= other_value <= candidate_value;
+                            strictly_better |= other_value < candidate_value;
+                        }
+                        ExperimentComparison::Maximize => {
+                            no_worse &= other_value >= candidate_value;
+                            strictly_better |= other_value > candidate_value;
+                        }
+                        _ => {}
+                    }
+                }
+                no_worse && strictly_better
+            })
+        })
+        .cloned()
+        .collect();
+    (failed, incomplete, pareto)
+}
+
+fn insert_imported_security_evidence(
+    connection: &Connection,
+    session_id: &str,
+    locator: &str,
+    summary: &str,
+    content_sha256: &str,
+    now: i64,
+) -> Result<String> {
+    require_bounded_public_text("security artifact locator", locator, 4_096)?;
+    let evidence_id = Uuid::now_v7().to_string();
+    connection.execute(
+        "INSERT INTO evidence_artifacts(
+            evidence_id, session_id, kind, grade, locator, summary,
+            content_sha256, created_at_unix_ms
+         ) VALUES (?1, ?2, 'external_source', 'direct', ?3, ?4, ?5, ?6)",
+        params![
+            evidence_id,
+            session_id,
+            locator,
+            summary,
+            content_sha256,
+            now
+        ],
+    )?;
+    Ok(evidence_id)
+}
+
+fn parse_security_coverage(value: String) -> rusqlite::Result<SecurityCoverage> {
+    match value.as_str() {
+        "complete" => Ok(SecurityCoverage::Complete),
+        "partial" => Ok(SecurityCoverage::Partial),
+        "unknown" => Ok(SecurityCoverage::Unknown),
+        _ => Err(rusqlite::Error::InvalidQuery),
+    }
+}
+
+fn load_security_assessment(
+    connection: &Connection,
+    project_id: &str,
+    assessment_id: &str,
+) -> Result<SecurityAssessment> {
+    let assessment = connection.query_row(
+        "SELECT sequence, assessment_id, provider_capability_id, provider_version,
+                source_scan_id, git_snapshot_id, target_commit, target_tree, coverage,
+                reportable_critical, reportable_high, reportable_medium, reportable_low,
+                manifest_evidence_id, findings_evidence_id, coverage_evidence_id,
+                assessment_sha256, created_at_unix_ms
+         FROM security_assessments WHERE project_id = ?1 AND assessment_id = ?2",
+        params![project_id, assessment_id],
+        |row| Ok(SecurityAssessment {
+            sequence: row.get(0)?, assessment_id: row.get(1)?,
+            provider_capability_id: row.get(2)?, provider_version: row.get(3)?,
+            source_scan_id: row.get(4)?, git_snapshot_id: row.get(5)?,
+            target_commit: row.get(6)?, target_tree: row.get(7)?,
+            coverage: parse_security_coverage(row.get(8)?)?,
+            reportable_critical: row.get(9)?, reportable_high: row.get(10)?,
+            reportable_medium: row.get(11)?, reportable_low: row.get(12)?,
+            manifest_evidence_id: row.get(13)?, findings_evidence_id: row.get(14)?,
+            coverage_evidence_id: row.get(15)?, assessment_sha256: row.get(16)?,
+            created_at_unix_ms: row.get(17)?, safety_proven: false,
+            authority_notice: "Imported security artifacts prove only the observed bytes, declared coverage, and normalized counts. Zero findings never proves safety or approval.".to_owned(),
+        }),
+    ).optional()?.ok_or_else(|| Error::NotFound(format!("security assessment {assessment_id}")))?;
+    let observed = digest_json(&serde_json::json!({
+        "assessment_id": assessment.assessment_id,
+        "provider_capability_id": assessment.provider_capability_id,
+        "provider_version": assessment.provider_version,
+        "source_scan_id": assessment.source_scan_id,
+        "git_snapshot_id": assessment.git_snapshot_id,
+        "target_commit": assessment.target_commit,
+        "target_tree": assessment.target_tree,
+        "coverage": assessment.coverage.as_str(),
+        "reportable_critical": assessment.reportable_critical,
+        "reportable_high": assessment.reportable_high,
+        "reportable_medium": assessment.reportable_medium,
+        "reportable_low": assessment.reportable_low,
+        "manifest_evidence_id": assessment.manifest_evidence_id,
+        "findings_evidence_id": assessment.findings_evidence_id,
+        "coverage_evidence_id": assessment.coverage_evidence_id,
+        "created_at_unix_ms": assessment.created_at_unix_ms,
+    }))?;
+    if observed != assessment.assessment_sha256 {
+        return Err(Error::Conflict(format!(
+            "security assessment {assessment_id} digest mismatch"
+        )));
+    }
+    Ok(assessment)
 }
 
 fn require_bounded_public_text(name: &str, value: &str, max_bytes: usize) -> Result<()> {

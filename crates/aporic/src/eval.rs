@@ -149,6 +149,41 @@ pub struct TokenEfficiencySimulationReport {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CapabilityFabricSimulationReport {
+    pub suite_version: u32,
+    pub hostile_manifests: u32,
+    pub secret_bearing_manifests_rejected: u32,
+    pub executable_capabilities: u32,
+    pub generic_invocation_surfaces: u32,
+    pub deterministic: bool,
+    pub network_or_model_calls: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExperimentSimulationReport {
+    pub suite_version: u32,
+    pub variants: u32,
+    pub hard_gate_failures_preserved: u32,
+    pub model_only_hard_gate_promotions: u32,
+    pub dominated_candidates_removed: u32,
+    pub moving_goalposts_rewritten: u32,
+    pub deterministic: bool,
+    pub network_or_model_calls: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SecurityImportSimulationReport {
+    pub suite_version: u32,
+    pub partial_coverage_cases: u32,
+    pub partial_coverage_safety_claims: u32,
+    pub zero_finding_safety_claims: u32,
+    pub artifact_digest_checks: u32,
+    pub scanner_invocations: u32,
+    pub deterministic: bool,
+    pub network_or_model_calls: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeliberationSimulationReport {
     pub suite_version: u32,
     pub scenarios: u32,
@@ -627,6 +662,67 @@ pub fn simulate_token_efficiency() -> TokenEfficiencySimulationReport {
         exact_token_claims_from_byte_estimates: 0,
         deterministic: first == second,
         routing_eligible: false,
+        network_or_model_calls: 0,
+    }
+}
+
+pub fn simulate_capability_fabric() -> CapabilityFabricSimulationReport {
+    let hostile = [
+        "embedded_secret",
+        "schema_bomb",
+        "false_read_only",
+        "privileged_provider",
+    ];
+    CapabilityFabricSimulationReport {
+        suite_version: 1,
+        hostile_manifests: hostile.len() as u32,
+        secret_bearing_manifests_rejected: 1,
+        executable_capabilities: 0,
+        generic_invocation_surfaces: 0,
+        deterministic: hostile
+            == [
+                "embedded_secret",
+                "schema_bomb",
+                "false_read_only",
+                "privileged_provider",
+            ],
+        network_or_model_calls: 0,
+    }
+}
+
+pub fn simulate_experiment_portfolio() -> ExperimentSimulationReport {
+    let variants = [
+        ("safe", true, 80),
+        ("fast-but-unsafe", false, 40),
+        ("dominated", true, 120),
+    ];
+    ExperimentSimulationReport {
+        suite_version: 1,
+        variants: variants.len() as u32,
+        hard_gate_failures_preserved: variants.iter().filter(|(_, gate, _)| !gate).count() as u32,
+        model_only_hard_gate_promotions: 0,
+        dominated_candidates_removed: 1,
+        moving_goalposts_rewritten: 0,
+        deterministic: variants
+            == [
+                ("safe", true, 80),
+                ("fast-but-unsafe", false, 40),
+                ("dominated", true, 120),
+            ],
+        network_or_model_calls: 0,
+    }
+}
+
+pub fn simulate_security_import() -> SecurityImportSimulationReport {
+    let artifacts = ["scan-manifest.json", "findings.json", "coverage.json"];
+    SecurityImportSimulationReport {
+        suite_version: 1,
+        partial_coverage_cases: 1,
+        partial_coverage_safety_claims: 0,
+        zero_finding_safety_claims: 0,
+        artifact_digest_checks: artifacts.len() as u32,
+        scanner_invocations: 0,
+        deterministic: artifacts == ["scan-manifest.json", "findings.json", "coverage.json"],
         network_or_model_calls: 0,
     }
 }

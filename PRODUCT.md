@@ -32,12 +32,12 @@ saves.
 
 ## Current stage
 
-The product is in the commit-bound deliberation stage. The
+The product is in the secure-capability and prototype-portfolio stage. The
 product question is:
 
-> Can a local hub preserve material disagreement, unknowns, revisions, and
-> provisional decisions against exact repository state without manufacturing
-> authority or storing hidden reasoning?
+> Can one local MCP surface catalog many custom capabilities and compare diverse
+> prototypes against common evidence without turning plugin declarations,
+> security scans, or model preferences into execution authority?
 
 The first protocol slice is complete: an actual stdio MCP client can open a
 session, recall project context, record a durable item, close the session, and
@@ -149,10 +149,11 @@ manual evaluation.
 
 ## Deferred operational work
 
-User-facing retention policy, import/restore, backup, remote authentication,
-long-running agent scheduling, general-purpose tool execution, and remote-effect
-verification are intentionally deferred. They must be resolved before their
-corresponding capabilities are introduced.
+User-facing retention policy, destructive restore, remote authentication,
+long-running agent scheduling, provider code loading, credential brokering,
+general-purpose tool execution, and remote-effect verification are intentionally
+deferred. v0.12 adds recoverable SQLite backup plus read-only restore validation
+and a bounded Codex Security artifact importer; neither grants provider authority.
 
 ## Current evidence
 
@@ -160,7 +161,7 @@ Observed on 2026-09-25:
 
 - the exact kernel candidate in the repository matches the installed candidate
   by SHA-256;
-- a real stdio MCP child process exposes all thirty-four tools and preserves a record
+- a real stdio MCP child process exposes all forty-five tools and preserves a record
   across a server restart;
 - exact retries are idempotent and conflicting reuse of a key is rejected;
 - concurrent writers retain all tested sessions through SQLite WAL;
@@ -219,6 +220,15 @@ Observed on 2026-09-25:
 - the fixed deliberation simulation preserves all three material challenges,
   rejects unsupported materiality, detects stale state, and emits zero
   approvals, hidden-reasoning fields, network calls, or model calls.
+- the secure-capability suite migrates schema v11 to v12, rejects embedded
+  credential material and exact prototype clones, exposes no generic invocation
+  surface, and keeps every registered capability non-executable;
+- the experiment suite requires direct hard-gate evidence, prevents a faster but
+  unsafe candidate from winning, computes Pareto candidates, enforces variant
+  budgets, and rejects final selection without a zero-open-issue deliberation;
+- the Codex Security bridge hashes three bounded local artifacts, preserves
+  partial coverage and zero findings without claiming safety, and validates a
+  SQLite backup through a read-only integrity check.
 
 Not yet established:
 

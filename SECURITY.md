@@ -34,6 +34,24 @@ receipt proves the recorded process result and declared artifact hashes, not the
 semantic quality of a test or a broader real-world effect. Do not run untrusted
 specifications, or store secrets or raw conversation history in Aporic records.
 
+## Secure capability boundary
+
+The v0.12 capability catalog stores bounded manifests and risk declarations as
+untrusted data. Registration never loads plugin code, makes a provider
+executable, grants credentials, opens a network path, or creates a generic tool
+invocation surface. Tool annotations and manifest claims are not enforcement.
+
+Prototype experiment hard gates require Aporic-direct evidence or an
+observed/verified claim. A preference score cannot override a failed hard gate,
+and final selection additionally requires a deliberation decision with no open
+material issue. These are integrity rules for Aporic state, not host approval.
+
+The Codex Security adapter is a local artifact importer, not a scanner runner.
+It accepts bounded regular non-symlink JSON files, hashes the exact bytes read,
+and records declared coverage and finding counts against a clean Git snapshot.
+Partial coverage or zero findings never proves safety. Imported files remain
+untrusted content, and Aporic does not pass tokens or credentials to a provider.
+
 ## Reporting
 
 Report suspected vulnerabilities privately to the repository maintainers. Do

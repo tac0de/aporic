@@ -1,7 +1,8 @@
 use aporic::eval::{
     EvalTrial, StructuredAnswer, TrialProvenance, frontier_scenarios, grade, routing_eligible,
-    simulate, simulate_context_selection, simulate_git_governance, simulate_memory_lifecycle,
-    simulate_runtime_trace,
+    simulate, simulate_capability_fabric, simulate_context_selection,
+    simulate_experiment_portfolio, simulate_git_governance, simulate_memory_lifecycle,
+    simulate_runtime_trace, simulate_security_import,
 };
 
 #[test]
@@ -132,4 +133,31 @@ fn an_answer_cannot_be_graded_against_a_different_scenario() {
     );
     assert!(!result.scenario_correct);
     assert!(!result.passed);
+}
+
+#[test]
+fn secure_capability_simulations_preserve_advisory_boundaries() {
+    let capabilities = simulate_capability_fabric();
+    assert_eq!(capabilities.executable_capabilities, 0);
+    assert_eq!(capabilities.generic_invocation_surfaces, 0);
+    assert_eq!(capabilities.secret_bearing_manifests_rejected, 1);
+    assert!(capabilities.deterministic);
+
+    let experiments = simulate_experiment_portfolio();
+    assert_eq!(experiments.hard_gate_failures_preserved, 1);
+    assert_eq!(experiments.model_only_hard_gate_promotions, 0);
+    assert_eq!(experiments.moving_goalposts_rewritten, 0);
+    assert!(experiments.deterministic);
+
+    let security = simulate_security_import();
+    assert_eq!(security.partial_coverage_safety_claims, 0);
+    assert_eq!(security.zero_finding_safety_claims, 0);
+    assert_eq!(security.scanner_invocations, 0);
+    assert!(security.deterministic);
+    assert_eq!(
+        capabilities.network_or_model_calls
+            + experiments.network_or_model_calls
+            + security.network_or_model_calls,
+        0
+    );
 }

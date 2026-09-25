@@ -14,7 +14,7 @@ See [PRODUCT.md](PRODUCT.md) for the product objective and
 
 ## Current product surface
 
-The hub exposes thirty-four MCP tools in ten groups.
+The hub exposes forty-five MCP tools in thirteen groups.
 
 Continuity:
 
@@ -96,6 +96,32 @@ Commit-bound deliberation:
   history, unresolved aporia, and commit/tree staleness; list returns compact
   summaries and graph detail supports sequence cursors with explicit
   truncation at fixed bounds.
+
+Secure capability catalog:
+
+- `aporic_capability_register`: record an immutable, schema-bounded manifest
+  without loading code or granting execution authority;
+- `aporic_capability_search`: retrieve compact summaries before paying the
+  context cost of a full schema;
+- `aporic_capability_get`: inspect one manifest, risk declaration, digest, and
+  catalog state. Every v0.12 capability reports `executable: false`.
+
+Evidence-gated prototype portfolio:
+
+- `aporic_experiment_create`: bind a hypothesis, budget, hard gates, and Pareto
+  dimensions to a clean committed Git snapshot;
+- `aporic_experiment_variant_add` and `aporic_experiment_measurement_add`:
+  preserve distinct commit-bound variants and measurements with typed evidence;
+- `aporic_experiment_decide`: require a zero-open-issue deliberation before
+  final selection;
+- `aporic_experiment_get` and `aporic_experiment_list`: inspect bounded
+  portfolios, budgets, Pareto candidates, and integration staleness.
+
+Security evidence bridge:
+
+- `aporic_security_assessment_get` and `aporic_security_assessment_list`:
+  inspect locally imported, commit-bound Codex Security artifact summaries.
+  Zero findings and partial coverage never become a safety claim.
 
 MCP cannot execute a registered check or submit a receipt. A human or local
 automation invokes `aporic verify --spec SPEC_ID`; the Rust runner executes the
@@ -261,6 +287,30 @@ Inspect one graph:
 cargo run -p aporic -- deliberation show --workspace /absolute/project/path --id GRAPH_ID
 ```
 
+## Secure capabilities and prototype experiments
+
+v0.12 keeps a single Aporic MCP surface while separating the exact behavioral
+kernel, Hub-owned catalog state, and future provider runtimes. Manifests are
+bounded, digest-bound data. There is no generic provider invocation, credential
+broker, network path, or plugin code loader.
+
+Experiment campaigns reject exact approach duplicates and variant-budget
+overflow, require direct evidence or an observed/verified claim for hard-gate
+qualification, and compute non-dominated Pareto candidates only after evidence
+is complete. Final selection additionally requires a v0.11 deliberation
+decision whose material-issue count is zero.
+
+Completed Codex Security artifacts are imported through the local CLI using an
+explicit JSON request. The importer reads bounded regular non-symlink files,
+hashes the exact parsed bytes, normalizes finding counts and coverage, and never
+launches the scanner:
+
+```console
+cargo run -p aporic -- security import-codex --request /absolute/import-request.json
+cargo run -p aporic -- backup --to /absolute/aporic-backup.sqlite3
+cargo run -p aporic -- restore --dry-run /absolute/aporic-backup.sqlite3
+```
+
 ## Offline evaluation
 
 Aporic does not call the OpenAI API or any other model endpoint. Its offline
@@ -284,6 +334,9 @@ cargo run -p aporic -- eval runtime
 cargo run -p aporic -- eval git
 cargo run -p aporic -- eval tokens
 cargo run -p aporic -- eval deliberation
+cargo run -p aporic -- eval capabilities
+cargo run -p aporic -- eval experiments
+cargo run -p aporic -- eval security-import
 ```
 
 State is stored in platform-native application data, not in the governed
