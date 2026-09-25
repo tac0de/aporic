@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "unsealed-candidate",
+  "status": "versioned-v1-candidate",
   "canon": "KERNEL.md",
-  "sha256": "86100dd011cce7132886734e239c2a4ed99b9354130492901c2048821dce5815"
+  "sha256": "4eb039da10d9b269fe5b42c8c0e18a8a734c7d8c59197e9b567406e4ffde460e"
 }

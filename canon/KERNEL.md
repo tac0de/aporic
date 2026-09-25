@@ -1,6 +1,7 @@
 # Aporic Kernel
 
-Status: unsealed candidate. This is the only active design input for the reset.
+Status: versioned candidate for v1 stabilization. Its exact bytes are integrity-bound,
+but it is not yet declared the final v1 kernel. This is the only active design input.
 Do not treat the existing implementation, archived material, integrations, or
 earlier metaphors as part of the kernel.
 

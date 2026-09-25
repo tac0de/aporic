@@ -1,4 +1,4 @@
-use std::{error::Error, fs, io::Read, path::Path};
+use std::{error::Error, fs, path::Path};
 
 use aporic::{AporicMcp, Hub, default_database_path};
 use rmcp::{ServiceExt, transport::stdio};
@@ -18,6 +18,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
             if restore_command == "restore" && dry_run == "--dry-run" =>
         {
             validate_backup(source)
+        }
+        [restore_command, from_flag, source, to_flag, destination]
+            if restore_command == "restore" && from_flag == "--from" && to_flag == "--to" =>
+        {
+            restore_backup(source, destination)
+        }
+        [backup_command, prune, dir_flag, directory, keep_flag, keep]
+            if backup_command == "backup"
+                && prune == "prune"
+                && dir_flag == "--dir"
+                && keep_flag == "--keep" =>
+        {
+            prune_backups(directory, keep)
         }
         [security, import, flag, request]
             if security == "security" && import == "import-codex" && flag == "--request" =>
@@ -103,7 +116,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         _ => {
             eprintln!(
-                "usage: aporic doctor | aporic backup --to PATH | aporic restore --dry-run PATH | aporic security import-codex --request REQUEST.json | aporic export --workspace PATH | aporic trace export --workspace PATH | aporic git inspect --workspace PATH | aporic tokens report --workspace PATH | aporic deliberation show --workspace PATH --id ID | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic eval context | aporic eval memory | aporic eval runtime | aporic eval git | aporic eval tokens | aporic eval deliberation | aporic eval capabilities | aporic eval experiments | aporic eval security-import | aporic executions reconcile --stale-after SECONDS | aporic hook codex | aporic mcp serve --stdio"
+                "usage: aporic doctor | aporic backup --to PATH | aporic backup prune --dir DIR --keep COUNT | aporic restore --dry-run PATH | aporic restore --from BACKUP --to DATABASE | aporic security import-codex --request REQUEST.json | aporic export --workspace PATH | aporic trace export --workspace PATH | aporic git inspect --workspace PATH | aporic tokens report --workspace PATH | aporic deliberation show --workspace PATH --id ID | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic eval context | aporic eval memory | aporic eval runtime | aporic eval git | aporic eval tokens | aporic eval deliberation | aporic eval capabilities | aporic eval experiments | aporic eval security-import | aporic executions reconcile --stale-after SECONDS | aporic hook codex | aporic mcp serve --stdio"
             );
             std::process::exit(2);
         }
@@ -136,6 +149,19 @@ fn validate_backup(source: &str) -> Result<(), Box<dyn Error>> {
             "restored": false,
         }))?
     );
+    Ok(())
+}
+
+fn restore_backup(source: &str, destination: &str) -> Result<(), Box<dyn Error>> {
+    let outcome = aporic::recovery::restore_to(Path::new(source), Path::new(destination))?;
+    println!("{}", serde_json::to_string(&outcome)?);
+    Ok(())
+}
+
+fn prune_backups(directory: &str, keep: &str) -> Result<(), Box<dyn Error>> {
+    let keep = keep.parse::<usize>()?;
+    let outcome = aporic::recovery::prune_backups(Path::new(directory), keep)?;
+    println!("{}", serde_json::to_string(&outcome)?);
     Ok(())
 }
 
@@ -236,11 +262,10 @@ fn token_report(workspace: &str) -> Result<(), Box<dyn Error>> {
 }
 
 fn codex_hook() -> Result<(), Box<dyn Error>> {
-    let mut input = String::new();
-    if std::io::stdin().read_to_string(&mut input).is_err() {
+    let Some(input) = aporic::read_hook_input(&mut std::io::stdin()) else {
         println!("{{}}");
         return Ok(());
-    }
+    };
     let response = default_database_path()
         .map_err(std::io::Error::other)
         .and_then(|path| Hub::open(path).map_err(std::io::Error::other))

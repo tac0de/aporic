@@ -1,7 +1,7 @@
 use std::{
     env, fs,
     path::{Path, PathBuf},
-    process::{Command as StdCommand, Stdio},
+    process::Stdio,
     time::Duration,
 };
 
@@ -15,7 +15,12 @@ use tokio::{
 
 use crate::{
     Hub,
+    bounded::{
+        MAX_GIT_OUTPUT_BYTES, MAX_RECEIPT_ARTIFACT_BYTES, MAX_RECEIPT_ARTIFACT_TOTAL_BYTES,
+        sha256_file_bounded,
+    },
     domain::{ExecutionFinish, ExecutionOutcome, ExecutionStatus, ReceiptArtifactInput},
+    git_process::run_hardened_git,
     store::{Error, Result},
 };
 
@@ -124,10 +129,26 @@ pub async fn verify(hub: &Hub, spec_id: &str) -> Result<ExecutionOutcome> {
 
     let mut artifacts = Vec::new();
     let mut missing_artifact = false;
+    let mut artifact_bytes = 0_u64;
     for relative in &spec.artifact_paths {
-        match observe_artifact(&workspace, relative) {
-            Ok(artifact) => artifacts.push(artifact),
-            Err(_) => missing_artifact = true,
+        let remaining = MAX_RECEIPT_ARTIFACT_TOTAL_BYTES.saturating_sub(artifact_bytes);
+        if remaining == 0 {
+            missing_artifact = true;
+            break;
+        }
+        match observe_artifact(
+            &workspace,
+            relative,
+            remaining.min(MAX_RECEIPT_ARTIFACT_BYTES),
+        ) {
+            Ok(artifact) => {
+                artifact_bytes = artifact_bytes.saturating_add(artifact.byte_length);
+                artifacts.push(artifact);
+            }
+            Err(_) => {
+                missing_artifact = true;
+                break;
+            }
         }
     }
     if status == ExecutionStatus::Succeeded && termination != "exited" {
@@ -256,16 +277,20 @@ fn resolve_executable(program: &str, cwd: &Path) -> Option<String> {
     })
 }
 
-fn observe_artifact(workspace: &Path, relative: &str) -> Result<ReceiptArtifactInput> {
+fn observe_artifact(
+    workspace: &Path,
+    relative: &str,
+    remaining_bytes: u64,
+) -> Result<ReceiptArtifactInput> {
     let path = fs::canonicalize(workspace.join(relative))?;
     if !path.starts_with(workspace) || !path.is_file() {
         return Err(Error::Invalid(format!("invalid artifact path {relative}")));
     }
-    let bytes = fs::read(path)?;
+    let (digest, byte_length) = sha256_file_bounded(&path, remaining_bytes, "receipt artifact")?;
     Ok(ReceiptArtifactInput {
         workspace_relative_path: relative.to_owned(),
-        sha256: sha256(&bytes),
-        byte_length: bytes.len() as u64,
+        sha256: digest,
+        byte_length,
     })
 }
 
@@ -279,14 +304,7 @@ fn git_snapshot(workspace: &Path) -> (Option<String>, Option<String>) {
 }
 
 fn git_output(workspace: &Path, args: &[&str]) -> Option<Vec<u8>> {
-    let output = StdCommand::new("git")
-        .arg("-C")
-        .arg(workspace)
-        .args(args)
-        .env_clear()
-        .env("PATH", env::var_os("PATH")?)
-        .output()
-        .ok()?;
+    let output = run_hardened_git(workspace, args, MAX_GIT_OUTPUT_BYTES).ok()?;
     output.status.success().then_some(output.stdout)
 }
 

@@ -10,9 +10,18 @@ use crate::{
 
 const HOOK_CONTEXT_BYTES: usize = 6_144;
 
+pub fn read_hook_input(reader: &mut impl std::io::Read) -> Option<String> {
+    crate::bounded::read_utf8_bounded(reader, crate::bounded::MAX_HOOK_INPUT_BYTES)
+        .ok()
+        .flatten()
+}
+
 /// Handles one Codex lifecycle hook without storing raw hook payloads.
 /// Any malformed or unavailable state fails open with an empty JSON object.
 pub fn handle_codex_hook(hub: &Hub, input: &str) -> Value {
+    if input.len() as u64 > crate::bounded::MAX_HOOK_INPUT_BYTES {
+        return json!({});
+    }
     let Ok(event) = serde_json::from_str::<Value>(input) else {
         return json!({});
     };

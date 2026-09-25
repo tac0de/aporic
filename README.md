@@ -104,7 +104,7 @@ Secure capability catalog:
 - `aporic_capability_search`: retrieve compact summaries before paying the
   context cost of a full schema;
 - `aporic_capability_get`: inspect one manifest, risk declaration, digest, and
-  catalog state. Every v0.12 capability reports `executable: false`.
+  catalog state. Every capability reports `executable: false`.
 
 Evidence-gated prototype portfolio:
 
@@ -309,7 +309,30 @@ launches the scanner:
 cargo run -p aporic -- security import-codex --request /absolute/import-request.json
 cargo run -p aporic -- backup --to /absolute/aporic-backup.sqlite3
 cargo run -p aporic -- restore --dry-run /absolute/aporic-backup.sqlite3
+cargo run -p aporic -- restore --from /absolute/aporic-backup.sqlite3 --to /absolute/restored.sqlite3
+cargo run -p aporic -- backup prune --dir /absolute/backups --keep 7
 ```
+
+## v0.13 stabilization boundary
+
+v0.13 converts the main resource limits into enforced boundaries. Workspace
+evidence and receipt artifacts are hashed as bounded streams; command specs cap
+artifact count and aggregate receipt bytes; hook stdin is rejected fail-open
+above 1 MiB; and Git stdout/stderr are captured through bounded pipes that stop
+the child at 2 MiB. Task write scopes use a lower-case, portable ASCII,
+forward-slash lexical form. They reject absolute paths, backslashes, parent
+traversal, trailing dots or spaces, Windows-reserved components, and alias-prone
+characters before persistence.
+
+Runner and governance snapshots share the same hardened Git invocation, so
+repository-configured fsmonitor helpers are disabled. Restore copies and
+validates a backup into a new destination, migrates it to the supported schema, syncs the
+temporary file, and atomically renames it. It deliberately refuses to overwrite
+an existing database. Retention removes only regular non-symlink files matching
+`aporic-backup-*.sqlite3` and requires an explicit keep count.
+
+These controls improve local reliability; they do not turn the runner into a
+sandbox or establish model-driven product utility.
 
 ## Offline evaluation
 

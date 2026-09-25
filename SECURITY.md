@@ -21,6 +21,9 @@ ordinary operating-system permissions.
 
 Runtime state stays outside governed workspaces and `~/.codex`. Task leases and
 write scopes are advisory coordination records, not locks on the filesystem.
+Scopes are conservatively canonicalized to lower-case portable ASCII so aliases
+compare consistently across supported filesystems; use a shared ASCII parent
+scope when work includes non-ASCII filenames.
 An in-workspace file read and hashed by Aporic is direct. The local CLI runner
 can also produce a direct receipt for a pre-registered exact-argv specification;
 MCP cannot execute checks or submit receipts. Receipts retain output hashes and
@@ -36,7 +39,7 @@ specifications, or store secrets or raw conversation history in Aporic records.
 
 ## Secure capability boundary
 
-The v0.12 capability catalog stores bounded manifests and risk declarations as
+The capability catalog stores bounded manifests and risk declarations as
 untrusted data. Registration never loads plugin code, makes a provider
 executable, grants credentials, opens a network path, or creates a generic tool
 invocation surface. Tool annotations and manifest claims are not enforcement.
@@ -51,6 +54,18 @@ It accepts bounded regular non-symlink JSON files, hashes the exact bytes read,
 and records declared coverage and finding counts against a clean Git snapshot.
 Partial coverage or zero findings never proves safety. Imported files remain
 untrusted content, and Aporic does not pass tokens or credentials to a provider.
+
+## Resource and recovery limits
+
+v0.13 bounds hook input, direct workspace evidence, receipt artifact count and
+bytes, and Git subprocess output. File digests are streamed rather than built
+from whole-file allocations. These are process-availability controls, not
+tenant isolation or authentication.
+
+Restore validates and migrates a copy before atomically installing it at a new
+destination and refuses existing targets. Retention deletes only regular,
+non-symlink `aporic-backup-*.sqlite3` files after an explicit keep count. Stop
+all processes using a database before manually replacing an active database.
 
 ## Reporting
 

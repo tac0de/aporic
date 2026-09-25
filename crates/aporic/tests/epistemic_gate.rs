@@ -132,6 +132,40 @@ fn typed_gate_blocks_unsupported_certainty_and_noise() {
 }
 
 #[test]
+fn workspace_evidence_rejects_files_above_the_streaming_limit() {
+    let area = tempfile::tempdir().unwrap();
+    let workspace = area.path().join("workspace");
+    std::fs::create_dir(&workspace).unwrap();
+    let oversized = workspace.join("oversized.bin");
+    std::fs::File::create(&oversized)
+        .unwrap()
+        .set_len(64 * 1024 * 1024 + 1)
+        .unwrap();
+    let hub = Hub::open(area.path().join("aporic.sqlite3")).unwrap();
+    let session_id = hub
+        .open_session(&OpenRequest {
+            workspace: workspace.to_string_lossy().into_owned(),
+            objective: "Reject oversized direct evidence".to_owned(),
+            idempotency_key: "oversized-evidence-open".to_owned(),
+        })
+        .unwrap()
+        .session_id;
+
+    let error = hub
+        .add_evidence(&EvidenceRequest {
+            session_id,
+            kind: EvidenceKind::WorkspaceFile,
+            locator: oversized.to_string_lossy().into_owned(),
+            summary: "Must not be buffered".to_owned(),
+            content_sha256: None,
+            idempotency_key: "oversized-evidence".to_owned(),
+        })
+        .unwrap_err();
+    assert!(error.to_string().contains("67108864-byte limit"));
+    assert_eq!(hub.stats().unwrap().evidence_count, 0);
+}
+
+#[test]
 fn model_router_uses_terra_sol_and_astra_without_conferring_authority() {
     let area = tempfile::tempdir().unwrap();
     let hub = Hub::open(area.path().join("aporic.sqlite3")).unwrap();

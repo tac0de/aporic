@@ -13,40 +13,47 @@ use sha2::{Digest, Sha256};
 use thiserror::Error;
 use uuid::Uuid;
 
-use crate::domain::{
-    AbandonedSession, ActiveSession, CapabilityCatalogState, CapabilityClass,
-    CapabilityEffectClass, CapabilityGetRequest, CapabilityManifest, CapabilityObservation,
-    CapabilityOutcome, CapabilityProviderKind, CapabilityRegisterRequest, CapabilityReport,
-    CapabilitySearchRequest, CapabilitySummary, ClaimOutcome, ClaimRequest, ClaimStatus,
-    CloseDisposition, CloseOutcome, CloseRequest, CommandSpec, CommandSpecOutcome,
-    CommandSpecRequest, Consequence, ContextCapsule, CoordinatedTask, CriterionProof, Deliberation,
-    DeliberationAudit, DeliberationCreateRequest, DeliberationDecision,
-    DeliberationDecisionRequest, DeliberationEdge, DeliberationEdgeKind, DeliberationGetRequest,
-    DeliberationGraph, DeliberationListRequest, DeliberationNode, DeliberationNodeAddRequest,
-    DeliberationNodeKind, DeliberationOutcome, DeliberationSummary, DissentAssessment,
-    DissentRequest, DurableRecord, EpistemicClaim, EvidenceArtifact, EvidenceGrade, EvidenceKind,
-    EvidenceOutcome, EvidenceRequest, ExecutionFinish, ExecutionGetRequest, ExecutionListRequest,
-    ExecutionOutcome, ExecutionReceipt, ExecutionReplayAudit, ExecutionRun, ExecutionStart,
-    ExecutionStatus, ExperimentCampaign, ExperimentComparison, ExperimentCreateRequest,
-    ExperimentCriterion, ExperimentCriterionKind, ExperimentDecision, ExperimentDecisionKind,
-    ExperimentDecisionRequest, ExperimentDiversityAxis, ExperimentGetRequest,
-    ExperimentListRequest, ExperimentMeasurement, ExperimentMeasurementAddRequest,
-    ExperimentOutcome, ExperimentPortfolio, ExperimentSummary, ExperimentVariant,
-    ExperimentVariantAddRequest, ExportEvent, ExportSession, GitSnapshot, GitSnapshotAudit,
-    GitSnapshotDraft, GitSnapshotGetRequest, GitSnapshotListRequest, Handoff, HookHealthReport,
-    HubStats, InfluenceClass, MemoryClass, MemoryEdge, MemoryExposure, MemoryGetRequest,
-    MemoryItem, MemoryLifecycle, MemoryProjectionAudit, MemorySearchRequest, MemorySearchResult,
-    OpenOutcome, OpenRequest, OriginChannel, ProjectExport, RecallRequest, ReceiptArtifact,
-    ReconcileOutcome, ReconcileRequest, RecordKind, RecordOutcome, RecordRequest, RuntimeEvent,
-    RuntimeEventKind, RuntimeObservation, RuntimeOutcomeStatus, RuntimeProjectionAudit,
-    RuntimeTraceGetRequest, RuntimeTraceListRequest, RuntimeWorkspaceRequest,
-    SecureCapabilityAudit, SecurityArtifactImport, SecurityAssessment,
-    SecurityAssessmentGetRequest, SecurityAssessmentListRequest, SecurityAssessmentOutcome,
-    SecurityCoverage, ShadowDisposition, TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest,
-    TaskCreateRequest, TaskListRequest, TaskOutcome, TaskStatus, TokenCountSource,
-    TokenEfficiencyReport, TokenEfficiencyReportRequest, TokenUsageAudit, TokenUsageListRequest,
-    TokenUsageOutcome, TokenUsageReceipt, TokenUsageRecordRequest, UsageOutcome,
-    workspace_file_claim,
+use crate::{
+    bounded::{
+        MAX_EVIDENCE_FILE_BYTES, MAX_RECEIPT_ARTIFACT_BYTES, MAX_RECEIPT_ARTIFACT_TOTAL_BYTES,
+        MAX_RECEIPT_ARTIFACTS, sha256_file_bounded,
+    },
+    domain::{
+        AbandonedSession, ActiveSession, CapabilityCatalogState, CapabilityClass,
+        CapabilityEffectClass, CapabilityGetRequest, CapabilityManifest, CapabilityObservation,
+        CapabilityOutcome, CapabilityProviderKind, CapabilityRegisterRequest, CapabilityReport,
+        CapabilitySearchRequest, CapabilitySummary, ClaimOutcome, ClaimRequest, ClaimStatus,
+        CloseDisposition, CloseOutcome, CloseRequest, CommandSpec, CommandSpecOutcome,
+        CommandSpecRequest, Consequence, ContextCapsule, CoordinatedTask, CriterionProof,
+        Deliberation, DeliberationAudit, DeliberationCreateRequest, DeliberationDecision,
+        DeliberationDecisionRequest, DeliberationEdge, DeliberationEdgeKind,
+        DeliberationGetRequest, DeliberationGraph, DeliberationListRequest, DeliberationNode,
+        DeliberationNodeAddRequest, DeliberationNodeKind, DeliberationOutcome, DeliberationSummary,
+        DissentAssessment, DissentRequest, DurableRecord, EpistemicClaim, EvidenceArtifact,
+        EvidenceGrade, EvidenceKind, EvidenceOutcome, EvidenceRequest, ExecutionFinish,
+        ExecutionGetRequest, ExecutionListRequest, ExecutionOutcome, ExecutionReceipt,
+        ExecutionReplayAudit, ExecutionRun, ExecutionStart, ExecutionStatus, ExperimentCampaign,
+        ExperimentComparison, ExperimentCreateRequest, ExperimentCriterion,
+        ExperimentCriterionKind, ExperimentDecision, ExperimentDecisionKind,
+        ExperimentDecisionRequest, ExperimentDiversityAxis, ExperimentGetRequest,
+        ExperimentListRequest, ExperimentMeasurement, ExperimentMeasurementAddRequest,
+        ExperimentOutcome, ExperimentPortfolio, ExperimentSummary, ExperimentVariant,
+        ExperimentVariantAddRequest, ExportEvent, ExportSession, GitSnapshot, GitSnapshotAudit,
+        GitSnapshotDraft, GitSnapshotGetRequest, GitSnapshotListRequest, Handoff, HookHealthReport,
+        HubStats, InfluenceClass, MemoryClass, MemoryEdge, MemoryExposure, MemoryGetRequest,
+        MemoryItem, MemoryLifecycle, MemoryProjectionAudit, MemorySearchRequest,
+        MemorySearchResult, OpenOutcome, OpenRequest, OriginChannel, ProjectExport, RecallRequest,
+        ReceiptArtifact, ReconcileOutcome, ReconcileRequest, RecordKind, RecordOutcome,
+        RecordRequest, RuntimeEvent, RuntimeEventKind, RuntimeObservation, RuntimeOutcomeStatus,
+        RuntimeProjectionAudit, RuntimeTraceGetRequest, RuntimeTraceListRequest,
+        RuntimeWorkspaceRequest, SecureCapabilityAudit, SecurityArtifactImport, SecurityAssessment,
+        SecurityAssessmentGetRequest, SecurityAssessmentListRequest, SecurityAssessmentOutcome,
+        SecurityCoverage, ShadowDisposition, TaskCancelRequest, TaskClaimRequest,
+        TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskOutcome, TaskStatus,
+        TokenCountSource, TokenEfficiencyReport, TokenEfficiencyReportRequest, TokenUsageAudit,
+        TokenUsageListRequest, TokenUsageOutcome, TokenUsageReceipt, TokenUsageRecordRequest,
+        UsageOutcome, workspace_file_claim,
+    },
 };
 
 const SCHEMA: &str = include_str!("../../../migrations/0001_initial.sql");
@@ -61,6 +68,20 @@ const MIGRATION_9: &str = include_str!("../../../migrations/0009_git_governance.
 const MIGRATION_10: &str = include_str!("../../../migrations/0010_token_efficiency.sql");
 const MIGRATION_11: &str = include_str!("../../../migrations/0011_commit_bound_deliberation.sql");
 const MIGRATION_12: &str = include_str!("../../../migrations/0012_secure_capability_fabric.sql");
+const SCHEMA_VERSION: u32 = 12;
+const MIGRATIONS: &[(u32, &str)] = &[
+    (2, MIGRATION_2),
+    (3, MIGRATION_3),
+    (4, MIGRATION_4),
+    (5, MIGRATION_5),
+    (6, MIGRATION_6),
+    (7, MIGRATION_7),
+    (8, MIGRATION_8),
+    (9, MIGRATION_9),
+    (10, MIGRATION_10),
+    (11, MIGRATION_11),
+    (12, MIGRATION_12),
+];
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -92,110 +113,21 @@ impl Store {
             fs::create_dir_all(parent)?;
         }
         let connection = store.connection()?;
-        let schema_version =
+        let mut schema_version =
             connection.pragma_query_value(None, "user_version", |row| row.get::<_, u32>(0))?;
-        match schema_version {
-            0 => {
-                connection.execute_batch(SCHEMA)?;
-                connection.execute_batch(MIGRATION_6)?;
-                connection.execute_batch(MIGRATION_7)?;
-                connection.execute_batch(MIGRATION_8)?;
-                connection.execute_batch(MIGRATION_9)?;
-                connection.execute_batch(MIGRATION_10)?;
-                connection.execute_batch(MIGRATION_11)?;
-                connection.execute_batch(MIGRATION_12)?;
-            }
-            1 => {
-                connection.execute_batch(MIGRATION_2)?;
-                connection.execute_batch(MIGRATION_3)?;
-                connection.execute_batch(MIGRATION_4)?;
-                connection.execute_batch(MIGRATION_5)?;
-                connection.execute_batch(MIGRATION_6)?;
-                connection.execute_batch(MIGRATION_7)?;
-                connection.execute_batch(MIGRATION_8)?;
-                connection.execute_batch(MIGRATION_9)?;
-                connection.execute_batch(MIGRATION_10)?;
-                connection.execute_batch(MIGRATION_11)?;
-                connection.execute_batch(MIGRATION_12)?;
-            }
-            2 => {
-                connection.execute_batch(MIGRATION_3)?;
-                connection.execute_batch(MIGRATION_4)?;
-                connection.execute_batch(MIGRATION_5)?;
-                connection.execute_batch(MIGRATION_6)?;
-                connection.execute_batch(MIGRATION_7)?;
-                connection.execute_batch(MIGRATION_8)?;
-                connection.execute_batch(MIGRATION_9)?;
-                connection.execute_batch(MIGRATION_10)?;
-                connection.execute_batch(MIGRATION_11)?;
-                connection.execute_batch(MIGRATION_12)?;
-            }
-            3 => {
-                connection.execute_batch(MIGRATION_4)?;
-                connection.execute_batch(MIGRATION_5)?;
-                connection.execute_batch(MIGRATION_6)?;
-                connection.execute_batch(MIGRATION_7)?;
-                connection.execute_batch(MIGRATION_8)?;
-                connection.execute_batch(MIGRATION_9)?;
-                connection.execute_batch(MIGRATION_10)?;
-                connection.execute_batch(MIGRATION_11)?;
-                connection.execute_batch(MIGRATION_12)?;
-            }
-            4 => {
-                connection.execute_batch(MIGRATION_5)?;
-                connection.execute_batch(MIGRATION_6)?;
-                connection.execute_batch(MIGRATION_7)?;
-                connection.execute_batch(MIGRATION_8)?;
-                connection.execute_batch(MIGRATION_9)?;
-                connection.execute_batch(MIGRATION_10)?;
-                connection.execute_batch(MIGRATION_11)?;
-                connection.execute_batch(MIGRATION_12)?;
-            }
-            5 => {
-                connection.execute_batch(MIGRATION_6)?;
-                connection.execute_batch(MIGRATION_7)?;
-                connection.execute_batch(MIGRATION_8)?;
-                connection.execute_batch(MIGRATION_9)?;
-                connection.execute_batch(MIGRATION_10)?;
-                connection.execute_batch(MIGRATION_11)?;
-                connection.execute_batch(MIGRATION_12)?;
-            }
-            6 => {
-                connection.execute_batch(MIGRATION_7)?;
-                connection.execute_batch(MIGRATION_8)?;
-                connection.execute_batch(MIGRATION_9)?;
-                connection.execute_batch(MIGRATION_10)?;
-                connection.execute_batch(MIGRATION_11)?;
-                connection.execute_batch(MIGRATION_12)?;
-            }
-            7 => {
-                connection.execute_batch(MIGRATION_8)?;
-                connection.execute_batch(MIGRATION_9)?;
-                connection.execute_batch(MIGRATION_10)?;
-                connection.execute_batch(MIGRATION_11)?;
-                connection.execute_batch(MIGRATION_12)?;
-            }
-            8 => {
-                connection.execute_batch(MIGRATION_9)?;
-                connection.execute_batch(MIGRATION_10)?;
-                connection.execute_batch(MIGRATION_11)?;
-                connection.execute_batch(MIGRATION_12)?;
-            }
-            9 => {
-                connection.execute_batch(MIGRATION_10)?;
-                connection.execute_batch(MIGRATION_11)?;
-                connection.execute_batch(MIGRATION_12)?;
-            }
-            10 => {
-                connection.execute_batch(MIGRATION_11)?;
-                connection.execute_batch(MIGRATION_12)?;
-            }
-            11 => connection.execute_batch(MIGRATION_12)?,
-            12 => {}
-            version => {
-                return Err(Error::Invalid(format!(
-                    "database schema version {version} is newer than supported version 12"
-                )));
+        if schema_version > SCHEMA_VERSION {
+            return Err(Error::Invalid(format!(
+                "database schema version {schema_version} is newer than supported version {SCHEMA_VERSION}"
+            )));
+        }
+        if schema_version == 0 {
+            connection.execute_batch(SCHEMA)?;
+            schema_version =
+                connection.pragma_query_value(None, "user_version", |row| row.get::<_, u32>(0))?;
+        }
+        for (target_version, migration) in MIGRATIONS {
+            if *target_version > schema_version {
+                connection.execute_batch(migration)?;
             }
         }
         Ok(store)
@@ -219,9 +151,9 @@ impl Store {
         let connection = self.connection()?;
         connection.execute("VACUUM INTO ?1", [target.to_string_lossy().as_ref()])?;
         let validation = Self::validate_backup(target)?;
-        if validation != 12 {
+        if validation != SCHEMA_VERSION {
             return Err(Error::Conflict(format!(
-                "backup schema version {validation} does not match 12"
+                "backup schema version {validation} does not match {SCHEMA_VERSION}"
             )));
         }
         Ok(())
@@ -245,9 +177,20 @@ impl Store {
             )));
         }
         let version = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
-        if version > 12 {
+        let core_table_count: u32 = connection.query_row(
+            "SELECT COUNT(*) FROM sqlite_master
+             WHERE type = 'table' AND name IN ('projects', 'sessions', 'records', 'events')",
+            [],
+            |row| row.get(0),
+        )?;
+        if version == 0 || core_table_count != 4 {
+            return Err(Error::Invalid(
+                "backup is not a recognized Aporic database".to_owned(),
+            ));
+        }
+        if version > SCHEMA_VERSION {
             return Err(Error::Invalid(format!(
-                "backup schema version {version} is newer than supported version 12"
+                "backup schema version {version} is newer than supported version {SCHEMA_VERSION}"
             )));
         }
         Ok(version)
@@ -607,6 +550,11 @@ impl Store {
             }
         }
         require_texts("artifact_paths", &request.artifact_paths)?;
+        if request.artifact_paths.len() > MAX_RECEIPT_ARTIFACTS {
+            return Err(Error::Invalid(format!(
+                "artifact_paths exceeds the {MAX_RECEIPT_ARTIFACTS}-item limit"
+            )));
+        }
         if !(1..=3_600).contains(&request.timeout_seconds) {
             return Err(Error::Invalid(
                 "timeout_seconds must be between 1 and 3600".to_owned(),
@@ -703,6 +651,11 @@ impl Store {
         let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let spec = load_command_spec(&transaction, spec_id)?
             .ok_or_else(|| Error::NotFound(format!("verification spec {spec_id}")))?;
+        if spec.artifact_paths.len() > MAX_RECEIPT_ARTIFACTS {
+            return Err(Error::Invalid(format!(
+                "verification spec exceeds the artifact count limit of {MAX_RECEIPT_ARTIFACTS}"
+            )));
+        }
         require_open_session(&transaction, &spec.session_id)?;
         let running = transaction
             .query_row(
@@ -792,6 +745,19 @@ impl Store {
         {
             return Err(Error::Invalid(
                 "succeeded execution must exit normally with the expected exit code".to_owned(),
+            ));
+        }
+        if finish.artifacts.len() > MAX_RECEIPT_ARTIFACTS
+            || finish
+                .artifacts
+                .iter()
+                .any(|artifact| artifact.byte_length > MAX_RECEIPT_ARTIFACT_BYTES)
+            || finish.artifacts.iter().fold(0_u64, |total, artifact| {
+                total.saturating_add(artifact.byte_length)
+            }) > MAX_RECEIPT_ARTIFACT_TOTAL_BYTES
+        {
+            return Err(Error::Invalid(
+                "receipt artifacts exceed the configured count or byte limits".to_owned(),
             ));
         }
         if finish.status == ExecutionStatus::Succeeded
@@ -1206,6 +1172,7 @@ impl Store {
             outcome.duplicate = true;
             return Ok(outcome);
         }
+        let write_scope = normalize_write_scopes(&request.write_scope)?;
         require_open_session(&transaction, &request.session_id)?;
         let project_id = transaction.query_row(
             "SELECT project_id FROM sessions WHERE session_id = ?1",
@@ -1256,7 +1223,7 @@ impl Store {
                 request.session_id,
                 request.objective,
                 serde_json::to_string(&request.acceptance_criteria)?,
-                serde_json::to_string(&request.write_scope)?,
+                serde_json::to_string(&write_scope)?,
                 serde_json::to_string(&request.depends_on)?,
                 now,
             ],
@@ -4517,7 +4484,7 @@ fn load_capability_manifest(
         state,
         created_at_unix_ms: row.18,
         executable: false,
-            authority_notice: "Capability manifests are catalog data, not executable authority. Aporic v0.12 never invokes registered providers.".to_owned(),
+            authority_notice: "Capability manifests are catalog data, not executable authority. Aporic never invokes registered providers.".to_owned(),
         };
         if capability_manifest_digest(&manifest)? != manifest.manifest_sha256 {
             return Err(Error::Conflict(format!("capability {capability_id}@{version} digest mismatch")));
@@ -6278,7 +6245,8 @@ fn validate_evidence(
                         .to_owned(),
                 ));
             }
-            let digest = format!("{:x}", Sha256::digest(fs::read(path)?));
+            let (digest, _) =
+                sha256_file_bounded(&path, MAX_EVIDENCE_FILE_BYTES, "workspace evidence file")?;
             if request
                 .content_sha256
                 .as_deref()
@@ -6447,21 +6415,6 @@ fn validate_record_links(transaction: &Transaction<'_>, request: &RecordRequest)
                 .to_owned(),
         ));
     }
-    match request.kind {
-        RecordKind::Effect | RecordKind::Verification
-            if request
-                .evidence
-                .as_deref()
-                .is_none_or(|evidence| evidence.trim().is_empty()) =>
-        {
-            return Err(Error::Invalid(format!(
-                "{} records require non-empty evidence",
-                request.kind.as_str()
-            )));
-        }
-        _ => {}
-    }
-
     if let Some(record_id) = &request.supersedes_record_id {
         if !matches!(request.kind, RecordKind::Decision | RecordKind::Constraint) {
             return Err(Error::Invalid(
@@ -6492,44 +6445,10 @@ fn validate_record_links(transaction: &Transaction<'_>, request: &RecordRequest)
         // A new independent decision or constraint is valid without a predecessor.
     }
 
-    match (&request.kind, &request.verifies_effect_id) {
-        (RecordKind::Verification, Some(effect_id)) => {
-            let target = record_identity(transaction, effect_id)?;
-            let Some((session_id, kind)) = target else {
-                return Err(Error::NotFound(format!("record {effect_id}")));
-            };
-            if kind != RecordKind::Effect.as_str() {
-                return Err(Error::Conflict(
-                    "verification must reference an effect record".to_owned(),
-                ));
-            }
-            if session_id != request.session_id {
-                return Err(Error::Conflict(
-                    "verification and effect must belong to the same session".to_owned(),
-                ));
-            }
-            let already_verified = transaction.query_row(
-                "SELECT EXISTS(SELECT 1 FROM records WHERE verifies_effect_id = ?1)",
-                [effect_id],
-                |row| row.get::<_, bool>(0),
-            )?;
-            if already_verified {
-                return Err(Error::Conflict(format!(
-                    "effect {effect_id} is already verified"
-                )));
-            }
-        }
-        (RecordKind::Verification, None) => {
-            return Err(Error::Invalid(
-                "verification records must reference verifies_effect_id".to_owned(),
-            ));
-        }
-        (_, Some(_)) => {
-            return Err(Error::Invalid(
-                "only verification records may set verifies_effect_id".to_owned(),
-            ));
-        }
-        (_, None) => {}
+    if request.verifies_effect_id.is_some() {
+        return Err(Error::Invalid(
+            "new verification records are disabled; verifies_effect_id is not accepted".to_owned(),
+        ));
     }
     Ok(())
 }
@@ -7086,7 +7005,18 @@ fn ensure_write_scope_available(
         if requested
             .write_scope
             .iter()
-            .any(|left| scopes.iter().any(|right| write_scopes_overlap(left, right)))
+            .try_fold(false, |overlap, left| {
+                if overlap {
+                    return Ok(true);
+                }
+                scopes.iter().try_fold(false, |inner_overlap, right| {
+                    if inner_overlap {
+                        Ok(true)
+                    } else {
+                        write_scopes_overlap(left, right)
+                    }
+                })
+            })?
         {
             return Err(Error::Conflict(format!(
                 "task write scope overlaps active lease for task {task_id}"
@@ -7096,16 +7026,90 @@ fn ensure_write_scope_available(
     Ok(())
 }
 
-fn write_scopes_overlap(left: &str, right: &str) -> bool {
-    let left = left.trim_end_matches('/');
-    let right = right.trim_end_matches('/');
-    left == right
+fn normalize_write_scopes(scopes: &[String]) -> Result<Vec<String>> {
+    let mut normalized = Vec::with_capacity(scopes.len());
+    for scope in scopes {
+        let scope = normalize_write_scope(scope)?;
+        if normalized.contains(&scope) {
+            return Err(Error::Invalid(format!(
+                "write_scope contains duplicate normalized path {scope}"
+            )));
+        }
+        normalized.push(scope);
+    }
+    Ok(normalized)
+}
+
+fn normalize_write_scope(raw: &str) -> Result<String> {
+    require_text("write_scope", raw)?;
+    if raw.starts_with('/')
+        || raw.starts_with('\\')
+        || raw.contains('\\')
+        || raw.as_bytes().get(1) == Some(&b':')
+    {
+        return Err(Error::Invalid(
+            "write_scope must use workspace-relative forward-slash paths".to_owned(),
+        ));
+    }
+    let mut components = Vec::new();
+    for component in raw.split('/') {
+        match component {
+            "" | "." => {}
+            ".." => {
+                return Err(Error::Invalid(
+                    "write_scope must not contain parent traversal".to_owned(),
+                ));
+            }
+            value => {
+                if !value.is_ascii()
+                    || value.ends_with(['.', ' '])
+                    || value
+                        .bytes()
+                        .any(|byte| byte.is_ascii_control() || b"<>:\"|?*~".contains(&byte))
+                {
+                    return Err(Error::Invalid(
+                        "write_scope components must use portable ASCII names without trailing dots or spaces"
+                            .to_owned(),
+                    ));
+                }
+                let value = value.to_ascii_lowercase();
+                let stem = value.split('.').next().unwrap_or_default();
+                let reserved = matches!(stem, "con" | "prn" | "aux" | "nul")
+                    || stem.strip_prefix("com").is_some_and(|suffix| {
+                        matches!(suffix, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")
+                    })
+                    || stem.strip_prefix("lpt").is_some_and(|suffix| {
+                        matches!(suffix, "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9")
+                    });
+                if reserved {
+                    return Err(Error::Invalid(format!(
+                        "write_scope contains a reserved portable component {value}"
+                    )));
+                }
+                components.push(value);
+            }
+        }
+    }
+    Ok(if components.is_empty() {
+        ".".to_owned()
+    } else {
+        components.join("/")
+    })
+}
+
+fn write_scopes_overlap(left: &str, right: &str) -> Result<bool> {
+    let left = normalize_write_scope(left)?;
+    let right = normalize_write_scope(right)?;
+    if left == "." || right == "." {
+        return Ok(true);
+    }
+    Ok(left == right
         || left
-            .strip_prefix(right)
+            .strip_prefix(&right)
             .is_some_and(|suffix| suffix.starts_with('/'))
         || right
-            .strip_prefix(left)
-            .is_some_and(|suffix| suffix.starts_with('/'))
+            .strip_prefix(&left)
+            .is_some_and(|suffix| suffix.starts_with('/')))
 }
 
 fn validate_criterion_proofs(

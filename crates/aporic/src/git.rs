@@ -1,18 +1,15 @@
-use std::{
-    collections::BTreeSet,
-    path::Path,
-    process::{Command, Output},
-};
+use std::{collections::BTreeSet, path::Path, process::Output};
 
 use crate::{
+    bounded::MAX_GIT_OUTPUT_BYTES,
     domain::{
         GitObserveRequest, GitPathChange, GitSnapshotDraft, GitWorktreeObservation,
         GovernanceFinding, GovernanceSeverity,
     },
+    git_process::run_hardened_git,
     store::{Error, Result},
 };
 
-const MAX_GIT_OUTPUT_BYTES: usize = 2 * 1024 * 1024;
 const MAX_CHANGED_PATHS: usize = 512;
 const MAX_WORKTREES: usize = 128;
 const MAX_REMOTES: usize = 64;
@@ -306,24 +303,13 @@ pub(crate) fn assess_governance(
 }
 
 fn run_git(workspace: &Path, args: &[&str]) -> Result<Output> {
-    let output = Command::new("git")
-        .current_dir(workspace)
-        .env("GIT_OPTIONAL_LOCKS", "0")
-        .env("GIT_TERMINAL_PROMPT", "0")
-        .env("GIT_NO_REPLACE_OBJECTS", "1")
-        .env("GIT_NO_LAZY_FETCH", "1")
-        .env("GIT_PAGER", "cat")
-        .args(["-c", "core.fsmonitor=false"])
-        .args(["-c", "diff.external="])
-        .args(["-c", "submodule.recurse=false"])
-        .args(args)
-        .output()?;
-    if output.stdout.len() > MAX_GIT_OUTPUT_BYTES || output.stderr.len() > MAX_GIT_OUTPUT_BYTES {
-        return Err(Error::Invalid(
-            "Git metadata output exceeded 2 MiB".to_owned(),
-        ));
-    }
-    Ok(output)
+    run_hardened_git(workspace, args, MAX_GIT_OUTPUT_BYTES).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::InvalidData {
+            Error::Invalid("Git metadata output exceeded 2 MiB".to_owned())
+        } else {
+            Error::Io(error)
+        }
+    })
 }
 
 fn required_bytes(workspace: &Path, args: &[&str]) -> Result<Vec<u8>> {

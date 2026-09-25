@@ -325,6 +325,171 @@ fn registration_rejects_paths_that_escape_the_workspace() {
 }
 
 #[test]
+fn registration_rejects_excessive_artifact_count() {
+    let (_area, _workspace, _database, hub, session_id) = setup("artifact count limit");
+    let (program, args) = success_command();
+    let error = hub
+        .register_command_spec(&CommandSpecRequest {
+            session_id,
+            program,
+            args,
+            workspace_relative_cwd: ".".to_owned(),
+            expected_exit_code: 0,
+            timeout_seconds: 5,
+            artifact_paths: (0..65).map(|index| format!("artifact-{index}")).collect(),
+            idempotency_key: "too-many-artifacts".to_owned(),
+        })
+        .unwrap_err();
+    assert!(error.to_string().contains("64-item limit"));
+}
+
+#[tokio::test]
+async fn execution_rejects_a_legacy_spec_with_excessive_artifact_count() {
+    let (_area, workspace, database, hub, session_id) = setup("legacy artifact count limit");
+    let (program, args) = success_command();
+    let registered = register(
+        &hub,
+        &session_id,
+        program,
+        args,
+        5,
+        Vec::new(),
+        "legacy-artifacts",
+    );
+    let connection = rusqlite::Connection::open(database).unwrap();
+    let paths: Vec<String> = (0..65).map(|index| format!("artifact-{index}")).collect();
+    connection
+        .execute(
+            "UPDATE verification_specs SET artifact_paths_json = ?1 WHERE spec_id = ?2",
+            rusqlite::params![
+                serde_json::to_string(&paths).unwrap(),
+                registered.spec.spec_id
+            ],
+        )
+        .unwrap();
+    drop(connection);
+
+    let error = hub.verify(&registered.spec.spec_id).await.unwrap_err();
+    assert!(error.to_string().contains("artifact count limit"));
+    assert!(
+        hub.list_executions(&ExecutionListRequest {
+            workspace: workspace.to_string_lossy().into_owned(),
+            limit: None,
+        })
+        .unwrap()
+        .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn oversized_artifact_cannot_issue_a_verified_receipt() {
+    let (_area, workspace, _database, hub, session_id) = setup("artifact byte limit");
+    let artifact = "oversized.bin";
+    std::fs::File::create(workspace.join(artifact))
+        .unwrap()
+        .set_len(64 * 1024 * 1024 + 1)
+        .unwrap();
+    let (program, args) = success_command();
+    let registered = register(
+        &hub,
+        &session_id,
+        program,
+        args,
+        5,
+        vec![artifact.to_owned()],
+        "oversized-artifact",
+    );
+    let outcome = hub.verify(&registered.spec.spec_id).await.unwrap();
+    assert_eq!(outcome.run.status, ExecutionStatus::Failed);
+    assert_eq!(
+        outcome.receipt.unwrap().termination,
+        "missing_or_invalid_artifact"
+    );
+    assert!(outcome.verified_claim_id.is_none());
+}
+
+#[tokio::test]
+async fn aggregate_artifact_limit_stops_before_hashing_another_file() {
+    let (_area, workspace, _database, hub, session_id) = setup("aggregate artifact byte limit");
+    let paths = ["first.bin", "second.bin", "third.bin"];
+    for path in paths {
+        std::fs::File::create(workspace.join(path))
+            .unwrap()
+            .set_len(64 * 1024 * 1024)
+            .unwrap();
+    }
+    let (program, args) = success_command();
+    let registered = register(
+        &hub,
+        &session_id,
+        program,
+        args,
+        5,
+        paths.into_iter().map(str::to_owned).collect(),
+        "aggregate-artifacts",
+    );
+
+    let outcome = hub.verify(&registered.spec.spec_id).await.unwrap();
+    assert_eq!(outcome.run.status, ExecutionStatus::Failed);
+    assert_eq!(outcome.artifacts.len(), 2);
+    assert_eq!(
+        outcome.receipt.unwrap().termination,
+        "missing_or_invalid_artifact"
+    );
+    assert!(outcome.verified_claim_id.is_none());
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn runner_git_snapshot_disables_repository_fsmonitor() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let (_area, workspace, _database, hub, session_id) = setup("hardened git snapshot");
+    let git = |args: &[&str]| {
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(&workspace)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    };
+    git(&["init"]);
+    let marker = workspace.join("fsmonitor-invoked");
+    let helper = workspace.join("fsmonitor-helper");
+    std::fs::write(
+        &helper,
+        format!(
+            "#!/bin/sh\nprintf invoked > '{}'\nprintf '2\\n'\n",
+            marker.display()
+        ),
+    )
+    .unwrap();
+    let mut permissions = std::fs::metadata(&helper).unwrap().permissions();
+    permissions.set_mode(0o700);
+    std::fs::set_permissions(&helper, permissions).unwrap();
+    git(&["config", "core.fsmonitor", helper.to_str().unwrap()]);
+
+    let (program, args) = success_command();
+    let registered = register(
+        &hub,
+        &session_id,
+        program,
+        args,
+        5,
+        Vec::new(),
+        "fsmonitor-disabled",
+    );
+    let outcome = hub.verify(&registered.spec.spec_id).await.unwrap();
+    assert_eq!(outcome.run.status, ExecutionStatus::Succeeded);
+    assert!(!marker.exists());
+}
+
+#[test]
 fn stale_running_execution_is_reconciled_as_interrupted_with_an_event() {
     let (_area, _workspace, database, hub, session_id) = setup("interrupted execution");
     let (program, args) = success_command();

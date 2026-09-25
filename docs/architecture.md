@@ -14,7 +14,8 @@ The Aporic kernel and Aporic Hub have different lifecycles.
 ## Implementation
 
 The implementation is one Rust package with internal `kernel`, `domain`,
-`context`, `store`, `hub`, `runner`, `git`, `hook`, and `mcp` modules. Package
+`context`, `store`, `hub`, `runner`, `git`, `git_process`, `bounded`, `recovery`,
+`hook`, and `mcp` modules. Package
 boundaries will be introduced only when an independently versioned contract or
 deployment unit exists.
 
@@ -131,6 +132,12 @@ while Pareto comparison cannot override a failed gate. Imported
 `security_assessments` bind locally hashed Codex Security manifest, findings,
 and coverage artifacts to one clean Git snapshot. They prove observed bytes and
 normalized coverage/counts, never safety or approval.
+
+v0.13 deliberately leaves the database at schema v12 because stabilization adds
+no tables. Runtime boundaries now share streaming file hashing, bounded Git
+subprocess capture, lower-case portable-ASCII advisory write scopes, and fresh-destination
+restore. Backup retention remains an explicit CLI operation over a strict
+filename pattern.
 
 ## MCP surface
 

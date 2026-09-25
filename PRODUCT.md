@@ -32,8 +32,8 @@ saves.
 
 ## Current stage
 
-The product is in the secure-capability and prototype-portfolio stage. The
-product question is:
+The product is in v1 stabilization after the secure-capability and
+prototype-portfolio stage. The product question is:
 
 > Can one local MCP surface catalog many custom capabilities and compare diverse
 > prototypes against common evidence without turning plugin declarations,
@@ -149,17 +149,19 @@ manual evaluation.
 
 ## Deferred operational work
 
-User-facing retention policy, destructive restore, remote authentication,
+Destructive in-place restore, remote authentication,
 long-running agent scheduling, provider code loading, credential brokering,
 general-purpose tool execution, and remote-effect verification are intentionally
-deferred. v0.12 adds recoverable SQLite backup plus read-only restore validation
-and a bounded Codex Security artifact importer; neither grants provider authority.
+deferred. v0.13 adds validated restore to a new destination, narrowly matched
+backup retention, bounded streaming file and Git observation, canonical task
+write scopes, and supply-chain/coverage release gates. Restore still refuses to
+overwrite an existing database, and none of these controls grants provider authority.
 
 ## Current evidence
 
 Observed on 2026-09-25:
 
-- the exact kernel candidate in the repository matches the installed candidate
+- the exact versioned kernel candidate in the repository matches the installed candidate
   by SHA-256;
 - a real stdio MCP child process exposes all forty-five tools and preserves a record
   across a server restart;
@@ -229,6 +231,10 @@ Observed on 2026-09-25:
 - the Codex Security bridge hashes three bounded local artifacts, preserves
   partial coverage and zero findings without claiming safety, and validates a
   SQLite backup through a read-only integrity check.
+- the v0.13 adversarial boundary suite rejects oversized hook input, evidence,
+  receipt artifacts, and artifact lists; normalizes write scopes; disables Git
+  fsmonitor in runner snapshots; and restores a validated backup into a fresh
+  supported-schema database without overwriting an existing target.
 
 Not yet established:
 

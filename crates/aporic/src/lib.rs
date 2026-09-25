@@ -8,11 +8,16 @@ pub mod hook;
 pub mod hub;
 pub mod kernel;
 pub mod mcp;
+pub mod recovery;
 pub mod runner;
 pub mod store;
 
+mod bounded;
+mod git_process;
+
 use std::path::PathBuf;
 
+pub use hook::read_hook_input;
 pub use hub::Hub;
 pub use mcp::AporicMcp;
 

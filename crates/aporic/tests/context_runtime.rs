@@ -233,3 +233,20 @@ fn codex_hook_cli_fails_open_on_malformed_input() {
     assert!(output.status.success());
     assert_eq!(String::from_utf8(output.stdout).unwrap().trim(), "{}");
 }
+
+#[test]
+fn codex_hook_cli_fails_open_on_oversized_input() {
+    let area = tempfile::tempdir().unwrap();
+    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_aporic"))
+        .args(["hook", "codex"])
+        .env("APORIC_DATABASE", area.path().join("aporic.sqlite3"))
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .unwrap();
+    let payload = vec![b'x'; 1024 * 1024 + 1];
+    child.stdin.take().unwrap().write_all(&payload).unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert!(output.status.success());
+    assert_eq!(String::from_utf8(output.stdout).unwrap().trim(), "{}");
+}

@@ -209,3 +209,76 @@ fn claim(
         idempotency_key: key.to_owned(),
     })
 }
+
+#[test]
+fn write_scopes_are_normalized_before_leasing() {
+    let area = tempfile::tempdir().unwrap();
+    let workspace = area.path().join("workspace");
+    std::fs::create_dir(&workspace).unwrap();
+    let hub = Hub::open(area.path().join("aporic.sqlite3")).unwrap();
+    let session_id = hub
+        .open_session(&OpenRequest {
+            workspace: workspace.to_string_lossy().into_owned(),
+            objective: "Normalize coordination scopes".to_owned(),
+            idempotency_key: "scope-open".to_owned(),
+        })
+        .unwrap()
+        .session_id;
+    let first = create_task(
+        &hub,
+        &session_id,
+        "First normalized scope",
+        &["first complete"],
+        &["SRC//Module/./File.rs"],
+        &[],
+        "scope-first",
+    );
+    let listed = hub
+        .list_tasks(&aporic::domain::TaskListRequest {
+            workspace: workspace.to_string_lossy().into_owned(),
+            limit: None,
+        })
+        .unwrap();
+    assert_eq!(listed[0].write_scope, vec!["src/module/file.rs"]);
+    claim(&hub, &first, "worker-a", "scope-first-claim").unwrap();
+
+    let second = create_task(
+        &hub,
+        &session_id,
+        "Aliased scope",
+        &["second complete"],
+        &["src/module/file.rs/"],
+        &[],
+        "scope-second",
+    );
+    assert!(claim(&hub, &second, "worker-b", "scope-second-claim").is_err());
+    let invalid = hub
+        .create_task(&TaskCreateRequest {
+            session_id,
+            objective: "Traversal scope".to_owned(),
+            acceptance_criteria: vec!["never leased".to_owned()],
+            write_scope: vec!["src/x/../module/file".to_owned()],
+            depends_on: Vec::new(),
+            idempotency_key: "scope-traversal".to_owned(),
+        })
+        .unwrap_err();
+    assert!(invalid.to_string().contains("parent traversal"));
+
+    for (scope, key) in [
+        ("src/file.rs. ", "scope-trailing-alias"),
+        ("src/자료.rs", "scope-non-ascii"),
+        ("src/CON.txt", "scope-reserved"),
+    ] {
+        assert!(
+            hub.create_task(&TaskCreateRequest {
+                session_id: listed[0].session_id.clone(),
+                objective: "Reject a non-portable scope".to_owned(),
+                acceptance_criteria: vec!["never leased".to_owned()],
+                write_scope: vec![scope.to_owned()],
+                depends_on: Vec::new(),
+                idempotency_key: key.to_owned(),
+            })
+            .is_err()
+        );
+    }
+}
