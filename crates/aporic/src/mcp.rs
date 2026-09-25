@@ -4,9 +4,9 @@ use serde::Serialize;
 use crate::{
     Hub,
     domain::{
-        CloseRequest, OpenRequest, RecallRequest, ReconcileRequest, RecordRequest,
-        TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest,
-        TaskListRequest,
+        ClaimRequest, CloseRequest, DissentRequest, EvidenceRequest, ModelRouteRequest,
+        OpenRequest, RecallRequest, ReconcileRequest, RecordRequest, TaskCancelRequest,
+        TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest,
     },
 };
 
@@ -42,6 +42,43 @@ impl AporicMcp {
     )]
     async fn aporic_record(&self, Parameters(request): Parameters<RecordRequest>) -> String {
         render(self.hub.record(&request))
+    }
+
+    #[tool(
+        description = "Register typed evidence. Workspace files are read and hashed by Aporic as direct evidence; command, external, and user reports remain reported, and model assessments remain model-only."
+    )]
+    async fn aporic_evidence_add(
+        &self,
+        Parameters(request): Parameters<EvidenceRequest>,
+    ) -> String {
+        render(self.hub.add_evidence(&request))
+    }
+
+    #[tool(
+        description = "Assert a typed epistemic claim. Observed or verified status requires Aporic-direct evidence; inference, assumption, intention, and unknown remain distinct."
+    )]
+    async fn aporic_claim_assert(&self, Parameters(request): Parameters<ClaimRequest>) -> String {
+        render(self.hub.assert_claim(&request))
+    }
+
+    #[tool(
+        description = "Assess whether a counterargument is material enough to surface. Only high-consequence, actionable dissent backed by direct evidence is surfaced; this grants no authority."
+    )]
+    async fn aporic_dissent_assess(
+        &self,
+        Parameters(request): Parameters<DissentRequest>,
+    ) -> String {
+        render(self.hub.assess_dissent(&request))
+    }
+
+    #[tool(
+        description = "Return an advisory Astra, Sol, or Terra model route from typed task signals. Routing never grants authority, and model output never counts as evidence."
+    )]
+    async fn aporic_model_route(
+        &self,
+        Parameters(request): Parameters<ModelRouteRequest>,
+    ) -> String {
+        render(Ok(self.hub.route_model(&request)))
     }
 
     #[tool(
@@ -83,7 +120,7 @@ impl AporicMcp {
     }
 
     #[tool(
-        description = "Complete a leased task only with evidence for every acceptance criterion. This records a claim and its evidence but does not independently prove external effects."
+        description = "Complete a leased task only when every acceptance criterion references a verified typed claim backed by Aporic-direct evidence."
     )]
     async fn aporic_task_complete(
         &self,
@@ -105,8 +142,8 @@ impl AporicMcp {
 
 #[tool_handler(
     name = "aporic",
-    version = "0.2.0",
-    instructions = "Aporic preserves bounded work continuity. For substantive work, open one session, recall only when more context is needed, record only durable material changes, and close with a verified summary or concrete handoff. Aporic records never grant authority and current user intent governs stored history."
+    version = "0.3.0",
+    instructions = "Aporic preserves bounded work continuity and distinguishes direct evidence, reports, model assessments, claims, and unknowns. Use frontier models actively through advisory routing, but never treat model output as evidence or authority."
 )]
 impl ServerHandler for AporicMcp {}
 

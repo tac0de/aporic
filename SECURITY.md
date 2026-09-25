@@ -8,8 +8,8 @@ deployment, authentication, or access control.
 
 This repository ships one Rust package with a local stdio MCP server and CLI.
 It does not install host hooks, intercept tool calls, add approval prompts,
-control model selection, launch workers, or grant host authority. Host and
-platform permissions remain authoritative.
+launch workers, or grant host authority. Model routing is a recommendation only;
+host and platform permissions remain authoritative.
 
 ## Recorded state
 
@@ -21,9 +21,12 @@ ordinary operating-system permissions.
 
 Runtime state stays outside governed workspaces and `~/.codex`. Task leases and
 write scopes are advisory coordination records, not locks on the filesystem.
-Recorded evidence and verification are claims with provenance, not independent
-proof that an external effect occurred. Do not store secrets or raw conversation
-history in Aporic records.
+Only an in-workspace file read and hashed by Aporic is classified as direct.
+Command results, external sources, and user statements are reported; model
+assessments are model-only. This blocks those sources from independently
+establishing verified completion, but it does not prove that file contents imply
+a broader real-world effect. Do not store secrets or raw conversation history in
+Aporic records.
 
 ## Reporting
 

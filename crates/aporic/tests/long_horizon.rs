@@ -1,12 +1,13 @@
 use aporic::{
     Hub,
     domain::{
-        CloseDisposition, CloseRequest, CriterionEvidence, OpenRequest, RecallRequest, RecordKind,
-        RecordRequest, TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest,
-        TaskStatus,
+        ClaimRequest, ClaimStatus, CloseDisposition, CloseRequest, CriterionProof, EvidenceKind,
+        EvidenceRequest, OpenRequest, RecallRequest, RecordKind, RecordRequest, TaskClaimRequest,
+        TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskStatus, workspace_file_claim,
     },
 };
 use serde_json::json;
+use sha2::Digest;
 
 #[test]
 fn long_horizon_frontier_workload_does_not_accumulate_known_failures() {
@@ -80,9 +81,17 @@ fn long_horizon_frontier_workload_does_not_accumulate_known_failures() {
         .unwrap();
     let mut duplicate_rejections = 0;
     let mut premature_completion_rejections = 0;
+    let proof_file = workspace_path.join("deterministic-proof.txt");
+    std::fs::write(&proof_file, "deterministic workload proof").unwrap();
+    let proof_locator = proof_file.to_string_lossy().into_owned();
+    let proof_digest = format!(
+        "{:x}",
+        sha2::Sha256::digest(std::fs::read(&proof_file).unwrap())
+    );
+    let proof_statement = workspace_file_claim(&proof_locator, &proof_digest);
     for index in 0..TASKS {
         let objective = format!("Implement synthetic task {index}");
-        let criterion = format!("Synthetic task {index} passes its deterministic check");
+        let criterion = proof_statement.clone();
         let created = hub
             .create_task(&TaskCreateRequest {
                 session_id: coordination.session_id.clone(),
@@ -119,20 +128,45 @@ fn long_horizon_frontier_workload_does_not_accumulate_known_failures() {
                 task_id: task_id.clone(),
                 worker_id: format!("worker-{}", index % 4),
                 outcome_summary: "Unsupported completion attempt".to_owned(),
-                criterion_evidence: Vec::new(),
+                criterion_proofs: Vec::new(),
                 idempotency_key: format!("premature-long-task-{index}"),
             })
             .is_err()
         {
             premature_completion_rejections += 1;
         }
+        let evidence_id = hub
+            .add_evidence(&EvidenceRequest {
+                session_id: coordination.session_id.clone(),
+                kind: EvidenceKind::WorkspaceFile,
+                locator: proof_locator.clone(),
+                summary: format!("Direct proof artifact for task {index}"),
+                content_sha256: None,
+                idempotency_key: format!("evidence-long-task-{index}"),
+            })
+            .unwrap()
+            .evidence
+            .evidence_id;
+        let claim_id = hub
+            .assert_claim(&ClaimRequest {
+                session_id: coordination.session_id.clone(),
+                status: ClaimStatus::Verified,
+                statement: proof_statement.clone(),
+                material: true,
+                evidence_ids: vec![evidence_id],
+                supersedes_claim_id: None,
+                idempotency_key: format!("verified-claim-long-task-{index}"),
+            })
+            .unwrap()
+            .claim
+            .claim_id;
         hub.complete_task(&TaskCompleteRequest {
             task_id,
             worker_id: format!("worker-{}", index % 4),
             outcome_summary: format!("Synthetic task {index} completed"),
-            criterion_evidence: vec![CriterionEvidence {
+            criterion_proofs: vec![CriterionProof {
                 criterion,
-                evidence: format!("Deterministic check {index} returned true"),
+                verified_claim_id: claim_id,
             }],
             idempotency_key: format!("complete-long-task-{index}"),
         })

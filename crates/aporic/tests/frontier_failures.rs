@@ -1,8 +1,9 @@
 use aporic::{
     Hub,
     domain::{
-        CloseDisposition, CloseRequest, OpenRequest, RecallRequest, ReconcileRequest, RecordKind,
-        RecordRequest,
+        ClaimRequest, ClaimStatus, CloseDisposition, CloseRequest, EvidenceKind, EvidenceRequest,
+        OpenRequest, RecallRequest, ReconcileRequest, RecordKind, RecordRequest,
+        workspace_file_claim,
     },
 };
 use rusqlite::Connection;
@@ -83,42 +84,57 @@ fn deterministic_frontier_failure_suite() {
         "Change production state safely",
         "open-effect",
     );
-    let effect = restarted
-        .record(&RecordRequest {
+    let reported = restarted
+        .add_evidence(&EvidenceRequest {
             session_id: effect_session.clone(),
-            kind: RecordKind::Effect,
-            content: "The configuration was changed.".to_owned(),
-            evidence: Some("Exact changed path and digest".to_owned()),
-            supersedes_record_id: None,
-            verifies_effect_id: None,
-            idempotency_key: "effect".to_owned(),
+            kind: EvidenceKind::CommandResult,
+            locator: "reported shell command".to_owned(),
+            summary: "The configuration was changed".to_owned(),
+            content_sha256: Some("a".repeat(64)),
+            idempotency_key: "reported-effect".to_owned(),
         })
         .unwrap()
-        .record;
+        .evidence;
     let unsupported_completion_rejected = restarted
-        .close_session(&CloseRequest {
+        .assert_claim(&ClaimRequest {
             session_id: effect_session.clone(),
-            disposition: CloseDisposition::Completed,
-            summary: "Claiming completion too early".to_owned(),
-            next_action: None,
-            idempotency_key: "premature-close".to_owned(),
+            status: ClaimStatus::Verified,
+            statement: "The configuration was changed".to_owned(),
+            material: true,
+            evidence_ids: vec![reported.evidence_id],
+            supersedes_claim_id: None,
+            idempotency_key: "unsupported-verification".to_owned(),
         })
         .is_err();
-    restarted
-        .record(&RecordRequest {
+    let changed_file = std::path::Path::new(&workspace).join("changed.conf");
+    std::fs::write(&changed_file, "enabled=true\n").unwrap();
+    let direct = restarted
+        .add_evidence(&EvidenceRequest {
             session_id: effect_session.clone(),
-            kind: RecordKind::Verification,
-            content: "The changed configuration was read back and matched.".to_owned(),
-            evidence: Some("Read-back digest matched the intended digest".to_owned()),
-            supersedes_record_id: None,
-            verifies_effect_id: Some(effect.record_id),
-            idempotency_key: "verify-effect".to_owned(),
+            kind: EvidenceKind::WorkspaceFile,
+            locator: changed_file.to_string_lossy().into_owned(),
+            summary: "Aporic read back the changed configuration".to_owned(),
+            content_sha256: None,
+            idempotency_key: "direct-effect".to_owned(),
+        })
+        .unwrap()
+        .evidence;
+    let direct_statement = workspace_file_claim(&direct.locator, &direct.content_sha256);
+    restarted
+        .assert_claim(&ClaimRequest {
+            session_id: effect_session.clone(),
+            status: ClaimStatus::Verified,
+            statement: direct_statement,
+            material: true,
+            evidence_ids: vec![direct.evidence_id],
+            supersedes_claim_id: None,
+            idempotency_key: "verified-effect".to_owned(),
         })
         .unwrap();
     complete(
         &restarted,
         &effect_session,
-        "Effect linked to verification",
+        "Effect backed by Aporic-direct evidence",
         "verified-close",
     );
 

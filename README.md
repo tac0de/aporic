@@ -14,7 +14,7 @@ See [PRODUCT.md](PRODUCT.md) for the product objective and
 
 ## Current product surface
 
-The hub exposes ten MCP tools in two groups.
+The hub exposes fourteen MCP tools in four groups.
 
 Continuity:
 
@@ -29,18 +29,37 @@ Advisory coordination:
 - `aporic_task_create`: define a task contract, dependencies, and write scope;
 - `aporic_task_list`: inspect bounded task state;
 - `aporic_task_claim`: acquire a time-bounded worker lease;
-- `aporic_task_complete`: complete only with evidence for every criterion;
+- `aporic_task_complete`: complete only when every criterion exactly matches a
+  verified mechanical claim;
 - `aporic_task_cancel`: cancel without implying completion.
+
+Epistemic gate:
+
+- `aporic_evidence_add`: classify provenance as direct, reported, or model-only;
+- `aporic_claim_assert`: keep observed, verified, inferred, assumed, intended,
+  and unknown claims distinct;
+- `aporic_dissent_assess`: surface only consequential, actionable dissent with
+  direct evidence.
+
+Model routing:
+
+- `aporic_model_route`: recommend Astra, Sol, or Terra from typed task signals.
 
 Coordination records do not launch agents, grant host authority, or block tools.
 They make parallel-work conflicts and unsupported completion claims visible at
 the hub boundary.
 
-Decision and constraint records may explicitly supersede older records. Effect
-records require evidence, and a session with effects cannot be completed until
-each effect has a linked verification record. These structural checks target
-common agent failures: stale context, duplicate work, and unsupported completion
-claims.
+Decision and constraint records may explicitly supersede older records. New
+effect and verification records use the typed evidence/claim path: free text,
+reported command output, and model assessment cannot become `verified`.
+Aporic-direct verification currently means that Aporic itself read and hashed a
+file inside the session workspace. A verified statement is the exact file and
+digest proposition, not a model-authored interpretation. Material unknowns block
+completion until an observed or verified claim supersedes them.
+
+The router is advisory and outside the behavioral kernel. It does not dispatch a
+model, grant authority, or turn a model review into evidence. See
+[model routing](docs/model-routing.md).
 
 State is stored in platform-native application data, not in the governed
 workspace or `~/.codex`. Set `APORIC_DATABASE` to an explicit database path for
@@ -78,6 +97,7 @@ Run the deterministic frontier-failure simulation:
 cargo test -p aporic --test frontier_failures -- --nocapture
 cargo test -p aporic --test coordination_failures -- --nocapture
 cargo test -p aporic --test long_horizon -- --nocapture
+cargo test -p aporic --test epistemic_gate -- --nocapture
 ```
 
 The Codex bridge template is under `integrations/codex/`. Nothing in the build

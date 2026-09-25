@@ -175,6 +175,205 @@ pub struct HubStats {
     pub event_count: u64,
     pub queued_task_count: u64,
     pub leased_task_count: u64,
+    pub evidence_count: u64,
+    pub claim_count: u64,
+    pub unresolved_material_unknown_count: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceKind {
+    WorkspaceFile,
+    CommandResult,
+    ExternalSource,
+    UserStatement,
+    ModelAssessment,
+}
+
+impl EvidenceKind {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::WorkspaceFile => "workspace_file",
+            Self::CommandResult => "command_result",
+            Self::ExternalSource => "external_source",
+            Self::UserStatement => "user_statement",
+            Self::ModelAssessment => "model_assessment",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum EvidenceGrade {
+    Direct,
+    Reported,
+    ModelOnly,
+}
+
+impl EvidenceGrade {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Direct => "direct",
+            Self::Reported => "reported",
+            Self::ModelOnly => "model_only",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct EvidenceRequest {
+    pub session_id: String,
+    pub kind: EvidenceKind,
+    pub locator: String,
+    pub summary: String,
+    #[serde(default)]
+    pub content_sha256: Option<String>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EvidenceArtifact {
+    pub evidence_id: String,
+    pub session_id: String,
+    pub kind: EvidenceKind,
+    pub grade: EvidenceGrade,
+    pub locator: String,
+    pub summary: String,
+    pub content_sha256: String,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EvidenceOutcome {
+    pub evidence: EvidenceArtifact,
+    pub duplicate: bool,
+}
+
+pub fn workspace_file_claim(locator: &str, content_sha256: &str) -> String {
+    format!("workspace_file_sha256:{locator}:{content_sha256}")
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ClaimStatus {
+    Observed,
+    Verified,
+    Inferred,
+    Assumed,
+    Intended,
+    Unknown,
+}
+
+impl ClaimStatus {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Observed => "observed",
+            Self::Verified => "verified",
+            Self::Inferred => "inferred",
+            Self::Assumed => "assumed",
+            Self::Intended => "intended",
+            Self::Unknown => "unknown",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ClaimRequest {
+    pub session_id: String,
+    pub status: ClaimStatus,
+    pub statement: String,
+    #[serde(default)]
+    pub material: bool,
+    #[serde(default)]
+    pub evidence_ids: Vec<String>,
+    #[serde(default)]
+    pub supersedes_claim_id: Option<String>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EpistemicClaim {
+    pub claim_id: String,
+    pub session_id: String,
+    pub status: ClaimStatus,
+    pub statement: String,
+    pub material: bool,
+    pub evidence_ids: Vec<String>,
+    pub supersedes_claim_id: Option<String>,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ClaimOutcome {
+    pub claim: EpistemicClaim,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum Consequence {
+    Low,
+    Medium,
+    High,
+    Critical,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DissentRequest {
+    pub session_id: String,
+    pub target_claim_id: String,
+    pub consequence: Consequence,
+    pub actionable_change: String,
+    #[serde(default)]
+    pub evidence_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DissentAssessment {
+    pub surface: bool,
+    pub reasons: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkKind {
+    Architecture,
+    Implementation,
+    Verification,
+    Research,
+    Extraction,
+    Coordination,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkComplexity {
+    Bounded,
+    Complex,
+    Frontier,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ModelRouteRequest {
+    pub work_kind: WorkKind,
+    pub complexity: WorkComplexity,
+    pub consequence: Consequence,
+    pub ambiguity_high: bool,
+    #[serde(default)]
+    pub independent_review: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModelRoute {
+    pub model: String,
+    pub reasoning_effort: String,
+    pub verifier_model: Option<String>,
+    pub reasons: Vec<String>,
+    pub advisory: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -211,6 +410,7 @@ pub struct CoordinatedTask {
     pub lease_expires_at_unix_ms: Option<i64>,
     pub outcome_summary: Option<String>,
     pub completion_evidence: Vec<CriterionEvidence>,
+    pub completion_proofs: Vec<CriterionProof>,
     pub created_at_unix_ms: i64,
     pub updated_at_unix_ms: i64,
 }
@@ -220,6 +420,13 @@ pub struct CoordinatedTask {
 pub struct CriterionEvidence {
     pub criterion: String,
     pub evidence: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CriterionProof {
+    pub criterion: String,
+    pub verified_claim_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -257,7 +464,7 @@ pub struct TaskCompleteRequest {
     pub task_id: String,
     pub worker_id: String,
     pub outcome_summary: String,
-    pub criterion_evidence: Vec<CriterionEvidence>,
+    pub criterion_proofs: Vec<CriterionProof>,
     pub idempotency_key: String,
 }
 
@@ -309,5 +516,7 @@ pub struct ProjectExport {
     pub sessions: Vec<ExportSession>,
     pub records: Vec<DurableRecord>,
     pub tasks: Vec<CoordinatedTask>,
+    pub evidence: Vec<EvidenceArtifact>,
+    pub claims: Vec<EpistemicClaim>,
     pub events: Vec<ExportEvent>,
 }

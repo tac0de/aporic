@@ -25,7 +25,11 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
     assert_eq!(
         tool_names,
         [
+            "aporic_claim_assert",
             "aporic_close",
+            "aporic_dissent_assess",
+            "aporic_evidence_add",
+            "aporic_model_route",
             "aporic_open",
             "aporic_recall",
             "aporic_reconcile",

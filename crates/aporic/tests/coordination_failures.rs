@@ -1,12 +1,14 @@
 use aporic::{
     Hub,
     domain::{
-        CriterionEvidence, OpenRequest, TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest,
-        TaskCreateRequest, TaskStatus,
+        ClaimRequest, ClaimStatus, CriterionProof, EvidenceKind, EvidenceRequest, OpenRequest,
+        TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskStatus,
+        workspace_file_claim,
     },
 };
 use rusqlite::Connection;
 use serde_json::json;
+use sha2::Digest;
 
 #[test]
 fn deterministic_coordination_failure_suite() {
@@ -23,12 +25,20 @@ fn deterministic_coordination_failure_suite() {
         })
         .unwrap()
         .session_id;
+    let proof_file = workspace.join("migration-proof.txt");
+    std::fs::write(&proof_file, "schema version 4 observed").unwrap();
+    let proof_locator = proof_file.to_string_lossy().into_owned();
+    let proof_digest = format!(
+        "{:x}",
+        sha2::Sha256::digest(std::fs::read(&proof_file).unwrap())
+    );
+    let proof_statement = workspace_file_claim(&proof_locator, &proof_digest);
 
     let foundation = create_task(
         &hub,
         &session_id,
         "Implement the durable task schema",
-        &["Migration reaches schema version 3"],
+        &[proof_statement.as_str()],
         &["crates/aporic/src/store.rs"],
         &[],
         "create-foundation",
@@ -72,17 +82,42 @@ fn deterministic_coordination_failure_suite() {
             task_id: foundation.clone(),
             worker_id: "worker-a".to_owned(),
             outcome_summary: "Schema implemented".to_owned(),
-            criterion_evidence: Vec::new(),
+            criterion_proofs: Vec::new(),
             idempotency_key: "complete-without-evidence".to_owned(),
         })
         .is_err();
+    let evidence_id = hub
+        .add_evidence(&EvidenceRequest {
+            session_id: session_id.clone(),
+            kind: EvidenceKind::WorkspaceFile,
+            locator: proof_locator,
+            summary: "Aporic read-back of the migration proof artifact".to_owned(),
+            content_sha256: None,
+            idempotency_key: "foundation-evidence".to_owned(),
+        })
+        .unwrap()
+        .evidence
+        .evidence_id;
+    let claim_id = hub
+        .assert_claim(&ClaimRequest {
+            session_id: session_id.clone(),
+            status: ClaimStatus::Verified,
+            statement: proof_statement.clone(),
+            material: true,
+            evidence_ids: vec![evidence_id],
+            supersedes_claim_id: None,
+            idempotency_key: "foundation-claim".to_owned(),
+        })
+        .unwrap()
+        .claim
+        .claim_id;
     hub.complete_task(&TaskCompleteRequest {
         task_id: foundation.clone(),
         worker_id: "worker-a".to_owned(),
         outcome_summary: "Schema implemented and migrated".to_owned(),
-        criterion_evidence: vec![CriterionEvidence {
-            criterion: "Migration reaches schema version 3".to_owned(),
-            evidence: "Migration integration test observed user_version=3".to_owned(),
+        criterion_proofs: vec![CriterionProof {
+            criterion: proof_statement,
+            verified_claim_id: claim_id,
         }],
         idempotency_key: "complete-foundation".to_owned(),
     })

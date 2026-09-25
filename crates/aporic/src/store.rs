@@ -6,21 +6,25 @@ use std::{
 
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
 use serde::{Serialize, de::DeserializeOwned};
+use sha2::{Digest, Sha256};
 use thiserror::Error;
 use uuid::Uuid;
 
 use crate::domain::{
-    AbandonedSession, ActiveSession, CloseDisposition, CloseOutcome, CloseRequest, ContextCapsule,
-    CoordinatedTask, CriterionEvidence, DurableRecord, ExportEvent, ExportSession, Handoff,
-    HubStats, OpenOutcome, OpenRequest, ProjectExport, RecallRequest, ReconcileOutcome,
+    AbandonedSession, ActiveSession, ClaimOutcome, ClaimRequest, ClaimStatus, CloseDisposition,
+    CloseOutcome, CloseRequest, Consequence, ContextCapsule, CoordinatedTask, CriterionProof,
+    DissentAssessment, DissentRequest, DurableRecord, EpistemicClaim, EvidenceArtifact,
+    EvidenceGrade, EvidenceKind, EvidenceOutcome, EvidenceRequest, ExportEvent, ExportSession,
+    Handoff, HubStats, OpenOutcome, OpenRequest, ProjectExport, RecallRequest, ReconcileOutcome,
     ReconcileRequest, RecordKind, RecordOutcome, RecordRequest, TaskCancelRequest,
     TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskOutcome,
-    TaskStatus,
+    TaskStatus, workspace_file_claim,
 };
 
 const SCHEMA: &str = include_str!("../../../migrations/0001_initial.sql");
 const MIGRATION_2: &str = include_str!("../../../migrations/0002_continuity_hardening.sql");
 const MIGRATION_3: &str = include_str!("../../../migrations/0003_coordination.sql");
+const MIGRATION_4: &str = include_str!("../../../migrations/0004_epistemic_gate.sql");
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -59,12 +63,17 @@ impl Store {
             1 => {
                 connection.execute_batch(MIGRATION_2)?;
                 connection.execute_batch(MIGRATION_3)?;
+                connection.execute_batch(MIGRATION_4)?;
             }
-            2 => connection.execute_batch(MIGRATION_3)?,
-            3 => {}
+            2 => {
+                connection.execute_batch(MIGRATION_3)?;
+                connection.execute_batch(MIGRATION_4)?;
+            }
+            3 => connection.execute_batch(MIGRATION_4)?,
+            4 => {}
             version => {
                 return Err(Error::Invalid(format!(
-                    "database schema version {version} is newer than supported version 3"
+                    "database schema version {version} is newer than supported version 4"
                 )));
             }
         }
@@ -232,6 +241,156 @@ impl Store {
         Ok(outcome)
     }
 
+    pub fn add_evidence(&self, request: &EvidenceRequest) -> Result<EvidenceOutcome> {
+        require_text("session_id", &request.session_id)?;
+        require_text("locator", &request.locator)?;
+        require_text("summary", &request.summary)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<EvidenceOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "evidence_added",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        require_open_session(&transaction, &request.session_id)?;
+        let (grade, digest) = validate_evidence(&transaction, request)?;
+        let evidence = EvidenceArtifact {
+            evidence_id: Uuid::now_v7().to_string(),
+            session_id: request.session_id.clone(),
+            kind: request.kind.clone(),
+            grade,
+            locator: request.locator.clone(),
+            summary: request.summary.clone(),
+            content_sha256: digest,
+            created_at_unix_ms: now,
+        };
+        transaction.execute(
+            "INSERT INTO evidence_artifacts
+             (evidence_id, session_id, kind, grade, locator, summary, content_sha256, created_at_unix_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            params![evidence.evidence_id, evidence.session_id, evidence.kind.as_str(),
+                evidence.grade.as_str(), evidence.locator, evidence.summary,
+                evidence.content_sha256, evidence.created_at_unix_ms],
+        )?;
+        let outcome = EvidenceOutcome {
+            evidence,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &request.session_id,
+            "evidence_added",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn assert_claim(&self, request: &ClaimRequest) -> Result<ClaimOutcome> {
+        require_text("session_id", &request.session_id)?;
+        require_text("statement", &request.statement)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        require_texts("evidence_ids", &request.evidence_ids)?;
+        let now = unix_millis()?;
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<ClaimOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            "claim_asserted",
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        require_open_session(&transaction, &request.session_id)?;
+        validate_claim(&transaction, request)?;
+        let claim = EpistemicClaim {
+            claim_id: Uuid::now_v7().to_string(),
+            session_id: request.session_id.clone(),
+            status: request.status.clone(),
+            statement: request.statement.clone(),
+            material: request.material,
+            evidence_ids: request.evidence_ids.clone(),
+            supersedes_claim_id: request.supersedes_claim_id.clone(),
+            created_at_unix_ms: now,
+        };
+        transaction.execute(
+            "INSERT INTO claims
+             (claim_id, session_id, status, statement, material, supersedes_claim_id, created_at_unix_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![claim.claim_id, claim.session_id, claim.status.as_str(), claim.statement,
+                claim.material, claim.supersedes_claim_id, claim.created_at_unix_ms],
+        )?;
+        for evidence_id in &claim.evidence_ids {
+            transaction.execute(
+                "INSERT INTO claim_evidence (claim_id, evidence_id) VALUES (?1, ?2)",
+                params![claim.claim_id, evidence_id],
+            )?;
+        }
+        let outcome = ClaimOutcome {
+            claim,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &request.session_id,
+            "claim_asserted",
+            request,
+            &outcome,
+            now,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub fn assess_dissent(&self, request: &DissentRequest) -> Result<DissentAssessment> {
+        require_text("session_id", &request.session_id)?;
+        require_text("target_claim_id", &request.target_claim_id)?;
+        require_text("actionable_change", &request.actionable_change)?;
+        require_texts("evidence_ids", &request.evidence_ids)?;
+        let connection = self.connection()?;
+        let target_session = connection
+            .query_row(
+                "SELECT session_id FROM claims WHERE claim_id = ?1",
+                [&request.target_claim_id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?
+            .ok_or_else(|| Error::NotFound(format!("claim {}", request.target_claim_id)))?;
+        require_same_project_connection(&connection, &request.session_id, &target_session)?;
+        let consequential = matches!(
+            request.consequence,
+            Consequence::High | Consequence::Critical
+        );
+        let direct = evidence_grades(&connection, &request.session_id, &request.evidence_ids)?
+            .contains(&EvidenceGrade::Direct);
+        let mut reasons = Vec::new();
+        if !consequential {
+            reasons.push("consequence_below_high".to_owned());
+        }
+        if !direct {
+            reasons.push("no_direct_evidence".to_owned());
+        }
+        if reasons.is_empty() {
+            reasons.push("material_and_directly_evidenced".to_owned());
+        }
+        Ok(DissentAssessment {
+            surface: consequential && direct,
+            reasons,
+        })
+    }
+
     pub fn close_session(&self, request: &CloseRequest) -> Result<CloseOutcome> {
         require_text("session_id", &request.session_id)?;
         require_text("summary", &request.summary)?;
@@ -262,6 +421,7 @@ impl Store {
         require_open_session(&transaction, &request.session_id)?;
         if request.disposition == CloseDisposition::Completed {
             require_verified_effects(&transaction, &request.session_id)?;
+            require_no_material_unknowns(&transaction, &request.session_id)?;
         }
         transaction.execute(
             "UPDATE sessions
@@ -613,15 +773,15 @@ impl Store {
                 "task completion requires the worker's active lease".to_owned(),
             ));
         }
-        validate_criterion_evidence(&task.acceptance_criteria, &request.criterion_evidence)?;
+        validate_criterion_proofs(&transaction, &task, &request.criterion_proofs)?;
         transaction.execute(
             "UPDATE tasks
-             SET status = 'completed', outcome_summary = ?1, completion_evidence_json = ?2,
+             SET status = 'completed', outcome_summary = ?1, completion_proofs_json = ?2,
                  lease_expires_at_unix_ms = NULL, updated_at_unix_ms = ?3
              WHERE task_id = ?4",
             params![
                 request.outcome_summary,
-                serde_json::to_string(&request.criterion_evidence)?,
+                serde_json::to_string(&request.criterion_proofs)?,
                 now,
                 request.task_id,
             ],
@@ -712,6 +872,16 @@ impl Store {
             event_count: table_count(&connection, "events", "1 = 1")?,
             queued_task_count: table_count(&connection, "tasks", "status = 'queued'")?,
             leased_task_count: table_count(&connection, "tasks", "status = 'leased'")?,
+            evidence_count: table_count(&connection, "evidence_artifacts", "1 = 1")?,
+            claim_count: table_count(&connection, "claims", "1 = 1")?,
+            unresolved_material_unknown_count: table_count(
+                &connection,
+                "claims",
+                "status = 'unknown' AND material = 1 AND NOT EXISTS (
+                    SELECT 1 FROM claims resolutions
+                    WHERE resolutions.supersedes_claim_id = claims.claim_id
+                )",
+            )?,
         })
     }
 
@@ -780,6 +950,9 @@ impl Store {
 
         let tasks = list_project_tasks(&connection, &project_id, i64::MAX)?;
 
+        let evidence = load_project_evidence(&connection, &project_id)?;
+        let claims = load_project_claims(&connection, &project_id)?;
+
         let events = {
             let mut statement = connection.prepare(
                 "SELECT sequence, event_id, idempotency_key, stream_id, kind, payload_json,
@@ -820,13 +993,15 @@ impl Store {
         };
 
         Ok(ProjectExport {
-            format_version: 1,
+            format_version: 2,
             exported_at_unix_ms: unix_millis()?,
             project_id,
             workspace,
             sessions,
             records,
             tasks,
+            evidence,
+            claims,
             events,
         })
     }
@@ -933,7 +1108,195 @@ fn require_open_session(transaction: &Transaction<'_>, session_id: &str) -> Resu
     }
 }
 
+fn validate_evidence(
+    transaction: &Transaction<'_>,
+    request: &EvidenceRequest,
+) -> Result<(EvidenceGrade, String)> {
+    match request.kind {
+        EvidenceKind::WorkspaceFile => {
+            let workspace = transaction.query_row(
+                "SELECT projects.workspace FROM sessions
+                 JOIN projects ON projects.project_id = sessions.project_id
+                 WHERE sessions.session_id = ?1",
+                [&request.session_id],
+                |row| row.get::<_, String>(0),
+            )?;
+            let path = fs::canonicalize(&request.locator)?;
+            if !path.is_file() || !path.starts_with(Path::new(&workspace)) {
+                return Err(Error::Invalid(
+                    "workspace_file must be an existing file inside the session workspace"
+                        .to_owned(),
+                ));
+            }
+            let digest = format!("{:x}", Sha256::digest(fs::read(path)?));
+            if request
+                .content_sha256
+                .as_deref()
+                .is_some_and(|expected| expected != digest)
+            {
+                return Err(Error::Conflict(
+                    "workspace_file content_sha256 does not match Aporic's read-back".to_owned(),
+                ));
+            }
+            Ok((EvidenceGrade::Direct, digest))
+        }
+        EvidenceKind::ModelAssessment => Ok((
+            EvidenceGrade::ModelOnly,
+            require_sha256(request.content_sha256.as_deref())?,
+        )),
+        EvidenceKind::CommandResult
+        | EvidenceKind::ExternalSource
+        | EvidenceKind::UserStatement => Ok((
+            EvidenceGrade::Reported,
+            require_sha256(request.content_sha256.as_deref())?,
+        )),
+    }
+}
+
+fn require_sha256(value: Option<&str>) -> Result<String> {
+    let value = value
+        .ok_or_else(|| Error::Invalid("non-file evidence requires content_sha256".to_owned()))?;
+    if value.len() != 64 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(Error::Invalid(
+            "content_sha256 must be 64 hexadecimal characters".to_owned(),
+        ));
+    }
+    Ok(value.to_ascii_lowercase())
+}
+
+fn validate_claim(transaction: &Transaction<'_>, request: &ClaimRequest) -> Result<()> {
+    let grades = evidence_grades(transaction, &request.session_id, &request.evidence_ids)?;
+    let has_direct = grades.contains(&EvidenceGrade::Direct);
+    match request.status {
+        ClaimStatus::Observed | ClaimStatus::Verified if !has_direct => {
+            return Err(Error::Conflict(
+                "observed and verified claims require Aporic-direct evidence".to_owned(),
+            ));
+        }
+        ClaimStatus::Inferred if grades.is_empty() => {
+            return Err(Error::Invalid(
+                "inferred claims require typed evidence".to_owned(),
+            ));
+        }
+        ClaimStatus::Assumed | ClaimStatus::Intended | ClaimStatus::Unknown
+            if !grades.is_empty() =>
+        {
+            return Err(Error::Invalid(
+                "assumed, intended, and unknown claims must not present evidence as support"
+                    .to_owned(),
+            ));
+        }
+        _ => {}
+    }
+    if matches!(
+        request.status,
+        ClaimStatus::Observed | ClaimStatus::Verified
+    ) {
+        let mut mechanically_matches = false;
+        for evidence_id in &request.evidence_ids {
+            let evidence = transaction.query_row(
+                "SELECT grade, kind, locator, content_sha256 FROM evidence_artifacts
+                 WHERE evidence_id = ?1",
+                [evidence_id],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, String>(3)?,
+                    ))
+                },
+            )?;
+            if evidence.0 == "direct"
+                && evidence.1 == "workspace_file"
+                && request.statement == workspace_file_claim(&evidence.2, &evidence.3)
+            {
+                mechanically_matches = true;
+            }
+        }
+        if !mechanically_matches {
+            return Err(Error::Conflict(
+                "observed and verified statements must exactly encode a directly observed file digest"
+                    .to_owned(),
+            ));
+        }
+    }
+    if let Some(target_id) = &request.supersedes_claim_id {
+        let target = transaction
+            .query_row(
+                "SELECT session_id, status FROM claims WHERE claim_id = ?1",
+                [target_id],
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+            )
+            .optional()?
+            .ok_or_else(|| Error::NotFound(format!("claim {target_id}")))?;
+        require_same_project(transaction, &request.session_id, &target.0)?;
+        if target.1 == "unknown"
+            && !matches!(
+                request.status,
+                ClaimStatus::Observed | ClaimStatus::Verified
+            )
+        {
+            return Err(Error::Conflict(
+                "an unknown may only be resolved by an observed or verified claim".to_owned(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn evidence_grades(
+    connection: &Connection,
+    session_id: &str,
+    evidence_ids: &[String],
+) -> Result<Vec<EvidenceGrade>> {
+    let mut grades = Vec::with_capacity(evidence_ids.len());
+    for evidence_id in evidence_ids {
+        let item = connection
+            .query_row(
+                "SELECT evidence_artifacts.grade, evidence_artifacts.session_id
+             FROM evidence_artifacts WHERE evidence_id = ?1",
+                [evidence_id],
+                |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+            )
+            .optional()?
+            .ok_or_else(|| Error::NotFound(format!("evidence {evidence_id}")))?;
+        require_same_project_connection(connection, session_id, &item.1)?;
+        grades.push(parse_evidence_grade_value(&item.0)?);
+    }
+    Ok(grades)
+}
+
+fn require_same_project_connection(
+    connection: &Connection,
+    left_session_id: &str,
+    right_session_id: &str,
+) -> Result<()> {
+    let same = connection.query_row(
+        "SELECT EXISTS(
+            SELECT 1 FROM sessions left_session
+            JOIN sessions right_session ON right_session.project_id = left_session.project_id
+            WHERE left_session.session_id = ?1 AND right_session.session_id = ?2
+         )",
+        params![left_session_id, right_session_id],
+        |row| row.get::<_, bool>(0),
+    )?;
+    if same {
+        Ok(())
+    } else {
+        Err(Error::Conflict(
+            "referenced evidence or claim belongs to another project".to_owned(),
+        ))
+    }
+}
+
 fn validate_record_links(transaction: &Transaction<'_>, request: &RecordRequest) -> Result<()> {
+    if matches!(request.kind, RecordKind::Effect | RecordKind::Verification) {
+        return Err(Error::Invalid(
+            "new effect and verification records are disabled; use typed evidence and claims"
+                .to_owned(),
+        ));
+    }
     match request.kind {
         RecordKind::Effect | RecordKind::Verification
             if request
@@ -1057,6 +1420,30 @@ fn require_same_project(
     }
 }
 
+fn require_no_material_unknowns(transaction: &Transaction<'_>, session_id: &str) -> Result<()> {
+    let typed = transaction.query_row(
+        "SELECT COUNT(*) FROM claims unknowns
+         WHERE unknowns.session_id = ?1 AND unknowns.status = 'unknown' AND unknowns.material = 1
+           AND NOT EXISTS (SELECT 1 FROM claims resolutions
+                           WHERE resolutions.supersedes_claim_id = unknowns.claim_id)",
+        [session_id],
+        |row| row.get::<_, u64>(0),
+    )?;
+    let legacy = transaction.query_row(
+        "SELECT COUNT(*) FROM records WHERE session_id = ?1 AND kind = 'material_unknown'",
+        [session_id],
+        |row| row.get::<_, u64>(0),
+    )?;
+    let unresolved = typed + legacy;
+    if unresolved == 0 {
+        Ok(())
+    } else {
+        Err(Error::Conflict(format!(
+            "session has {unresolved} unresolved material unknown claim(s)"
+        )))
+    }
+}
+
 fn require_verified_effects(transaction: &Transaction<'_>, session_id: &str) -> Result<()> {
     let unverified = transaction.query_row(
         "SELECT COUNT(*)
@@ -1090,7 +1477,7 @@ fn load_task(connection: &Connection, task_id: &str) -> Result<Option<Coordinate
             "SELECT task_id, project_id, session_id, objective, acceptance_criteria_json,
                     write_scope_json, depends_on_json, status, lease_owner,
                     lease_expires_at_unix_ms, outcome_summary, completion_evidence_json,
-                    created_at_unix_ms, updated_at_unix_ms
+                    completion_proofs_json, created_at_unix_ms, updated_at_unix_ms
              FROM tasks WHERE task_id = ?1",
             [task_id],
             task_from_row,
@@ -1107,7 +1494,7 @@ fn list_project_tasks(
         "SELECT task_id, project_id, session_id, objective, acceptance_criteria_json,
                 write_scope_json, depends_on_json, status, lease_owner,
                 lease_expires_at_unix_ms, outcome_summary, completion_evidence_json,
-                created_at_unix_ms, updated_at_unix_ms
+                completion_proofs_json, created_at_unix_ms, updated_at_unix_ms
          FROM tasks WHERE project_id = ?1
          ORDER BY CASE status
                     WHEN 'leased' THEN 0
@@ -1137,8 +1524,9 @@ fn task_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<CoordinatedTask> {
         lease_expires_at_unix_ms: row.get(9)?,
         outcome_summary: row.get(10)?,
         completion_evidence: json_column(row, 11)?,
-        created_at_unix_ms: row.get(12)?,
-        updated_at_unix_ms: row.get(13)?,
+        completion_proofs: json_column(row, 12)?,
+        created_at_unix_ms: row.get(13)?,
+        updated_at_unix_ms: row.get(14)?,
     })
 }
 
@@ -1161,6 +1549,112 @@ fn parse_task_status(value: String) -> rusqlite::Result<TaskStatus> {
         "cancelled" => Ok(TaskStatus::Cancelled),
         _ => Err(rusqlite::Error::InvalidQuery),
     }
+}
+
+fn parse_evidence_kind_value(value: &str) -> rusqlite::Result<EvidenceKind> {
+    match value {
+        "workspace_file" => Ok(EvidenceKind::WorkspaceFile),
+        "command_result" => Ok(EvidenceKind::CommandResult),
+        "external_source" => Ok(EvidenceKind::ExternalSource),
+        "user_statement" => Ok(EvidenceKind::UserStatement),
+        "model_assessment" => Ok(EvidenceKind::ModelAssessment),
+        _ => Err(rusqlite::Error::InvalidQuery),
+    }
+}
+
+fn parse_evidence_grade_value(value: &str) -> rusqlite::Result<EvidenceGrade> {
+    match value {
+        "direct" => Ok(EvidenceGrade::Direct),
+        "reported" => Ok(EvidenceGrade::Reported),
+        "model_only" => Ok(EvidenceGrade::ModelOnly),
+        _ => Err(rusqlite::Error::InvalidQuery),
+    }
+}
+
+fn parse_claim_status_value(value: &str) -> rusqlite::Result<ClaimStatus> {
+    match value {
+        "observed" => Ok(ClaimStatus::Observed),
+        "verified" => Ok(ClaimStatus::Verified),
+        "inferred" => Ok(ClaimStatus::Inferred),
+        "assumed" => Ok(ClaimStatus::Assumed),
+        "intended" => Ok(ClaimStatus::Intended),
+        "unknown" => Ok(ClaimStatus::Unknown),
+        _ => Err(rusqlite::Error::InvalidQuery),
+    }
+}
+
+fn load_project_evidence(
+    connection: &Connection,
+    project_id: &str,
+) -> Result<Vec<EvidenceArtifact>> {
+    let mut statement = connection.prepare(
+        "SELECT evidence_id, evidence_artifacts.session_id, evidence_artifacts.kind,
+                evidence_artifacts.grade, evidence_artifacts.locator, evidence_artifacts.summary,
+                evidence_artifacts.content_sha256, evidence_artifacts.created_at_unix_ms
+         FROM evidence_artifacts
+         JOIN sessions ON sessions.session_id = evidence_artifacts.session_id
+         WHERE sessions.project_id = ?1
+         ORDER BY evidence_artifacts.created_at_unix_ms ASC, evidence_id ASC",
+    )?;
+    Ok(statement
+        .query_map([project_id], |row| {
+            Ok(EvidenceArtifact {
+                evidence_id: row.get(0)?,
+                session_id: row.get(1)?,
+                kind: parse_evidence_kind_value(&row.get::<_, String>(2)?)?,
+                grade: parse_evidence_grade_value(&row.get::<_, String>(3)?)?,
+                locator: row.get(4)?,
+                summary: row.get(5)?,
+                content_sha256: row.get(6)?,
+                created_at_unix_ms: row.get(7)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?)
+}
+
+fn load_project_claims(connection: &Connection, project_id: &str) -> Result<Vec<EpistemicClaim>> {
+    let mut statement = connection.prepare(
+        "SELECT claims.claim_id, claims.session_id, claims.status, claims.statement,
+                claims.material, claims.supersedes_claim_id, claims.created_at_unix_ms
+         FROM claims JOIN sessions ON sessions.session_id = claims.session_id
+         WHERE sessions.project_id = ?1
+         ORDER BY claims.created_at_unix_ms ASC, claims.claim_id ASC",
+    )?;
+    let rows = statement.query_map([project_id], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, String>(3)?,
+            row.get::<_, bool>(4)?,
+            row.get::<_, Option<String>>(5)?,
+            row.get::<_, i64>(6)?,
+        ))
+    })?;
+    let mut claims = Vec::new();
+    for row in rows {
+        let (claim_id, session_id, status, statement, material, supersedes_claim_id, created_at) =
+            row?;
+        let evidence_ids = {
+            let mut evidence = connection.prepare(
+                "SELECT evidence_id FROM claim_evidence WHERE claim_id = ?1 ORDER BY evidence_id ASC",
+            )?;
+            evidence
+                .query_map([&claim_id], |row| row.get::<_, String>(0))?
+                .collect::<std::result::Result<Vec<_>, _>>()?
+        };
+        claims.push(EpistemicClaim {
+            claim_id,
+            session_id,
+            status: parse_claim_status_value(&status)?,
+            statement,
+            material,
+            evidence_ids,
+            supersedes_claim_id,
+            created_at_unix_ms: created_at,
+        });
+    }
+    Ok(claims)
 }
 
 fn ensure_write_scope_available(
@@ -1209,29 +1703,55 @@ fn write_scopes_overlap(left: &str, right: &str) -> bool {
             .is_some_and(|suffix| suffix.starts_with('/'))
 }
 
-fn validate_criterion_evidence(criteria: &[String], evidence: &[CriterionEvidence]) -> Result<()> {
-    if criteria.len() != evidence.len() {
+fn validate_criterion_proofs(
+    connection: &Connection,
+    task: &CoordinatedTask,
+    proofs: &[CriterionProof],
+) -> Result<()> {
+    if task.acceptance_criteria.len() != proofs.len() {
         return Err(Error::Invalid(
-            "criterion_evidence must cover every acceptance criterion exactly once".to_owned(),
+            "criterion_proofs must cover every acceptance criterion exactly once".to_owned(),
         ));
     }
-    let expected = criteria
+    let expected = task
+        .acceptance_criteria
         .iter()
         .map(|criterion| criterion.trim())
         .collect::<std::collections::BTreeSet<_>>();
     let mut observed = std::collections::BTreeSet::new();
-    for item in evidence {
-        require_text("criterion", &item.criterion)?;
-        require_text("criterion evidence", &item.evidence)?;
-        if !observed.insert(item.criterion.trim()) {
+    for proof in proofs {
+        require_text("criterion", &proof.criterion)?;
+        require_text("verified_claim_id", &proof.verified_claim_id)?;
+        if !observed.insert(proof.criterion.trim()) {
             return Err(Error::Invalid(
-                "criterion_evidence contains duplicate criteria".to_owned(),
+                "criterion_proofs contains duplicate criteria".to_owned(),
+            ));
+        }
+        let claim = connection
+            .query_row(
+                "SELECT claims.status, sessions.project_id, claims.statement
+             FROM claims JOIN sessions ON sessions.session_id = claims.session_id
+             WHERE claims.claim_id = ?1",
+                [&proof.verified_claim_id],
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                    ))
+                },
+            )
+            .optional()?
+            .ok_or_else(|| Error::NotFound(format!("claim {}", proof.verified_claim_id)))?;
+        if claim.0 != "verified" || claim.1 != task.project_id || claim.2 != proof.criterion {
+            return Err(Error::Conflict(
+                "each criterion proof must exactly match a verified mechanical claim in the task project".to_owned(),
             ));
         }
     }
     if observed != expected {
         Err(Error::Invalid(
-            "criterion_evidence does not match the task acceptance criteria".to_owned(),
+            "criterion_proofs do not match the task acceptance criteria".to_owned(),
         ))
     } else {
         Ok(())

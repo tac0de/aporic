@@ -2,10 +2,12 @@ use std::path::PathBuf;
 
 use crate::{
     domain::{
-        CloseOutcome, CloseRequest, ContextCapsule, CoordinatedTask, HubStats, OpenOutcome,
-        OpenRequest, ProjectExport, RecallRequest, ReconcileOutcome, ReconcileRequest,
-        RecordOutcome, RecordRequest, TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest,
-        TaskCreateRequest, TaskListRequest, TaskOutcome,
+        ClaimOutcome, ClaimRequest, CloseOutcome, CloseRequest, Consequence, ContextCapsule,
+        CoordinatedTask, DissentAssessment, DissentRequest, EvidenceOutcome, EvidenceRequest,
+        HubStats, ModelRoute, ModelRouteRequest, OpenOutcome, OpenRequest, ProjectExport,
+        RecallRequest, ReconcileOutcome, ReconcileRequest, RecordOutcome, RecordRequest,
+        TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest,
+        TaskListRequest, TaskOutcome, WorkComplexity, WorkKind,
     },
     kernel,
     store::{Result, Store},
@@ -38,6 +40,59 @@ impl Hub {
 
     pub fn record(&self, request: &RecordRequest) -> Result<RecordOutcome> {
         self.store.record(request)
+    }
+
+    pub fn add_evidence(&self, request: &EvidenceRequest) -> Result<EvidenceOutcome> {
+        self.store.add_evidence(request)
+    }
+
+    pub fn assert_claim(&self, request: &ClaimRequest) -> Result<ClaimOutcome> {
+        self.store.assert_claim(request)
+    }
+
+    pub fn assess_dissent(&self, request: &DissentRequest) -> Result<DissentAssessment> {
+        self.store.assess_dissent(request)
+    }
+
+    pub fn route_model(&self, request: &ModelRouteRequest) -> ModelRoute {
+        let frontier = request.complexity == WorkComplexity::Frontier
+            || request.consequence == Consequence::Critical
+            || (request.consequence == Consequence::High && request.ambiguity_high);
+        let bounded = request.complexity == WorkComplexity::Bounded
+            && matches!(request.consequence, Consequence::Low | Consequence::Medium);
+        let (model, effort, reason) = if frontier {
+            (
+                "gpt-6-astra",
+                "high",
+                "frontier_or_high_consequence_ambiguity",
+            )
+        } else if bounded {
+            ("gpt-5.6-terra", "medium", "bounded_well_specified_work")
+        } else {
+            (
+                "gpt-6-sol",
+                "high",
+                match request.work_kind {
+                    WorkKind::Implementation => "default_complex_implementation",
+                    _ => "default_complex_agentic_work",
+                },
+            )
+        };
+        let verifier_model = request.independent_review.then(|| {
+            if model == "gpt-6-astra" {
+                "gpt-6-sol"
+            } else {
+                "gpt-6-astra"
+            }
+            .to_owned()
+        });
+        ModelRoute {
+            model: model.to_owned(),
+            reasoning_effort: effort.to_owned(),
+            verifier_model,
+            reasons: vec![reason.to_owned(), "model_output_is_not_evidence".to_owned()],
+            advisory: true,
+        }
     }
 
     pub fn close_session(&self, request: &CloseRequest) -> Result<CloseOutcome> {
