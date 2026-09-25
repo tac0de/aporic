@@ -1,0 +1,4 @@
+# The kernel manifest records the exact SHA-256 of KERNEL.md. Keep canonical
+# inputs byte-identical when Git checks the repository out on Windows.
+/canon/KERNEL.md text eol=lf
+/canon/manifest.json text eol=lf
