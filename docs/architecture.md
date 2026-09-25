@@ -63,10 +63,13 @@ declared artifacts. Raw command output is not durable state. Successful receipts
 create one canonical verified claim; other terminal states do not.
 
 The MCP boundary can register a specification and read run state, but cannot
-execute it or submit a receipt. The local CLI owns execution. This is an
-integrity boundary inside the application, not an OS sandbox: a process running
-as the same user can still alter the database or workspace. A successful receipt
-also proves only the recorded process result, not test quality or remote effects.
+execute it or submit a receipt. The local CLI owns execution. A host-profile run
+is an integrity boundary inside the application, not an OS sandbox: a process
+running as the same user can still alter the database or workspace. A required
+Linux profile enters a `bubblewrap` namespace/mount boundary and must attest
+backend readiness before its result can become verified. A successful receipt
+still proves only the recorded process result and enforcement evidence, not test
+quality or remote effects.
 
 The event log preserves accepted state transitions and idempotent results. Read
 tables provide bounded context without replaying the whole log on every tool
@@ -138,6 +141,15 @@ no tables. Runtime boundaries now share streaming file hashing, bounded Git
 subprocess capture, lower-case portable-ASCII advisory write scopes, and fresh-destination
 restore. Backup retention remains an explicit CLI operation over a strict
 filename pattern.
+
+Schema v13 adds capability maturity, versioned capability-manifest digests,
+verification sandbox profiles, and receipt enforcement evidence. Existing
+capabilities receive the minimum maturity implied by their effect class and keep
+their v1 digest contract; new manifests use the v2 digest. Existing checks retain
+the `host` profile. New checks can require Linux `bubblewrap`, network denial,
+and read-only or read-write workspace access. Required execution fails closed on
+unsupported platforms or backend/setup failure and cannot issue a verified claim
+without the in-sandbox readiness marker.
 
 ## MCP surface
 
@@ -281,8 +293,8 @@ scanner, or model calls.
 
 ## Later growth
 
-Actual agent dispatch, event-driven waiting, remote transports, sandboxing,
-remote-effect verification, PR automation, protected-ref enforcement, and merge
-queues are later layers. The current task, lease, Git snapshot, and finding
-records are advisory state only and do not make the continuity loop depend on a
-worker runtime or grant repository authority.
+Actual agent dispatch, event-driven waiting, remote transports, remote-effect
+verification, stronger cgroup/seccomp/VM isolation, PR automation,
+protected-ref enforcement, and merge queues are later layers. The current task,
+lease, Git snapshot, and finding records are advisory state only and do not make
+the continuity loop depend on a worker runtime or grant repository authority.

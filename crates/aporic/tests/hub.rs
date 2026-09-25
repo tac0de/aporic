@@ -220,7 +220,7 @@ fn migrates_v1_state_and_exports_complete_project_history() {
     drop(connection);
 
     let hub = Hub::open(&database).unwrap();
-    assert_eq!(hub.stats().unwrap().schema_version, 12);
+    assert_eq!(hub.stats().unwrap().schema_version, 13);
     let workspace = workspace.to_string_lossy().into_owned();
     let opened = hub
         .open_session(&OpenRequest {

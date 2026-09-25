@@ -50,7 +50,7 @@ fn migrates_v6_model_text_into_untrusted_v7_memory() {
     drop(connection);
 
     let hub = Hub::open(&database).unwrap();
-    assert_eq!(hub.stats().unwrap().schema_version, 12);
+    assert_eq!(hub.stats().unwrap().schema_version, 13);
     let item = hub
         .memory_get(&MemoryGetRequest {
             workspace: workspace.to_string_lossy().into_owned(),
@@ -253,6 +253,7 @@ async fn failed_local_execution_becomes_verified_gotcha_memory() {
             expected_exit_code: 0,
             timeout_seconds: 5,
             artifact_paths: Vec::new(),
+            sandbox_profile: Default::default(),
             idempotency_key: "failing-memory-spec".to_owned(),
         })
         .unwrap();

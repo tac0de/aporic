@@ -132,7 +132,7 @@ fn backup(target: &str) -> Result<(), Box<dyn Error>> {
         serde_json::to_string(&serde_json::json!({
             "ok": true,
             "backup": fs::canonicalize(target)?,
-            "schema_version": 12,
+            "schema_version": 13,
         }))?
     );
     Ok(())
@@ -341,6 +341,7 @@ fn doctor() -> Result<(), Box<dyn Error>> {
             "token_usage": token_usage,
             "deliberations": deliberations,
             "secure_capabilities": secure_capabilities
+            ,"sandbox": aporic::sandbox_backend_status()
         }))?
     );
     Ok(())

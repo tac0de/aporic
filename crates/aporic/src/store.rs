@@ -20,39 +20,39 @@ use crate::{
     },
     domain::{
         AbandonedSession, ActiveSession, CapabilityCatalogState, CapabilityClass,
-        CapabilityEffectClass, CapabilityGetRequest, CapabilityManifest, CapabilityObservation,
-        CapabilityOutcome, CapabilityProviderKind, CapabilityRegisterRequest, CapabilityReport,
-        CapabilitySearchRequest, CapabilitySummary, ClaimOutcome, ClaimRequest, ClaimStatus,
-        CloseDisposition, CloseOutcome, CloseRequest, CommandSpec, CommandSpecOutcome,
-        CommandSpecRequest, Consequence, ContextCapsule, CoordinatedTask, CriterionProof,
-        Deliberation, DeliberationAudit, DeliberationCreateRequest, DeliberationDecision,
-        DeliberationDecisionRequest, DeliberationEdge, DeliberationEdgeKind,
-        DeliberationGetRequest, DeliberationGraph, DeliberationListRequest, DeliberationNode,
-        DeliberationNodeAddRequest, DeliberationNodeKind, DeliberationOutcome, DeliberationSummary,
-        DissentAssessment, DissentRequest, DurableRecord, EpistemicClaim, EvidenceArtifact,
-        EvidenceGrade, EvidenceKind, EvidenceOutcome, EvidenceRequest, ExecutionFinish,
-        ExecutionGetRequest, ExecutionListRequest, ExecutionOutcome, ExecutionReceipt,
-        ExecutionReplayAudit, ExecutionRun, ExecutionStart, ExecutionStatus, ExperimentCampaign,
-        ExperimentComparison, ExperimentCreateRequest, ExperimentCriterion,
-        ExperimentCriterionKind, ExperimentDecision, ExperimentDecisionKind,
-        ExperimentDecisionRequest, ExperimentDiversityAxis, ExperimentGetRequest,
-        ExperimentListRequest, ExperimentMeasurement, ExperimentMeasurementAddRequest,
-        ExperimentOutcome, ExperimentPortfolio, ExperimentSummary, ExperimentVariant,
-        ExperimentVariantAddRequest, ExportEvent, ExportSession, GitSnapshot, GitSnapshotAudit,
-        GitSnapshotDraft, GitSnapshotGetRequest, GitSnapshotListRequest, Handoff, HookHealthReport,
-        HubStats, InfluenceClass, MemoryClass, MemoryEdge, MemoryExposure, MemoryGetRequest,
-        MemoryItem, MemoryLifecycle, MemoryProjectionAudit, MemorySearchRequest,
+        CapabilityEffectClass, CapabilityGetRequest, CapabilityManifest, CapabilityMaturity,
+        CapabilityObservation, CapabilityOutcome, CapabilityProviderKind,
+        CapabilityRegisterRequest, CapabilityReport, CapabilitySearchRequest, CapabilitySummary,
+        ClaimOutcome, ClaimRequest, ClaimStatus, CloseDisposition, CloseOutcome, CloseRequest,
+        CommandSpec, CommandSpecOutcome, CommandSpecRequest, Consequence, ContextCapsule,
+        CoordinatedTask, CriterionProof, Deliberation, DeliberationAudit,
+        DeliberationCreateRequest, DeliberationDecision, DeliberationDecisionRequest,
+        DeliberationEdge, DeliberationEdgeKind, DeliberationGetRequest, DeliberationGraph,
+        DeliberationListRequest, DeliberationNode, DeliberationNodeAddRequest,
+        DeliberationNodeKind, DeliberationOutcome, DeliberationSummary, DissentAssessment,
+        DissentRequest, DurableRecord, EpistemicClaim, EvidenceArtifact, EvidenceGrade,
+        EvidenceKind, EvidenceOutcome, EvidenceRequest, ExecutionFinish, ExecutionGetRequest,
+        ExecutionListRequest, ExecutionOutcome, ExecutionReceipt, ExecutionReplayAudit,
+        ExecutionRun, ExecutionStart, ExecutionStatus, ExperimentCampaign, ExperimentComparison,
+        ExperimentCreateRequest, ExperimentCriterion, ExperimentCriterionKind, ExperimentDecision,
+        ExperimentDecisionKind, ExperimentDecisionRequest, ExperimentDiversityAxis,
+        ExperimentGetRequest, ExperimentListRequest, ExperimentMeasurement,
+        ExperimentMeasurementAddRequest, ExperimentOutcome, ExperimentPortfolio, ExperimentSummary,
+        ExperimentVariant, ExperimentVariantAddRequest, ExportEvent, ExportSession, GitSnapshot,
+        GitSnapshotAudit, GitSnapshotDraft, GitSnapshotGetRequest, GitSnapshotListRequest, Handoff,
+        HookHealthReport, HubStats, InfluenceClass, MemoryClass, MemoryEdge, MemoryExposure,
+        MemoryGetRequest, MemoryItem, MemoryLifecycle, MemoryProjectionAudit, MemorySearchRequest,
         MemorySearchResult, OpenOutcome, OpenRequest, OriginChannel, ProjectExport, RecallRequest,
         ReceiptArtifact, ReconcileOutcome, ReconcileRequest, RecordKind, RecordOutcome,
         RecordRequest, RuntimeEvent, RuntimeEventKind, RuntimeObservation, RuntimeOutcomeStatus,
         RuntimeProjectionAudit, RuntimeTraceGetRequest, RuntimeTraceListRequest,
-        RuntimeWorkspaceRequest, SecureCapabilityAudit, SecurityArtifactImport, SecurityAssessment,
-        SecurityAssessmentGetRequest, SecurityAssessmentListRequest, SecurityAssessmentOutcome,
-        SecurityCoverage, ShadowDisposition, TaskCancelRequest, TaskClaimRequest,
-        TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskOutcome, TaskStatus,
-        TokenCountSource, TokenEfficiencyReport, TokenEfficiencyReportRequest, TokenUsageAudit,
-        TokenUsageListRequest, TokenUsageOutcome, TokenUsageReceipt, TokenUsageRecordRequest,
-        UsageOutcome, workspace_file_claim,
+        RuntimeWorkspaceRequest, SandboxEnforcement, SecureCapabilityAudit, SecurityArtifactImport,
+        SecurityAssessment, SecurityAssessmentGetRequest, SecurityAssessmentListRequest,
+        SecurityAssessmentOutcome, SecurityCoverage, ShadowDisposition, TaskCancelRequest,
+        TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskOutcome,
+        TaskStatus, TokenCountSource, TokenEfficiencyReport, TokenEfficiencyReportRequest,
+        TokenUsageAudit, TokenUsageListRequest, TokenUsageOutcome, TokenUsageReceipt,
+        TokenUsageRecordRequest, UsageOutcome, workspace_file_claim,
     },
 };
 
@@ -68,7 +68,8 @@ const MIGRATION_9: &str = include_str!("../../../migrations/0009_git_governance.
 const MIGRATION_10: &str = include_str!("../../../migrations/0010_token_efficiency.sql");
 const MIGRATION_11: &str = include_str!("../../../migrations/0011_commit_bound_deliberation.sql");
 const MIGRATION_12: &str = include_str!("../../../migrations/0012_secure_capability_fabric.sql");
-const SCHEMA_VERSION: u32 = 12;
+const MIGRATION_13: &str = include_str!("../../../migrations/0013_execution_governance.sql");
+const SCHEMA_VERSION: u32 = 13;
 const MIGRATIONS: &[(u32, &str)] = &[
     (2, MIGRATION_2),
     (3, MIGRATION_3),
@@ -81,6 +82,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (10, MIGRATION_10),
     (11, MIGRATION_11),
     (12, MIGRATION_12),
+    (13, MIGRATION_13),
 ];
 
 #[derive(Debug, Error)]
@@ -560,6 +562,12 @@ impl Store {
                 "timeout_seconds must be between 1 and 3600".to_owned(),
             ));
         }
+        crate::sandbox::validate_profile(
+            &request.sandbox_profile.enforcement,
+            &request.sandbox_profile.workspace_access,
+            &request.sandbox_profile.network_access,
+        )
+        .map_err(|message| Error::Invalid(message.to_owned()))?;
         validate_relative_path("workspace_relative_cwd", &request.workspace_relative_cwd)?;
         for path in &request.artifact_paths {
             validate_relative_path("artifact path", path)?;
@@ -592,6 +600,7 @@ impl Store {
             "expected_exit_code": request.expected_exit_code,
             "timeout_seconds": request.timeout_seconds,
             "artifact_paths": request.artifact_paths,
+            "sandbox_profile": request.sandbox_profile,
         });
         let canonical_sha256 = format!("{:x}", Sha256::digest(serde_json::to_vec(&canonical)?));
         let spec = CommandSpec {
@@ -604,6 +613,7 @@ impl Store {
             expected_exit_code: request.expected_exit_code,
             timeout_seconds: request.timeout_seconds,
             artifact_paths: request.artifact_paths.clone(),
+            sandbox_profile: request.sandbox_profile.clone(),
             success_claim: command_success_claim(&canonical_sha256, request.expected_exit_code),
             canonical_sha256,
             created_at_unix_ms: now,
@@ -612,8 +622,8 @@ impl Store {
             "INSERT INTO verification_specs
              (spec_id, session_id, program, args_json, workspace_relative_cwd,
               expected_exit_code, timeout_seconds, artifact_paths_json,
-              canonical_sha256, created_at_unix_ms)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+              canonical_sha256, created_at_unix_ms, sandbox_profile_json)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 spec.spec_id,
                 spec.session_id,
@@ -625,6 +635,7 @@ impl Store {
                 serde_json::to_string(&spec.artifact_paths)?,
                 spec.canonical_sha256,
                 spec.created_at_unix_ms,
+                serde_json::to_string(&spec.sandbox_profile)?,
             ],
         )?;
         let outcome = CommandSpecOutcome {
@@ -656,6 +667,12 @@ impl Store {
                 "verification spec exceeds the artifact count limit of {MAX_RECEIPT_ARTIFACTS}"
             )));
         }
+        crate::sandbox::validate_profile(
+            &spec.sandbox_profile.enforcement,
+            &spec.sandbox_profile.workspace_access,
+            &spec.sandbox_profile.network_access,
+        )
+        .map_err(|message| Error::Invalid(message.to_owned()))?;
         require_open_session(&transaction, &spec.session_id)?;
         let running = transaction
             .query_row(
@@ -747,6 +764,15 @@ impl Store {
                 "succeeded execution must exit normally with the expected exit code".to_owned(),
             ));
         }
+        require_text("sandbox_backend", &finish.sandbox_backend)?;
+        if finish.status == ExecutionStatus::Succeeded
+            && spec.sandbox_profile.enforcement == SandboxEnforcement::Required
+            && !finish.sandbox_enforced
+        {
+            return Err(Error::Invalid(
+                "required sandbox execution cannot succeed without enforcement evidence".to_owned(),
+            ));
+        }
         if finish.artifacts.len() > MAX_RECEIPT_ARTIFACTS
             || finish
                 .artifacts
@@ -780,6 +806,8 @@ impl Store {
             resolved_executable: finish.resolved_executable.clone(),
             exit_code: finish.exit_code,
             termination: finish.termination.clone(),
+            sandbox_backend: finish.sandbox_backend.clone(),
+            sandbox_enforced: finish.sandbox_enforced,
             stdout_sha256: finish.stdout_sha256.clone(),
             stdout_bytes: finish.stdout_bytes,
             stderr_sha256: finish.stderr_sha256.clone(),
@@ -793,10 +821,11 @@ impl Store {
         transaction.execute(
             "INSERT INTO execution_receipts
              (receipt_id, run_id, command_spec_sha256, resolved_executable, exit_code,
-              termination, stdout_sha256, stdout_bytes, stderr_sha256, stderr_bytes,
+              termination, sandbox_backend, sandbox_enforced,
+              stdout_sha256, stdout_bytes, stderr_sha256, stderr_bytes,
               git_head_before, git_head_after, worktree_state_before_sha256,
               worktree_state_after_sha256, created_at_unix_ms)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
             params![
                 receipt.receipt_id,
                 receipt.run_id,
@@ -804,6 +833,8 @@ impl Store {
                 receipt.resolved_executable,
                 receipt.exit_code,
                 receipt.termination,
+                receipt.sandbox_backend,
+                receipt.sandbox_enforced,
                 receipt.stdout_sha256,
                 receipt.stdout_bytes,
                 receipt.stderr_sha256,
@@ -2489,6 +2520,11 @@ impl Store {
         require_text("idempotency_key", &request.idempotency_key)?;
         validate_capability_schema("input_schema", &request.input_schema, true)?;
         validate_capability_schema("output_schema", &request.output_schema, false)?;
+        let maturity = request
+            .maturity
+            .clone()
+            .unwrap_or_else(|| minimum_capability_maturity(&request.effect_class));
+        validate_capability_maturity(&request.effect_class, &maturity, request.idempotent)?;
         if request
             .implementation_sha256
             .as_deref()
@@ -2525,6 +2561,7 @@ impl Store {
             "title": request.title.trim(),
             "description": request.description.trim(),
             "effect_class": request.effect_class.as_str(),
+            "maturity": maturity.as_str(),
             "reads_private_data": request.reads_private_data,
             "sees_untrusted_content": request.sees_untrusted_content,
             "uses_network": request.uses_network,
@@ -2539,12 +2576,12 @@ impl Store {
         transaction.execute(
             "INSERT INTO capability_manifests(
                 capability_id, version, project_id, provider_kind, title, description,
-                effect_class, reads_private_data, sees_untrusted_content, uses_network,
+                effect_class, maturity, reads_private_data, sees_untrusted_content, uses_network,
                 requires_credentials, idempotent, reversible, input_schema_json,
                 output_schema_json, evidence_contract, implementation_sha256,
-                manifest_sha256, created_at_unix_ms
+                manifest_sha256, created_at_unix_ms, manifest_digest_version
              ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12,
-                       ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
+                       ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, 2)",
             params![
                 request.capability_id.trim(),
                 request.version.trim(),
@@ -2553,6 +2590,7 @@ impl Store {
                 request.title.trim(),
                 request.description.trim(),
                 request.effect_class.as_str(),
+                maturity.as_str(),
                 request.reads_private_data,
                 request.sees_untrusted_content,
                 request.uses_network,
@@ -2640,7 +2678,7 @@ impl Store {
         let query = request.query.as_deref().unwrap_or("").trim().to_lowercase();
         let limit = request.limit.unwrap_or(20).clamp(1, 100) as usize;
         let mut statement = connection.prepare(
-            "SELECT capability_id, version, title, effect_class, manifest_sha256
+            "SELECT capability_id, version, title, effect_class, maturity, manifest_sha256
              FROM capability_manifests WHERE project_id = ?1
              ORDER BY sequence DESC",
         )?;
@@ -2651,11 +2689,12 @@ impl Store {
                 row.get::<_, String>(2)?,
                 row.get::<_, String>(3)?,
                 row.get::<_, String>(4)?,
+                row.get::<_, String>(5)?,
             ))
         })?;
         let mut summaries = Vec::new();
         for row in rows {
-            let (capability_id, version, title, effect_class, manifest_sha256) = row?;
+            let (capability_id, version, title, effect_class, maturity, manifest_sha256) = row?;
             if !query.is_empty()
                 && !capability_id.to_lowercase().contains(&query)
                 && !title.to_lowercase().contains(&query)
@@ -2677,6 +2716,7 @@ impl Store {
                 version,
                 title,
                 effect_class: parse_capability_effect_class(effect_class)?,
+                maturity: parse_capability_maturity(maturity)?,
                 state,
                 manifest_sha256,
                 executable: false,
@@ -4407,6 +4447,50 @@ fn parse_capability_effect_class(value: String) -> rusqlite::Result<CapabilityEf
     }
 }
 
+fn parse_capability_maturity(value: String) -> rusqlite::Result<CapabilityMaturity> {
+    match value.as_str() {
+        "observe" => Ok(CapabilityMaturity::Observe),
+        "propose" => Ok(CapabilityMaturity::Propose),
+        "sandboxed_execute" => Ok(CapabilityMaturity::SandboxedExecute),
+        "connected_effect" => Ok(CapabilityMaturity::ConnectedEffect),
+        "persistent_routine" => Ok(CapabilityMaturity::PersistentRoutine),
+        _ => Err(rusqlite::Error::InvalidQuery),
+    }
+}
+
+fn validate_capability_maturity(
+    effect: &CapabilityEffectClass,
+    maturity: &CapabilityMaturity,
+    idempotent: bool,
+) -> Result<()> {
+    let minimum = minimum_capability_maturity(effect);
+    if maturity.rank() < minimum.rank() {
+        return Err(Error::Invalid(format!(
+            "capability maturity {} is below the minimum {} for effect class {}",
+            maturity.as_str(),
+            minimum.as_str(),
+            effect.as_str()
+        )));
+    }
+    if *maturity == CapabilityMaturity::PersistentRoutine && !idempotent {
+        return Err(Error::Invalid(
+            "persistent_routine capabilities must declare idempotent=true".to_owned(),
+        ));
+    }
+    Ok(())
+}
+
+fn minimum_capability_maturity(effect: &CapabilityEffectClass) -> CapabilityMaturity {
+    match effect {
+        CapabilityEffectClass::Observe => CapabilityMaturity::Observe,
+        CapabilityEffectClass::RecordLocal => CapabilityMaturity::Propose,
+        CapabilityEffectClass::VerifyLocal => CapabilityMaturity::SandboxedExecute,
+        CapabilityEffectClass::ExternalEffect | CapabilityEffectClass::Privileged => {
+            CapabilityMaturity::ConnectedEffect
+        }
+    }
+}
+
 fn parse_capability_state(value: String) -> rusqlite::Result<CapabilityCatalogState> {
     match value.as_str() {
         "registered" => Ok(CapabilityCatalogState::Registered),
@@ -4443,10 +4527,10 @@ fn load_capability_manifest(
     let state = latest_capability_state(connection, project_id, capability_id, version)?;
     connection.query_row(
         "SELECT sequence, capability_id, version, provider_kind, title, description,
-                effect_class, reads_private_data, sees_untrusted_content, uses_network,
+                effect_class, maturity, reads_private_data, sees_untrusted_content, uses_network,
                 requires_credentials, idempotent, reversible, input_schema_json,
                 output_schema_json, evidence_contract, implementation_sha256,
-                manifest_sha256, created_at_unix_ms
+                manifest_sha256, created_at_unix_ms, manifest_digest_version
          FROM capability_manifests
          WHERE project_id = ?1 AND capability_id = ?2 AND version = ?3",
         params![project_id, capability_id, version],
@@ -4454,11 +4538,12 @@ fn load_capability_manifest(
             Ok((
                 row.get::<_, u64>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?,
                 row.get::<_, String>(3)?, row.get::<_, String>(4)?, row.get::<_, String>(5)?,
-                row.get::<_, String>(6)?, row.get::<_, bool>(7)?, row.get::<_, bool>(8)?,
+                row.get::<_, String>(6)?, row.get::<_, String>(7)?, row.get::<_, bool>(8)?,
                 row.get::<_, bool>(9)?, row.get::<_, bool>(10)?, row.get::<_, bool>(11)?,
-                row.get::<_, bool>(12)?, row.get::<_, String>(13)?, row.get::<_, String>(14)?,
-                row.get::<_, String>(15)?, row.get::<_, Option<String>>(16)?,
-                row.get::<_, String>(17)?, row.get::<_, i64>(18)?,
+                row.get::<_, bool>(12)?, row.get::<_, bool>(13)?, row.get::<_, String>(14)?,
+                row.get::<_, String>(15)?, row.get::<_, String>(16)?,
+                row.get::<_, Option<String>>(17)?, row.get::<_, String>(18)?,
+                row.get::<_, i64>(19)?, row.get::<_, u32>(20)?,
             ))
         },
     ).optional()?.map(|row| -> Result<CapabilityManifest> {
@@ -4470,23 +4555,34 @@ fn load_capability_manifest(
         title: row.4,
         description: row.5,
         effect_class: parse_capability_effect_class(row.6)?,
-        reads_private_data: row.7,
-        sees_untrusted_content: row.8,
-        uses_network: row.9,
-        requires_credentials: row.10,
-        idempotent: row.11,
-        reversible: row.12,
-        input_schema: serde_json::from_str(&row.13)?,
-        output_schema: serde_json::from_str(&row.14)?,
-        evidence_contract: row.15,
-        implementation_sha256: row.16,
-        manifest_sha256: row.17,
+        maturity: parse_capability_maturity(row.7)?,
+        reads_private_data: row.8,
+        sees_untrusted_content: row.9,
+        uses_network: row.10,
+        requires_credentials: row.11,
+        idempotent: row.12,
+        reversible: row.13,
+        input_schema: serde_json::from_str(&row.14)?,
+        output_schema: serde_json::from_str(&row.15)?,
+        evidence_contract: row.16,
+        implementation_sha256: row.17,
+        manifest_sha256: row.18,
         state,
-        created_at_unix_ms: row.18,
+        created_at_unix_ms: row.19,
         executable: false,
             authority_notice: "Capability manifests are catalog data, not executable authority. Aporic never invokes registered providers.".to_owned(),
         };
-        if capability_manifest_digest(&manifest)? != manifest.manifest_sha256 {
+        if row.20 == 1 && manifest.maturity != minimum_capability_maturity(&manifest.effect_class) {
+            return Err(Error::Conflict(format!(
+                "legacy capability {capability_id}@{version} maturity does not match its effect class"
+            )));
+        }
+        let expected_digest = if row.20 == 1 {
+            capability_manifest_digest_v1(&manifest)?
+        } else {
+            capability_manifest_digest(&manifest)?
+        };
+        if expected_digest != manifest.manifest_sha256 {
             return Err(Error::Conflict(format!("capability {capability_id}@{version} digest mismatch")));
         }
         Ok(manifest)
@@ -4494,6 +4590,28 @@ fn load_capability_manifest(
 }
 
 fn capability_manifest_digest(value: &CapabilityManifest) -> Result<String> {
+    digest_json(&serde_json::json!({
+        "capability_id": value.capability_id,
+        "version": value.version,
+        "provider_kind": value.provider_kind.as_str(),
+        "title": value.title,
+        "description": value.description,
+        "effect_class": value.effect_class.as_str(),
+        "maturity": value.maturity.as_str(),
+        "reads_private_data": value.reads_private_data,
+        "sees_untrusted_content": value.sees_untrusted_content,
+        "uses_network": value.uses_network,
+        "requires_credentials": value.requires_credentials,
+        "idempotent": value.idempotent,
+        "reversible": value.reversible,
+        "input_schema": value.input_schema,
+        "output_schema": value.output_schema,
+        "evidence_contract": value.evidence_contract,
+        "implementation_sha256": value.implementation_sha256,
+    }))
+}
+
+fn capability_manifest_digest_v1(value: &CapabilityManifest) -> Result<String> {
     digest_json(&serde_json::json!({
         "capability_id": value.capability_id,
         "version": value.version,
@@ -6676,6 +6794,7 @@ fn command_spec_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<CommandSpe
         expected_exit_code,
         timeout_seconds: row.get(7)?,
         artifact_paths: json_column(row, 8)?,
+        sandbox_profile: json_column(row, 11)?,
         success_claim: command_success_claim(&canonical_sha256, expected_exit_code),
         canonical_sha256,
         created_at_unix_ms: row.get(10)?,
@@ -6690,7 +6809,8 @@ fn load_command_spec(connection: &Connection, spec_id: &str) -> Result<Option<Co
                     verification_specs.args_json, verification_specs.workspace_relative_cwd,
                     verification_specs.expected_exit_code, verification_specs.timeout_seconds,
                     verification_specs.artifact_paths_json, verification_specs.canonical_sha256,
-                    verification_specs.created_at_unix_ms
+                    verification_specs.created_at_unix_ms,
+                    verification_specs.sandbox_profile_json
              FROM verification_specs
              JOIN sessions ON sessions.session_id = verification_specs.session_id
              JOIN projects ON projects.project_id = sessions.project_id
@@ -6708,7 +6828,8 @@ fn load_project_specs(connection: &Connection, project_id: &str) -> Result<Vec<C
                 verification_specs.args_json, verification_specs.workspace_relative_cwd,
                 verification_specs.expected_exit_code, verification_specs.timeout_seconds,
                 verification_specs.artifact_paths_json, verification_specs.canonical_sha256,
-                verification_specs.created_at_unix_ms
+                verification_specs.created_at_unix_ms,
+                verification_specs.sandbox_profile_json
          FROM verification_specs
          JOIN sessions ON sessions.session_id = verification_specs.session_id
          JOIN projects ON projects.project_id = sessions.project_id
@@ -6773,21 +6894,24 @@ fn receipt_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<ExecutionReceip
         resolved_executable: row.get(3)?,
         exit_code: row.get(4)?,
         termination: row.get(5)?,
-        stdout_sha256: row.get(6)?,
-        stdout_bytes: row.get(7)?,
-        stderr_sha256: row.get(8)?,
-        stderr_bytes: row.get(9)?,
-        git_head_before: row.get(10)?,
-        git_head_after: row.get(11)?,
-        worktree_state_before_sha256: row.get(12)?,
-        worktree_state_after_sha256: row.get(13)?,
-        created_at_unix_ms: row.get(14)?,
+        sandbox_backend: row.get(6)?,
+        sandbox_enforced: row.get(7)?,
+        stdout_sha256: row.get(8)?,
+        stdout_bytes: row.get(9)?,
+        stderr_sha256: row.get(10)?,
+        stderr_bytes: row.get(11)?,
+        git_head_before: row.get(12)?,
+        git_head_after: row.get(13)?,
+        worktree_state_before_sha256: row.get(14)?,
+        worktree_state_after_sha256: row.get(15)?,
+        created_at_unix_ms: row.get(16)?,
     })
 }
 
 const RECEIPT_COLUMNS: &str = "execution_receipts.receipt_id, execution_receipts.run_id,
     execution_receipts.command_spec_sha256, execution_receipts.resolved_executable,
     execution_receipts.exit_code, execution_receipts.termination,
+    execution_receipts.sandbox_backend, execution_receipts.sandbox_enforced,
     execution_receipts.stdout_sha256, execution_receipts.stdout_bytes,
     execution_receipts.stderr_sha256, execution_receipts.stderr_bytes,
     execution_receipts.git_head_before, execution_receipts.git_head_after,

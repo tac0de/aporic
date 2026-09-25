@@ -146,16 +146,22 @@ manual evaluation.
 - Which agent runtime should back later delegation and scheduling.
 - Whether the observed efficiency gain justifies an always-running local
   service beyond the current stdio deployment.
+- Whether Linux namespace isolation remains reliable across the deployment
+  environments that would host verification workers; current evidence is the
+  supported CI image and deterministic adversarial fixtures.
 
 ## Deferred operational work
 
 Destructive in-place restore, remote authentication,
 long-running agent scheduling, provider code loading, credential brokering,
-general-purpose tool execution, and remote-effect verification are intentionally
-deferred. v0.13 adds validated restore to a new destination, narrowly matched
+general-purpose capability execution, remote-effect verification, and
+multi-tenant worker isolation are intentionally deferred. v0.13 adds validated
+restore to a new destination, narrowly matched
 backup retention, bounded streaming file and Git observation, canonical task
 write scopes, and supply-chain/coverage release gates. Restore still refuses to
-overwrite an existing database, and none of these controls grants provider authority.
+overwrite an existing database. v0.14 adds capability maturity metadata and an
+opt-in, fail-closed Linux `bubblewrap` profile for local verification commands;
+neither feature grants provider authority or makes catalog entries executable.
 
 ## Current evidence
 
@@ -235,6 +241,11 @@ Observed on 2026-09-25:
   receipt artifacts, and artifact lists; normalizes write scopes; disables Git
   fsmonitor in runner snapshots; and restores a validated backup into a fresh
   supported-schema database without overwriting an existing target.
+- the v0.14 execution-governance suite rejects invalid host-profile restriction
+  claims, rejects insufficient capability maturity and non-idempotent persistent
+  routines, and requires unsupported platforms to fail closed. Linux CI also
+  exercises denial of an out-of-workspace secret, read-only workspace writes,
+  and network connection attempts inside the real `bubblewrap` backend.
 
 Not yet established:
 
@@ -246,7 +257,9 @@ Not yet established:
   byte simulation is structural evidence only;
 - better decisions or reduced rework in model-driven deliberation; the current
   graph and simulation establish structural guarantees only;
-- actual agent dispatch or parallel worker execution.
+- actual agent dispatch or parallel worker execution;
+- hostile multi-tenant isolation, cgroup resource quotas, custom seccomp policy,
+  and VM/microVM containment.
 - real-world hook coverage and outcome accuracy across host versions; the
   current report detects observable gaps but cannot prove unobserved actions.
 - remote branch-protection/ruleset freshness, signer trust, independent human

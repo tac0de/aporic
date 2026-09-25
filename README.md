@@ -130,9 +130,16 @@ output hashes and byte counts, records Git/worktree snapshots and declared-file
 hashes, then issues a verified claim only for the expected exit code and complete
 artifact set. Failed, timed-out, interrupted, or incomplete runs cannot issue
 that claim. Output is hashed as a bounded-memory stream. On Unix, timeout cleanup
-targets the normal child process group. This is best-effort lifecycle cleanup,
-not a security sandbox: a hostile process that creates a new session or uses
-external effects is outside this guarantee.
+targets the normal child process group.
+
+Command specifications may additionally require the Linux `bubblewrap` backend.
+That profile runs with separate user, PID, IPC, UTS, cgroup, and network
+namespaces; a minimal read-only system view; a private home and `/tmp`; and an
+explicit read-only or read-write `/workspace`. The runner records which backend
+actually started and refuses to issue a verified claim if required enforcement
+cannot be established. Required isolation never silently falls back to host
+execution. The legacy/default `host` profile remains reduced-environment process
+execution and is not a security sandbox.
 
 Coordination records do not launch agents, grant host authority, or block tools.
 They make parallel-work conflicts and unsupported completion claims visible at
@@ -333,6 +340,28 @@ an existing database. Retention removes only regular non-symlink files matching
 
 These controls improve local reliability; they do not turn the runner into a
 sandbox or establish model-driven product utility.
+
+## v0.14 execution-governance boundary
+
+v0.14 gives each capability manifest an explicit maturity stage: `observe`,
+`propose`, `sandboxed_execute`, `connected_effect`, or `persistent_routine`.
+Registration enforces a minimum stage from the declared effect class, and a
+persistent routine must be idempotent. The stage is catalog metadata, not an
+execution permission; every registered capability remains non-executable through
+MCP.
+
+Verification specifications now carry a versioned sandbox profile. `host`
+preserves existing behavior. `required` is implemented on Linux with
+`bubblewrap`, requires network denial, and chooses read-only or read-write
+workspace access. Unsupported platforms, a missing backend, invalid mount setup,
+or missing sandbox-start evidence fail the run rather than downgrade it. Receipts
+persist the selected backend and whether enforcement was established.
+
+This is a bounded verification worker, not a general untrusted-code service.
+It does not yet impose cgroup CPU, memory, or process-count quotas; use a custom
+seccomp policy; provide a VM/microVM boundary; execute catalog capabilities; or
+verify remote side effects. The existing timeout remains the resource-lifetime
+limit.
 
 ## Offline evaluation
 

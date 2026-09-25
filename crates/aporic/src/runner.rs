@@ -1,14 +1,12 @@
 use std::{
     env, fs,
     path::{Path, PathBuf},
-    process::Stdio,
     time::Duration,
 };
 
 use sha2::{Digest, Sha256};
 use tokio::{
     io::{AsyncRead, AsyncReadExt},
-    process::Command,
     task::JoinHandle,
     time::timeout,
 };
@@ -19,8 +17,12 @@ use crate::{
         MAX_GIT_OUTPUT_BYTES, MAX_RECEIPT_ARTIFACT_BYTES, MAX_RECEIPT_ARTIFACT_TOTAL_BYTES,
         sha256_file_bounded,
     },
-    domain::{ExecutionFinish, ExecutionOutcome, ExecutionStatus, ReceiptArtifactInput},
+    domain::{
+        ExecutionFinish, ExecutionOutcome, ExecutionStatus, ReceiptArtifactInput,
+        SandboxEnforcement,
+    },
     git_process::run_hardened_git,
+    sandbox::prepare_command,
     store::{Error, Result},
 };
 
@@ -41,6 +43,8 @@ pub async fn verify(hub: &Hub, spec_id: &str) -> Result<ExecutionOutcome> {
             resolved_executable: None,
             exit_code: None,
             termination: "executable_not_found".to_owned(),
+            sandbox_backend: "none".to_owned(),
+            sandbox_enforced: false,
             stdout_sha256: sha256(&[]),
             stdout_bytes: 0,
             stderr_sha256: sha256(&[]),
@@ -56,15 +60,32 @@ pub async fn verify(hub: &Hub, spec_id: &str) -> Result<ExecutionOutcome> {
 
     // Execute the path resolved before spawn so a later PATH change cannot
     // select a different binary than the one named in the receipt.
-    let mut command = Command::new(executable);
-    command
-        .args(&spec.args)
-        .current_dir(&cwd)
-        .kill_on_drop(true)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .env_clear();
-    copy_safe_environment(&mut command);
+    let mut prepared = match prepare_command(&spec, Path::new(executable), &cwd) {
+        Ok(prepared) => prepared,
+        Err(termination) => {
+            let (git_head_after, worktree_state_after_sha256) = git_snapshot(&workspace);
+            return hub.finish_execution(&ExecutionFinish {
+                run_id,
+                status: ExecutionStatus::Failed,
+                resolved_executable,
+                exit_code: None,
+                termination,
+                sandbox_backend: "unavailable".to_owned(),
+                sandbox_enforced: false,
+                stdout_sha256: sha256(&[]),
+                stdout_bytes: 0,
+                stderr_sha256: sha256(&[]),
+                stderr_bytes: 0,
+                git_head_before,
+                git_head_after,
+                worktree_state_before_sha256,
+                worktree_state_after_sha256,
+                artifacts: Vec::new(),
+            });
+        }
+    };
+    let sandbox_backend = prepared.backend.to_owned();
+    let command = &mut prepared.command;
 
     #[cfg(unix)]
     {
@@ -154,6 +175,11 @@ pub async fn verify(hub: &Hub, spec_id: &str) -> Result<ExecutionOutcome> {
     if status == ExecutionStatus::Succeeded && termination != "exited" {
         status = ExecutionStatus::Failed;
     }
+    let sandbox_enforced = prepared.sandbox_enforced();
+    if spec.sandbox_profile.enforcement == SandboxEnforcement::Required && !sandbox_enforced {
+        status = ExecutionStatus::Failed;
+        termination = "sandbox_setup_failed".to_owned();
+    }
     termination = if status == ExecutionStatus::Succeeded && missing_artifact {
         status = ExecutionStatus::Failed;
         "missing_or_invalid_artifact".to_owned()
@@ -167,6 +193,8 @@ pub async fn verify(hub: &Hub, spec_id: &str) -> Result<ExecutionOutcome> {
         resolved_executable,
         exit_code,
         termination,
+        sandbox_backend,
+        sandbox_enforced,
         stdout_sha256: stdout_digest.0,
         stdout_bytes: stdout_digest.1,
         stderr_sha256: stderr_digest.0,
@@ -225,36 +253,6 @@ fn kill_process_group(pid: Option<u32>) {
 
 #[cfg(not(unix))]
 fn kill_process_group(_pid: Option<u32>) {}
-
-fn copy_safe_environment(command: &mut Command) {
-    for name in [
-        "PATH",
-        "HOME",
-        "TMPDIR",
-        "LANG",
-        "LC_ALL",
-        "CARGO_HOME",
-        "RUSTUP_HOME",
-    ] {
-        if let Some(value) = env::var_os(name) {
-            command.env(name, value);
-        }
-    }
-    #[cfg(windows)]
-    for name in [
-        "SYSTEMROOT",
-        "WINDIR",
-        "COMSPEC",
-        "PATHEXT",
-        "TEMP",
-        "TMP",
-        "USERPROFILE",
-    ] {
-        if let Some(value) = env::var_os(name) {
-            command.env(name, value);
-        }
-    }
-}
 
 fn resolve_executable(program: &str, cwd: &Path) -> Option<String> {
     let path = Path::new(program);

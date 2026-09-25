@@ -30,12 +30,28 @@ MCP cannot execute checks or submit receipts. Receipts retain output hashes and
 byte counts rather than raw stdout/stderr. External sources and user statements
 remain reported, while model assessments remain model-only.
 
-The runner is not a sandbox. Registered programs execute with the current user's
-filesystem authority and a reduced environment, and timeout cleanup does not
-guarantee containment of every descendant a hostile program may create. A
-receipt proves the recorded process result and declared artifact hashes, not the
-semantic quality of a test or a broader real-world effect. Do not run untrusted
-specifications, or store secrets or raw conversation history in Aporic records.
+The default `host` runner profile is not a sandbox. Registered programs execute
+with the current user's filesystem authority and a reduced environment, and
+timeout cleanup does not guarantee containment of every descendant a hostile
+program may create.
+
+The opt-in `required` profile is available only when Aporic can start Linux
+`bubblewrap`. It isolates namespaces, drops capabilities, exposes only a minimal
+read-only system view, gives the process a private home and `/tmp`, denies
+network access, and mounts the workspace read-only or read-write as declared.
+The child must write a readiness marker from inside that mount namespace before
+its exit can be evaluated. Missing support, setup failure, or missing readiness
+evidence fails closed and never falls back to `host`.
+
+This profile materially narrows accidental and adversarial filesystem/network
+reach, but it is not a hardened multi-tenant boundary. It has no cgroup CPU,
+memory, or process-count quota, no Aporic-specific seccomp allowlist, and no
+VM/microVM isolation. Kernel vulnerabilities and same-user attacks against
+Aporic state remain outside its guarantee. A receipt proves the recorded process
+result, enforcement evidence, and declared artifact hashes—not test quality or a
+broader real-world effect. Do not store secrets or raw conversation history in
+Aporic records, and do not treat the profile as authorization to run arbitrary
+hostile code.
 
 ## Secure capability boundary
 
@@ -61,6 +77,11 @@ v0.13 bounds hook input, direct workspace evidence, receipt artifact count and
 bytes, and Git subprocess output. File digests are streamed rather than built
 from whole-file allocations. These are process-availability controls, not
 tenant isolation or authentication.
+
+v0.14 adds sandbox-backend attestation to execution receipts and a fail-closed
+Linux isolation profile. The timeout still provides the only runner-owned
+resource-duration bound; deployments needing hostile multi-tenant execution
+must add a stronger outer isolation and quota layer.
 
 Restore validates and migrates a copy before atomically installing it at a new
 destination and refuses existing targets. Retention deletes only regular,

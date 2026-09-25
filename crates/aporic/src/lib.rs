@@ -14,12 +14,17 @@ pub mod store;
 
 mod bounded;
 mod git_process;
+mod sandbox;
 
 use std::path::PathBuf;
 
 pub use hook::read_hook_input;
 pub use hub::Hub;
 pub use mcp::AporicMcp;
+
+pub fn sandbox_backend_status() -> domain::SandboxBackendStatus {
+    sandbox::backend_status()
+}
 
 /// Resolves the platform-native database path without placing runtime state in
 /// either a governed workspace or the Codex configuration directory.

@@ -3,7 +3,7 @@ use std::{path::Path, process::Command};
 use aporic::{
     Hub,
     domain::{
-        CapabilityEffectClass, CapabilityGetRequest, CapabilityProviderKind,
+        CapabilityEffectClass, CapabilityGetRequest, CapabilityMaturity, CapabilityProviderKind,
         CapabilityRegisterRequest, CapabilitySearchRequest, EvidenceKind, EvidenceRequest,
         ExperimentComparison, ExperimentCreateRequest, ExperimentCriterionInput,
         ExperimentCriterionKind, ExperimentDecisionKind, ExperimentDecisionRequest,
@@ -65,7 +65,7 @@ fn fixture() -> (tempfile::TempDir, std::path::PathBuf, Hub, String, String) {
 }
 
 #[test]
-fn migrates_v11_to_v12() {
+fn migrates_v11_through_execution_governance() {
     let area = tempfile::tempdir().unwrap();
     let database = area.path().join("aporic.sqlite3");
     let connection = rusqlite::Connection::open(&database).unwrap();
@@ -85,7 +85,7 @@ fn migrates_v11_to_v12() {
     drop(connection);
     assert_eq!(
         Hub::open(database).unwrap().stats().unwrap().schema_version,
-        12
+        13
     );
 }
 
@@ -100,6 +100,7 @@ fn manifests_are_bounded_catalog_data_and_never_executable() {
         title: "Prototype portfolio".to_owned(),
         description: "Compare commit-bound variants with direct evidence.".to_owned(),
         effect_class: CapabilityEffectClass::RecordLocal,
+        maturity: Some(CapabilityMaturity::Propose),
         reads_private_data: false,
         sees_untrusted_content: true,
         uses_network: false,
@@ -136,6 +137,30 @@ fn manifests_are_bounded_catalog_data_and_never_executable() {
         })
         .unwrap()
         .executable
+    );
+
+    let mut immature = request.clone();
+    immature.capability_id = "bad.immature-effect".to_owned();
+    immature.effect_class = CapabilityEffectClass::ExternalEffect;
+    immature.maturity = Some(CapabilityMaturity::Propose);
+    immature.idempotency_key = "reject-immature-effect".to_owned();
+    assert!(
+        hub.register_capability(&immature)
+            .unwrap_err()
+            .to_string()
+            .contains("below the minimum")
+    );
+
+    let mut unsafe_routine = request.clone();
+    unsafe_routine.capability_id = "bad.non-idempotent-routine".to_owned();
+    unsafe_routine.maturity = Some(CapabilityMaturity::PersistentRoutine);
+    unsafe_routine.idempotent = false;
+    unsafe_routine.idempotency_key = "reject-non-idempotent-routine".to_owned();
+    assert!(
+        hub.register_capability(&unsafe_routine)
+            .unwrap_err()
+            .to_string()
+            .contains("idempotent=true")
     );
 
     let mut secret = request;
@@ -357,7 +382,7 @@ fn imports_security_artifacts_without_claiming_safety_and_validates_backup() {
 
     let backup = area.path().join("backup.sqlite3");
     hub.backup_to(&backup).unwrap();
-    assert_eq!(Hub::validate_backup(&backup).unwrap(), 12);
+    assert_eq!(Hub::validate_backup(&backup).unwrap(), 13);
     assert!(
         hub.backup_to(&backup)
             .unwrap_err()

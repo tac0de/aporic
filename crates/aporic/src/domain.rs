@@ -1054,6 +1054,39 @@ pub enum CapabilityEffectClass {
     Privileged,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum CapabilityMaturity {
+    #[default]
+    Observe,
+    Propose,
+    SandboxedExecute,
+    ConnectedEffect,
+    PersistentRoutine,
+}
+
+impl CapabilityMaturity {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Observe => "observe",
+            Self::Propose => "propose",
+            Self::SandboxedExecute => "sandboxed_execute",
+            Self::ConnectedEffect => "connected_effect",
+            Self::PersistentRoutine => "persistent_routine",
+        }
+    }
+
+    pub(crate) fn rank(&self) -> u8 {
+        match self {
+            Self::Observe => 0,
+            Self::Propose => 1,
+            Self::SandboxedExecute => 2,
+            Self::ConnectedEffect => 3,
+            Self::PersistentRoutine => 4,
+        }
+    }
+}
+
 impl CapabilityEffectClass {
     pub(crate) fn as_str(&self) -> &'static str {
         match self {
@@ -1086,6 +1119,8 @@ pub struct CapabilityRegisterRequest {
     pub title: String,
     pub description: String,
     pub effect_class: CapabilityEffectClass,
+    #[serde(default)]
+    pub maturity: Option<CapabilityMaturity>,
     #[serde(default)]
     pub reads_private_data: bool,
     #[serde(default)]
@@ -1135,6 +1170,8 @@ pub struct CapabilityManifest {
     pub title: String,
     pub description: String,
     pub effect_class: CapabilityEffectClass,
+    #[serde(default)]
+    pub maturity: CapabilityMaturity,
     pub reads_private_data: bool,
     pub sees_untrusted_content: bool,
     pub uses_network: bool,
@@ -1158,6 +1195,7 @@ pub struct CapabilitySummary {
     pub version: String,
     pub title: String,
     pub effect_class: CapabilityEffectClass,
+    pub maturity: CapabilityMaturity,
     pub state: CapabilityCatalogState,
     pub manifest_sha256: String,
     pub executable: bool,
@@ -1654,7 +1692,54 @@ pub struct CommandSpecRequest {
     pub timeout_seconds: u64,
     #[serde(default)]
     pub artifact_paths: Vec<String>,
+    #[serde(default)]
+    pub sandbox_profile: ExecutionSandboxProfile,
     pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum SandboxEnforcement {
+    #[default]
+    Host,
+    Required,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum SandboxWorkspaceAccess {
+    ReadOnly,
+    #[default]
+    ReadWrite,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum SandboxNetworkAccess {
+    Deny,
+    #[default]
+    Inherit,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ExecutionSandboxProfile {
+    #[serde(default)]
+    pub enforcement: SandboxEnforcement,
+    #[serde(default)]
+    pub workspace_access: SandboxWorkspaceAccess,
+    #[serde(default)]
+    pub network_access: SandboxNetworkAccess,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SandboxBackendStatus {
+    pub platform: String,
+    pub backend: String,
+    pub supported: bool,
+    pub installed: bool,
+    pub required_profiles_fail_closed: bool,
+    pub network_policy: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1668,6 +1753,8 @@ pub struct CommandSpec {
     pub expected_exit_code: i32,
     pub timeout_seconds: u64,
     pub artifact_paths: Vec<String>,
+    #[serde(default)]
+    pub sandbox_profile: ExecutionSandboxProfile,
     pub canonical_sha256: String,
     pub success_claim: String,
     pub created_at_unix_ms: i64,
@@ -1699,6 +1786,10 @@ pub struct ExecutionReceipt {
     pub resolved_executable: Option<String>,
     pub exit_code: Option<i32>,
     pub termination: String,
+    #[serde(default = "default_sandbox_backend")]
+    pub sandbox_backend: String,
+    #[serde(default)]
+    pub sandbox_enforced: bool,
     pub stdout_sha256: String,
     pub stdout_bytes: u64,
     pub stderr_sha256: String,
@@ -1708,6 +1799,10 @@ pub struct ExecutionReceipt {
     pub worktree_state_before_sha256: Option<String>,
     pub worktree_state_after_sha256: Option<String>,
     pub created_at_unix_ms: i64,
+}
+
+fn default_sandbox_backend() -> String {
+    "none".to_owned()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1747,6 +1842,10 @@ pub struct ExecutionFinish {
     pub resolved_executable: Option<String>,
     pub exit_code: Option<i32>,
     pub termination: String,
+    #[serde(default = "default_sandbox_backend")]
+    pub sandbox_backend: String,
+    #[serde(default)]
+    pub sandbox_enforced: bool,
     pub stdout_sha256: String,
     pub stdout_bytes: u64,
     pub stderr_sha256: String,

@@ -4,8 +4,9 @@ use aporic::{
     Hub,
     domain::{
         CommandSpecRequest, CriterionProof, ExecutionGetRequest, ExecutionListRequest,
-        ExecutionStatus, OpenRequest, TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest,
-        TaskStatus,
+        ExecutionSandboxProfile, ExecutionStatus, OpenRequest, SandboxEnforcement,
+        SandboxNetworkAccess, SandboxWorkspaceAccess, TaskClaimRequest, TaskCompleteRequest,
+        TaskCreateRequest, TaskStatus,
     },
 };
 
@@ -118,9 +119,18 @@ fn register(
         expected_exit_code: 0,
         timeout_seconds,
         artifact_paths,
+        sandbox_profile: Default::default(),
         idempotency_key: key.to_owned(),
     })
     .unwrap()
+}
+
+fn required_sandbox(workspace_access: SandboxWorkspaceAccess) -> ExecutionSandboxProfile {
+    ExecutionSandboxProfile {
+        enforcement: SandboxEnforcement::Required,
+        workspace_access,
+        network_access: SandboxNetworkAccess::Deny,
+    }
 }
 
 #[tokio::test]
@@ -146,6 +156,7 @@ async fn successful_runner_receipt_is_the_only_path_to_a_verified_task_proof() {
             expected_exit_code: 0,
             timeout_seconds: 5,
             artifact_paths: vec![artifact.clone()],
+            sandbox_profile: Default::default(),
             idempotency_key: "spec-success".to_owned(),
         })
         .unwrap()
@@ -318,6 +329,7 @@ fn registration_rejects_paths_that_escape_the_workspace() {
             expected_exit_code: 0,
             timeout_seconds: 5,
             artifact_paths: vec!["../outside".to_owned()],
+            sandbox_profile: Default::default(),
             idempotency_key: "escape".to_owned(),
         })
         .unwrap_err();
@@ -337,10 +349,142 @@ fn registration_rejects_excessive_artifact_count() {
             expected_exit_code: 0,
             timeout_seconds: 5,
             artifact_paths: (0..65).map(|index| format!("artifact-{index}")).collect(),
+            sandbox_profile: Default::default(),
             idempotency_key: "too-many-artifacts".to_owned(),
         })
         .unwrap_err();
     assert!(error.to_string().contains("64-item limit"));
+}
+
+#[test]
+fn registration_rejects_profiles_that_claim_unenforced_restrictions() {
+    let (_area, _workspace, _database, hub, session_id) = setup("sandbox profile validation");
+    let (program, args) = success_command();
+    let error = hub
+        .register_command_spec(&CommandSpecRequest {
+            session_id,
+            program,
+            args,
+            workspace_relative_cwd: ".".to_owned(),
+            expected_exit_code: 0,
+            timeout_seconds: 5,
+            artifact_paths: Vec::new(),
+            sandbox_profile: ExecutionSandboxProfile {
+                enforcement: SandboxEnforcement::Host,
+                workspace_access: SandboxWorkspaceAccess::ReadWrite,
+                network_access: SandboxNetworkAccess::Deny,
+            },
+            idempotency_key: "dishonest-host-profile".to_owned(),
+        })
+        .unwrap_err();
+    assert!(error.to_string().contains("cannot claim unenforced"));
+}
+
+#[cfg(not(target_os = "linux"))]
+#[tokio::test]
+async fn required_sandbox_fails_closed_without_a_backend() {
+    let (_area, _workspace, _database, hub, session_id) = setup("sandbox unavailable");
+    let (program, args) = success_command();
+    let registered = hub
+        .register_command_spec(&CommandSpecRequest {
+            session_id,
+            program,
+            args,
+            workspace_relative_cwd: ".".to_owned(),
+            expected_exit_code: 0,
+            timeout_seconds: 5,
+            artifact_paths: Vec::new(),
+            sandbox_profile: required_sandbox(SandboxWorkspaceAccess::ReadOnly),
+            idempotency_key: "required-unavailable".to_owned(),
+        })
+        .unwrap();
+
+    let outcome = hub.verify(&registered.spec.spec_id).await.unwrap();
+    assert_eq!(outcome.run.status, ExecutionStatus::Failed);
+    let receipt = outcome.receipt.unwrap();
+    assert_eq!(receipt.sandbox_backend, "unavailable");
+    assert!(!receipt.sandbox_enforced);
+    assert!(receipt.termination.contains("no backend"));
+    assert!(outcome.verified_claim_id.is_none());
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn required_linux_sandbox_confines_files_and_attests_enforcement() {
+    let (area, workspace, _database, hub, session_id) = setup("linux sandbox confinement");
+    let secret = area.path().join("outside-secret.txt");
+    std::fs::write(&secret, "secret").unwrap();
+    let artifact = "proof.txt";
+    let registered = hub
+        .register_command_spec(&CommandSpecRequest {
+            session_id,
+            program: executable(&["/bin/sh", "/usr/bin/sh"]),
+            args: vec![
+                "-c".to_owned(),
+                "test ! -r \"$1\" && printf isolated > proof.txt".to_owned(),
+                "aporic-test".to_owned(),
+                secret.to_string_lossy().into_owned(),
+            ],
+            workspace_relative_cwd: ".".to_owned(),
+            expected_exit_code: 0,
+            timeout_seconds: 5,
+            artifact_paths: vec![artifact.to_owned()],
+            sandbox_profile: required_sandbox(SandboxWorkspaceAccess::ReadWrite),
+            idempotency_key: "linux-confined-write".to_owned(),
+        })
+        .unwrap();
+
+    let outcome = hub.verify(&registered.spec.spec_id).await.unwrap();
+    assert_eq!(outcome.run.status, ExecutionStatus::Succeeded);
+    let receipt = outcome.receipt.unwrap();
+    assert_eq!(receipt.sandbox_backend, "linux_bubblewrap");
+    assert!(receipt.sandbox_enforced);
+    assert_eq!(
+        std::fs::read_to_string(workspace.join(artifact)).unwrap(),
+        "isolated"
+    );
+}
+
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn required_linux_sandbox_denies_workspace_writes_and_network() {
+    let (_area, _workspace, _database, hub, session_id) = setup("linux sandbox denials");
+    let read_only = hub
+        .register_command_spec(&CommandSpecRequest {
+            session_id: session_id.clone(),
+            program: executable(&["/usr/bin/touch", "/bin/touch"]),
+            args: vec!["blocked.txt".to_owned()],
+            workspace_relative_cwd: ".".to_owned(),
+            expected_exit_code: 1,
+            timeout_seconds: 5,
+            artifact_paths: Vec::new(),
+            sandbox_profile: required_sandbox(SandboxWorkspaceAccess::ReadOnly),
+            idempotency_key: "linux-read-only".to_owned(),
+        })
+        .unwrap();
+    let outcome = hub.verify(&read_only.spec.spec_id).await.unwrap();
+    assert_eq!(outcome.run.status, ExecutionStatus::Succeeded);
+    assert!(outcome.receipt.unwrap().sandbox_enforced);
+
+    let network = hub
+        .register_command_spec(&CommandSpecRequest {
+            session_id,
+            program: executable(&["/usr/bin/python3", "/bin/python3"]),
+            args: vec![
+                "-c".to_owned(),
+                "import socket,sys; s=socket.socket(); s.settimeout(.2); sys.exit(0 if s.connect_ex(('1.1.1.1',53)) != 0 else 1)".to_owned(),
+            ],
+            workspace_relative_cwd: ".".to_owned(),
+            expected_exit_code: 0,
+            timeout_seconds: 5,
+            artifact_paths: Vec::new(),
+            sandbox_profile: required_sandbox(SandboxWorkspaceAccess::ReadOnly),
+            idempotency_key: "linux-network-deny".to_owned(),
+        })
+        .unwrap();
+    let outcome = hub.verify(&network.spec.spec_id).await.unwrap();
+    assert_eq!(outcome.run.status, ExecutionStatus::Succeeded);
+    assert!(outcome.receipt.unwrap().sandbox_enforced);
 }
 
 #[tokio::test]
