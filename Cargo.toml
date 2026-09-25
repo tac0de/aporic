@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/aporic",
     "crates/aporic-boundary",
     "crates/aporic-cli",
     "crates/aporic-handoff",

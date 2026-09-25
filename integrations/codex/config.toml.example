@@ -1,0 +1,7 @@
+# Merge this section into ~/.codex/config.toml only after building the release
+# binary and verifying the absolute checkout path on the target machine.
+[mcp_servers.aporic]
+command = "/Users/wonyoung_choi/projects/aporic/target/release/aporic"
+args = ["mcp", "serve", "--stdio"]
+cwd = "/Users/wonyoung_choi/projects/aporic"
+startup_timeout_sec = 5

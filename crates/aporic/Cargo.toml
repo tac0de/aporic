@@ -1,0 +1,31 @@
+[package]
+name = "aporic"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+publish = false
+
+[[bin]]
+name = "aporic"
+path = "src/bin/aporic.rs"
+
+[dependencies]
+directories = "6.0"
+rmcp = { version = "3.4.0", features = [
+    "client",
+    "schemars",
+    "server",
+    "transport-child-process",
+    "transport-io",
+] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+schemars = "1.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+thiserror = "2.0"
+tokio = { version = "1.0", features = ["io-std", "macros", "process", "rt-multi-thread"] }
+uuid = { version = "1.0", features = ["serde", "v7"] }
+
+[dev-dependencies]
+tempfile = "3.0"

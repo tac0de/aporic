@@ -1,62 +1,61 @@
 # Aporic
 
-Aporic is a clean-room Rust workspace exploring durable continuity and
-deterministic records for coding-agent work.
+Aporic is a local-first agent-system hub whose practical objective is to reduce
+the time its owner spends restating context, coordinating independent work, and
+correcting unsupported completion claims.
 
-The current implementation is developmental. It does not install host hooks,
-ship a plugin, deny tools, add approval prompts, or control model selection.
-Governance may be introduced only after an operating service exists, one
-explicit and observable control at a time. See the
-[rebuild charter](docs/rebuild-charter.md).
+The active prototype is a modular Rust monolith in `crates/aporic`. Codex is the
+first client and connects through a local stdio MCP server. The exact behavioral
+kernel is stored in `canon/`; it constrains the evolving hub but does not contain
+transport, storage, host, or agent-runtime behavior.
 
-## Shape
+See [PRODUCT.md](PRODUCT.md) for the product objective and
+[architecture.md](docs/architecture.md) for the current boundaries.
 
-Aporic is organized around typed Rust logic and versioned content packages:
+## First vertical slice
 
-- `crates/aporic-kernel`: append-only exact-action record experiment
-- `crates/aporic-boundary`: isolated role/boundary admission experiment
-- `crates/aporic-projects`: immutable external project bindings
-- `crates/aporic-roles`: validates `role.md + role.json` packages
-- `crates/aporic-routing`: deterministic routing recommendations
-- `crates/aporic-handoff`: session/day continuity records
-- `crates/aporic-host`: typed composition boundary
-- `crates/aporic-cli`: thin JSON-to-Rust command adapter
-- `roles/`: human-readable instructions paired with machine-readable manifests
-- `schemas/`: active JSON contracts
+The prototype currently exposes four MCP tools:
 
-Markdown remains human/model-facing content. JSON carries bounded identifiers,
-versions, capabilities, and limits. The role loader validates and hashes both
-before producing a typed profile; the deterministic kernel does not interpret
-Markdown.
+- `aporic_open`: open an idempotent work session and receive bounded context;
+- `aporic_recall`: retrieve recent durable project context;
+- `aporic_record`: record one typed durable fact or work-state change;
+- `aporic_close`: complete or hand off a session.
 
-Authorization APIs remain available only for explicit experiments. Nothing in
-this repository automatically connects them to a model host or tool runtime.
+State is stored in platform-native application data, not in the governed
+workspace or `~/.codex`. Set `APORIC_DATABASE` to an explicit database path for
+tests or isolated experiments.
 
-## Build and verify
-
-The exact Rust toolchain is declared in `rust-toolchain.toml`.
+Build and verify:
 
 ```console
-cargo build --workspace --locked
-cargo test --workspace --locked
-cargo clippy --workspace --all-targets --locked -- -D warnings
+cargo build -p aporic --locked
+cargo test -p aporic --locked
+cargo clippy -p aporic --all-targets --locked -- -D warnings
 ```
 
-Build the optional local CLI:
+Run the stdio server:
 
 ```console
-cargo build -p aporic-cli --bin aporicctl
+cargo run -p aporic -- mcp serve --stdio
 ```
 
-Its connection and command formats are documented in
-[A0 minimal CLI](docs/a0-cli.md). Building does not install, publish, or connect
-Aporic to another application.
+Inspect the local kernel and database without starting MCP:
 
-## Historical material
+```console
+cargo run -p aporic -- doctor
+```
 
-The pre-rebuild implementation is not part of this workspace. Historical
-snapshots under `archive/` and the Git archive ref described in
-[Legacy implementation archive](docs/archive.md) are evidence only and are not
-built, tested, installed, or treated as current design.
+The Codex bridge template is under `integrations/codex/`. Nothing in the build
+installs or changes global Codex configuration.
+
+## Existing experiments
+
+The other workspace crates remain buildable design evidence while the new
+vertical slice is evaluated. They are not dependencies of `crates/aporic`, and
+their authorization, role, routing, and handoff APIs are not part of the active
+MCP contract.
+
+Historical snapshots under `archive/` are evidence only and are not built,
+installed, or treated as current instructions.
 
 Licensed under MIT or Apache-2.0.
