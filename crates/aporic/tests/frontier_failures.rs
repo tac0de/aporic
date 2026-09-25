@@ -67,6 +67,9 @@ fn deterministic_frontier_failure_suite() {
         .recall(&RecallRequest {
             workspace: workspace.clone(),
             limit: Some(20),
+            objective: None,
+            focus_paths: Vec::new(),
+            max_bytes: None,
         })
         .unwrap();
     let restart_memory = capsule
@@ -173,6 +176,9 @@ fn deterministic_frontier_failure_suite() {
             .recall(&RecallRequest {
                 workspace,
                 limit: Some(20),
+                objective: None,
+                focus_paths: Vec::new(),
+                max_bytes: None,
             })
             .unwrap()
             .active_sessions

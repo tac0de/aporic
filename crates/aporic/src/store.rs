@@ -17,10 +17,11 @@ use crate::domain::{
     DurableRecord, EpistemicClaim, EvidenceArtifact, EvidenceGrade, EvidenceKind, EvidenceOutcome,
     EvidenceRequest, ExecutionFinish, ExecutionGetRequest, ExecutionListRequest, ExecutionOutcome,
     ExecutionReceipt, ExecutionReplayAudit, ExecutionRun, ExecutionStart, ExecutionStatus,
-    ExportEvent, ExportSession, Handoff, HubStats, OpenOutcome, OpenRequest, ProjectExport,
-    RecallRequest, ReceiptArtifact, ReconcileOutcome, ReconcileRequest, RecordKind, RecordOutcome,
-    RecordRequest, TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest,
-    TaskListRequest, TaskOutcome, TaskStatus, workspace_file_claim,
+    ExportEvent, ExportSession, Handoff, HubStats, InfluenceClass, OpenOutcome, OpenRequest,
+    OriginChannel, ProjectExport, RecallRequest, ReceiptArtifact, ReconcileOutcome,
+    ReconcileRequest, RecordKind, RecordOutcome, RecordRequest, TaskCancelRequest,
+    TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskOutcome,
+    TaskStatus, workspace_file_claim,
 };
 
 const SCHEMA: &str = include_str!("../../../migrations/0001_initial.sql");
@@ -28,6 +29,7 @@ const MIGRATION_2: &str = include_str!("../../../migrations/0002_continuity_hard
 const MIGRATION_3: &str = include_str!("../../../migrations/0003_coordination.sql");
 const MIGRATION_4: &str = include_str!("../../../migrations/0004_epistemic_gate.sql");
 const MIGRATION_5: &str = include_str!("../../../migrations/0005_verifiable_execution.sql");
+const MIGRATION_6: &str = include_str!("../../../migrations/0006_authority_bound_context.sql");
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -62,27 +64,37 @@ impl Store {
         let schema_version =
             connection.pragma_query_value(None, "user_version", |row| row.get::<_, u32>(0))?;
         match schema_version {
-            0 => connection.execute_batch(SCHEMA)?,
+            0 => {
+                connection.execute_batch(SCHEMA)?;
+                connection.execute_batch(MIGRATION_6)?;
+            }
             1 => {
                 connection.execute_batch(MIGRATION_2)?;
                 connection.execute_batch(MIGRATION_3)?;
                 connection.execute_batch(MIGRATION_4)?;
                 connection.execute_batch(MIGRATION_5)?;
+                connection.execute_batch(MIGRATION_6)?;
             }
             2 => {
                 connection.execute_batch(MIGRATION_3)?;
                 connection.execute_batch(MIGRATION_4)?;
                 connection.execute_batch(MIGRATION_5)?;
+                connection.execute_batch(MIGRATION_6)?;
             }
             3 => {
                 connection.execute_batch(MIGRATION_4)?;
                 connection.execute_batch(MIGRATION_5)?;
+                connection.execute_batch(MIGRATION_6)?;
             }
-            4 => connection.execute_batch(MIGRATION_5)?,
-            5 => {}
+            4 => {
+                connection.execute_batch(MIGRATION_5)?;
+                connection.execute_batch(MIGRATION_6)?;
+            }
+            5 => connection.execute_batch(MIGRATION_6)?,
+            6 => {}
             version => {
                 return Err(Error::Invalid(format!(
-                    "database schema version {version} is newer than supported version 5"
+                    "database schema version {version} is newer than supported version 6"
                 )));
             }
         }
@@ -127,7 +139,15 @@ impl Store {
                 "an active session already has this objective: {session_id}"
             )));
         }
-        let context = recall_for_project(&transaction, &project_id, &workspace, 20)?;
+        let context = recall_for_project(
+            &transaction,
+            &project_id,
+            &workspace,
+            20,
+            Some(&request.objective),
+            &[],
+            16_384,
+        )?;
         let session_id = Uuid::now_v7().to_string();
         transaction.execute(
             "INSERT INTO sessions
@@ -168,18 +188,38 @@ impl Store {
             )
             .optional()?;
         let limit = request.limit.unwrap_or(20).clamp(1, 100);
+        let max_bytes = request.max_bytes.unwrap_or(16_384).clamp(1_024, 65_536);
 
         match project_id {
-            Some(project_id) => {
-                recall_for_project(&connection, &project_id, &workspace, i64::from(limit))
+            Some(project_id) => recall_for_project(
+                &connection,
+                &project_id,
+                &workspace,
+                i64::from(limit),
+                request.objective.as_deref(),
+                &request.focus_paths,
+                max_bytes,
+            ),
+            None => {
+                let (selected_items, budget) = crate::context::select(
+                    Vec::new(),
+                    request.objective.as_deref(),
+                    &request.focus_paths,
+                    limit,
+                    max_bytes,
+                );
+                Ok(ContextCapsule {
+                    project_id: None,
+                    workspace,
+                    active_sessions: Vec::new(),
+                    recent_handoffs: Vec::new(),
+                    recent_records: Vec::new(),
+                    selected_items,
+                    budget,
+                    policy_sha256: crate::context::policy_sha256(),
+                    authority_notice: crate::context::AUTHORITY_NOTICE.to_owned(),
+                })
             }
-            None => Ok(ContextCapsule {
-                project_id: None,
-                workspace,
-                active_sessions: Vec::new(),
-                recent_handoffs: Vec::new(),
-                recent_records: Vec::new(),
-            }),
         }
     }
 
@@ -211,13 +251,15 @@ impl Store {
             evidence: request.evidence.clone(),
             supersedes_record_id: request.supersedes_record_id.clone(),
             verifies_effect_id: request.verifies_effect_id.clone(),
+            origin_channel: OriginChannel::McpAgent,
+            influence_class: InfluenceClass::HistoricalContext,
             created_at_unix_ms: now,
         };
         transaction.execute(
             "INSERT INTO records
              (record_id, session_id, kind, content, evidence, supersedes_record_id,
-              verifies_effect_id, created_at_unix_ms)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+              verifies_effect_id, origin_channel, influence_class, created_at_unix_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
                 record.record_id,
                 record.session_id,
@@ -226,6 +268,8 @@ impl Store {
                 record.evidence,
                 record.supersedes_record_id,
                 record.verifies_effect_id,
+                record.origin_channel.as_str(),
+                record.influence_class.as_str(),
                 record.created_at_unix_ms
             ],
         )?;
@@ -1387,7 +1431,8 @@ impl Store {
             let mut statement = connection.prepare(
                 "SELECT records.record_id, records.session_id, records.kind, records.content,
                         records.evidence, records.supersedes_record_id,
-                        records.verifies_effect_id, records.created_at_unix_ms
+                        records.verifies_effect_id, records.origin_channel,
+                        records.influence_class, records.created_at_unix_ms
                  FROM records
                  JOIN sessions ON sessions.session_id = records.session_id
                  WHERE sessions.project_id = ?1
@@ -1403,7 +1448,9 @@ impl Store {
                         evidence: row.get(4)?,
                         supersedes_record_id: row.get(5)?,
                         verifies_effect_id: row.get(6)?,
-                        created_at_unix_ms: row.get(7)?,
+                        origin_channel: parse_origin_channel(row.get(7)?)?,
+                        influence_class: parse_influence_class(row.get(8)?)?,
+                        created_at_unix_ms: row.get(9)?,
                     })
                 })?
                 .collect::<std::result::Result<Vec<_>, _>>()?
@@ -1464,7 +1511,7 @@ impl Store {
         };
 
         Ok(ProjectExport {
-            format_version: 3,
+            format_version: 4,
             exported_at_unix_ms: unix_millis()?,
             project_id,
             workspace,
@@ -2587,6 +2634,9 @@ fn recall_for_project(
     project_id: &str,
     workspace: &str,
     limit: i64,
+    objective: Option<&str>,
+    focus_paths: &[String],
+    max_bytes: u32,
 ) -> Result<ContextCapsule> {
     let mut session_statement = connection.prepare(
         "SELECT session_id, objective, opened_at_unix_ms, last_activity_at_unix_ms
@@ -2627,7 +2677,7 @@ fn recall_for_project(
     let mut record_statement = connection.prepare(
         "SELECT records.record_id, records.session_id, records.kind, records.content,
                 records.evidence, records.supersedes_record_id, records.verifies_effect_id,
-                records.created_at_unix_ms
+                records.origin_channel, records.influence_class, records.created_at_unix_ms
          FROM records
          JOIN sessions ON sessions.session_id = records.session_id
          WHERE sessions.project_id = ?1
@@ -2647,8 +2697,9 @@ fn recall_for_project(
                   records.created_at_unix_ms DESC
          LIMIT ?2",
     )?;
-    let recent_records = record_statement
-        .query_map(params![project_id, limit], |row| {
+    let candidate_record_limit = limit.max(200);
+    let candidate_records = record_statement
+        .query_map(params![project_id, candidate_record_limit], |row| {
             let kind = parse_record_kind(row.get::<_, String>(2)?)?;
             Ok(DurableRecord {
                 record_id: row.get(0)?,
@@ -2658,10 +2709,114 @@ fn recall_for_project(
                 evidence: row.get(4)?,
                 supersedes_record_id: row.get(5)?,
                 verifies_effect_id: row.get(6)?,
-                created_at_unix_ms: row.get(7)?,
+                origin_channel: parse_origin_channel(row.get(7)?)?,
+                influence_class: parse_influence_class(row.get(8)?)?,
+                created_at_unix_ms: row.get(9)?,
             })
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
+    let recent_records = candidate_records
+        .iter()
+        .take(usize::try_from(limit).unwrap_or(100))
+        .cloned()
+        .collect::<Vec<_>>();
+
+    let mut candidates = candidate_records
+        .iter()
+        .map(|record| {
+            let (priority, reason) = match record.kind {
+                RecordKind::MaterialUnknown => (0, "unresolved_material_unknown"),
+                RecordKind::Constraint => (1, "active_constraint"),
+                RecordKind::Decision => (2, "active_decision"),
+                RecordKind::Verification => (5, "verification_record"),
+                _ => (7, "recent_record"),
+            };
+            crate::context::Candidate {
+                item_type: "record".to_owned(),
+                item_id: record.record_id.clone(),
+                origin_channel: record.origin_channel.clone(),
+                influence_class: record.influence_class.clone(),
+                status: Some(record.kind.as_str().to_owned()),
+                content: record.content.clone(),
+                reason: reason.to_owned(),
+                priority,
+                created_at_unix_ms: record.created_at_unix_ms,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    for task in list_project_tasks(connection, project_id, 200)?
+        .into_iter()
+        .filter(|task| matches!(task.status, TaskStatus::Queued | TaskStatus::Leased))
+    {
+        candidates.push(crate::context::Candidate {
+            item_type: "task".to_owned(),
+            item_id: task.task_id,
+            origin_channel: OriginChannel::McpAgent,
+            influence_class: InfluenceClass::HistoricalContext,
+            status: Some(task.status.as_str().to_owned()),
+            content: task.objective,
+            reason: "active_task".to_owned(),
+            priority: 3,
+            created_at_unix_ms: task.updated_at_unix_ms,
+        });
+    }
+
+    let claims = load_project_claims(connection, project_id)?;
+    let superseded_claims = claims
+        .iter()
+        .filter_map(|claim| claim.supersedes_claim_id.clone())
+        .collect::<std::collections::BTreeSet<_>>();
+    for claim in claims.into_iter().filter(|claim| {
+        !superseded_claims.contains(&claim.claim_id)
+            && ((claim.status == ClaimStatus::Unknown && claim.material)
+                || matches!(claim.status, ClaimStatus::Observed | ClaimStatus::Verified))
+    }) {
+        let unknown = claim.status == ClaimStatus::Unknown;
+        let origin_channel = if claim.receipt_ids.is_empty() {
+            OriginChannel::McpAgent
+        } else {
+            OriginChannel::LocalRunner
+        };
+        candidates.push(crate::context::Candidate {
+            item_type: "claim".to_owned(),
+            item_id: claim.claim_id,
+            origin_channel,
+            influence_class: if unknown {
+                InfluenceClass::HistoricalContext
+            } else {
+                InfluenceClass::VerifiedFact
+            },
+            status: Some(claim.status.as_str().to_owned()),
+            content: claim.statement,
+            reason: if unknown {
+                "unresolved_material_unknown"
+            } else {
+                "directly_supported_claim"
+            }
+            .to_owned(),
+            priority: if unknown { 0 } else { 4 },
+            created_at_unix_ms: claim.created_at_unix_ms,
+        });
+    }
+
+    for handoff in &recent_handoffs {
+        candidates.push(crate::context::Candidate {
+            item_type: "handoff".to_owned(),
+            item_id: handoff.session_id.clone(),
+            origin_channel: OriginChannel::McpAgent,
+            influence_class: InfluenceClass::HistoricalContext,
+            status: Some("handoff".to_owned()),
+            content: format!("{} Next action: {}", handoff.summary, handoff.next_action),
+            reason: "recent_handoff".to_owned(),
+            priority: 6,
+            created_at_unix_ms: handoff.closed_at_unix_ms,
+        });
+    }
+
+    let max_items = u32::try_from(limit).unwrap_or(100).clamp(1, 100);
+    let (selected_items, budget) =
+        crate::context::select(candidates, objective, focus_paths, max_items, max_bytes);
 
     Ok(ContextCapsule {
         project_id: Some(project_id.to_owned()),
@@ -2669,6 +2824,10 @@ fn recall_for_project(
         active_sessions,
         recent_handoffs,
         recent_records,
+        selected_items,
+        budget,
+        policy_sha256: crate::context::policy_sha256(),
+        authority_notice: crate::context::AUTHORITY_NOTICE.to_owned(),
     })
 }
 
@@ -2681,6 +2840,25 @@ fn parse_record_kind(value: String) -> rusqlite::Result<RecordKind> {
         "effect" => Ok(RecordKind::Effect),
         "verification" => Ok(RecordKind::Verification),
         "material_unknown" => Ok(RecordKind::MaterialUnknown),
+        _ => Err(rusqlite::Error::InvalidQuery),
+    }
+}
+
+fn parse_origin_channel(value: String) -> rusqlite::Result<OriginChannel> {
+    match value.as_str() {
+        "legacy" => Ok(OriginChannel::Legacy),
+        "mcp_agent" => Ok(OriginChannel::McpAgent),
+        "local_runner" => Ok(OriginChannel::LocalRunner),
+        "codex_hook" => Ok(OriginChannel::CodexHook),
+        _ => Err(rusqlite::Error::InvalidQuery),
+    }
+}
+
+fn parse_influence_class(value: String) -> rusqlite::Result<InfluenceClass> {
+    match value.as_str() {
+        "verified_fact" => Ok(InfluenceClass::VerifiedFact),
+        "historical_context" => Ok(InfluenceClass::HistoricalContext),
+        "untrusted_content" => Ok(InfluenceClass::UntrustedContent),
         _ => Err(rusqlite::Error::InvalidQuery),
     }
 }

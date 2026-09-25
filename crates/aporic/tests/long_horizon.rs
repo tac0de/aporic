@@ -62,6 +62,9 @@ fn long_horizon_frontier_workload_does_not_accumulate_known_failures() {
         .recall(&RecallRequest {
             workspace: workspace.clone(),
             limit: Some(100),
+            objective: None,
+            focus_paths: Vec::new(),
+            max_bytes: None,
         })
         .unwrap();
     let active_decisions = capsule

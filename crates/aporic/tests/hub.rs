@@ -64,6 +64,9 @@ fn persists_context_across_hub_restarts_and_deduplicates_retries() {
         .recall(&RecallRequest {
             workspace: workspace.to_string_lossy().into_owned(),
             limit: Some(10),
+            objective: None,
+            focus_paths: Vec::new(),
+            max_bytes: None,
         })
         .unwrap();
     assert!(recalled.active_sessions.is_empty());
@@ -160,6 +163,9 @@ fn concurrent_process_equivalent_writers_do_not_lose_sessions() {
         .recall(&RecallRequest {
             workspace,
             limit: Some(20),
+            objective: None,
+            focus_paths: Vec::new(),
+            max_bytes: None,
         })
         .unwrap();
     assert_eq!(recalled.active_sessions.len(), 8);
@@ -214,7 +220,7 @@ fn migrates_v1_state_and_exports_complete_project_history() {
     drop(connection);
 
     let hub = Hub::open(&database).unwrap();
-    assert_eq!(hub.stats().unwrap().schema_version, 5);
+    assert_eq!(hub.stats().unwrap().schema_version, 6);
     let workspace = workspace.to_string_lossy().into_owned();
     let opened = hub
         .open_session(&OpenRequest {
@@ -235,7 +241,7 @@ fn migrates_v1_state_and_exports_complete_project_history() {
     .unwrap();
 
     let exported = hub.export_project(&workspace).unwrap();
-    assert_eq!(exported.format_version, 3);
+    assert_eq!(exported.format_version, 4);
     assert_eq!(exported.sessions.len(), 1);
     assert_eq!(exported.records.len(), 1);
     assert!(exported.tasks.is_empty());

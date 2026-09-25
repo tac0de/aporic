@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, io::Read};
 
 use aporic::{AporicMcp, Hub, default_database_path};
 use rmcp::{ServiceExt, transport::stdio};
@@ -19,6 +19,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         {
             simulate_eval(actor)
         }
+        [eval, context] if eval == "eval" && context == "context" => simulate_context_eval(),
         [executions, reconcile, flag, seconds]
             if executions == "executions"
                 && reconcile == "reconcile"
@@ -26,16 +27,42 @@ async fn main() -> Result<(), Box<dyn Error>> {
         {
             reconcile_executions(seconds)
         }
+        [hook, codex] if hook == "hook" && codex == "codex" => codex_hook(),
         [mcp, serve, transport] if mcp == "mcp" && serve == "serve" && transport == "--stdio" => {
             serve_stdio().await
         }
         _ => {
             eprintln!(
-                "usage: aporic doctor | aporic export --workspace PATH | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic executions reconcile --stale-after SECONDS | aporic mcp serve --stdio"
+                "usage: aporic doctor | aporic export --workspace PATH | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic eval context | aporic executions reconcile --stale-after SECONDS | aporic hook codex | aporic mcp serve --stdio"
             );
             std::process::exit(2);
         }
     }
+}
+
+fn simulate_context_eval() -> Result<(), Box<dyn Error>> {
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&aporic::eval::simulate_context_selection())?
+    );
+    Ok(())
+}
+
+fn codex_hook() -> Result<(), Box<dyn Error>> {
+    let mut input = String::new();
+    if std::io::stdin().read_to_string(&mut input).is_err() {
+        println!("{{}}");
+        return Ok(());
+    }
+    let response = default_database_path()
+        .map_err(std::io::Error::other)
+        .and_then(|path| Hub::open(path).map_err(std::io::Error::other))
+        .map_or_else(
+            |_| serde_json::json!({}),
+            |hub| aporic::hook::handle_codex_hook(&hub, &input),
+        );
+    println!("{}", serde_json::to_string(&response)?);
+    Ok(())
 }
 
 fn simulate_eval(actor: &str) -> Result<(), Box<dyn Error>> {

@@ -56,6 +56,50 @@ pub struct OpenRequest {
 pub struct RecallRequest {
     pub workspace: String,
     pub limit: Option<u32>,
+    #[serde(default)]
+    pub objective: Option<String>,
+    #[serde(default)]
+    pub focus_paths: Vec<String>,
+    #[serde(default)]
+    pub max_bytes: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OriginChannel {
+    Legacy,
+    McpAgent,
+    LocalRunner,
+    CodexHook,
+}
+
+impl OriginChannel {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Legacy => "legacy",
+            Self::McpAgent => "mcp_agent",
+            Self::LocalRunner => "local_runner",
+            Self::CodexHook => "codex_hook",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InfluenceClass {
+    VerifiedFact,
+    HistoricalContext,
+    UntrustedContent,
+}
+
+impl InfluenceClass {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::VerifiedFact => "verified_fact",
+            Self::HistoricalContext => "historical_context",
+            Self::UntrustedContent => "untrusted_content",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -99,6 +143,8 @@ pub struct DurableRecord {
     pub evidence: Option<String>,
     pub supersedes_record_id: Option<String>,
     pub verifies_effect_id: Option<String>,
+    pub origin_channel: OriginChannel,
+    pub influence_class: InfluenceClass,
     pub created_at_unix_ms: i64,
 }
 
@@ -132,6 +178,30 @@ pub struct ContextCapsule {
     pub active_sessions: Vec<ActiveSession>,
     pub recent_handoffs: Vec<Handoff>,
     pub recent_records: Vec<DurableRecord>,
+    pub selected_items: Vec<ContextItem>,
+    pub budget: ContextBudget,
+    pub policy_sha256: String,
+    pub authority_notice: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ContextItem {
+    pub item_type: String,
+    pub item_id: String,
+    pub origin_channel: OriginChannel,
+    pub influence_class: InfluenceClass,
+    pub status: Option<String>,
+    pub content: String,
+    pub selection_reasons: Vec<String>,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ContextBudget {
+    pub max_items: u32,
+    pub max_content_bytes: u32,
+    pub used_content_bytes: u32,
+    pub omitted_items: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

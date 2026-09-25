@@ -1,7 +1,9 @@
 //! Local-first continuity and agent-system hub for Aporic.
 
+pub mod context;
 pub mod domain;
 pub mod eval;
+pub mod hook;
 pub mod hub;
 pub mod kernel;
 pub mod mcp;

@@ -32,7 +32,7 @@ saves.
 
 ## Current stage
 
-The product is in the verifiable-local-execution stage. The product question is:
+The product is in the authority-bound-context stage. The product question is:
 
 > Can a local MCP hub restore and preserve the minimum useful work context
 > across Codex tasks with less overhead than manually restating it?
@@ -73,13 +73,21 @@ manual evaluation.
 - Model routing is advisory and outside the kernel: Terra handles bounded work,
   Sol is the default for complex implementation, and Astra handles frontier or
   high-consequence ambiguous work.
+- Recalled memory has an explicit origin and influence class. Arbitrary stored
+  text remains historical data and cannot promote itself into authority or
+  verified fact.
+- Context selection is deterministic, byte-bounded, and auditable through a
+  policy digest and per-item reason codes.
+- The optional Codex hook reads lifecycle events without calling a model API or
+  persisting prompts, transcripts, assistant messages, session IDs, or turn IDs.
+  Hook failure is advisory and fail-open.
 
 ## Material unknowns
 
 - How reliably Codex invokes the hub for substantive tasks without adding
   friction to trivial work.
-- Which context-ranking strategy minimizes both omission and stale-context
-  noise.
+- How much deterministic context selection reduces omission and restatement in
+  model-driven workloads, beyond the current structural simulations.
 - Which agent runtime should back later delegation and scheduling.
 - Whether the observed efficiency gain justifies an always-running local
   service beyond the current stdio deployment.
@@ -119,12 +127,18 @@ Observed on 2026-09-25:
 - the verifiable-execution simulation covers successful and failed checks,
   timeout, missing artifacts, path traversal, concurrent-run rejection, retry,
   interrupted-run reconciliation, task-proof binding, export, and event replay.
+- the authority-bound-context simulation migrates v5 records with
+  non-authoritative defaults, produces byte-bounded deterministic capsules,
+  suppresses superseded memory, preserves unresolved unknowns and active tasks,
+  labels injected instructions as historical data, and proves that hook prompt,
+  transcript, and assistant-message fields are not persisted.
 
 Not yet established:
 
 - generalized performance on model-generated adversarial scenarios beyond the
   deterministic and long-horizon regression suites;
-- reduced restatement or coordination cost across a long synthetic workload;
+- reduced restatement or coordination cost across a model-driven synthetic
+  workload;
 - actual agent dispatch or parallel worker execution.
 - semantic adequacy of a successful test, OS-level isolation from same-user
   processes, child-process-tree containment, and trusted receipts for external

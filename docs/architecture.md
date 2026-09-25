@@ -14,13 +14,16 @@ The Aporic kernel and Aporic Hub have different lifecycles.
 ## Implementation
 
 The implementation is one Rust package with internal `kernel`, `domain`,
-`store`, `hub`, `runner`, and `mcp` modules. Package boundaries will be introduced only
-when an independently versioned contract or deployment unit exists.
+`context`, `store`, `hub`, `runner`, `hook`, and `mcp` modules. Package
+boundaries will be introduced only when an independently versioned contract or
+deployment unit exists.
 
 ```text
 Codex --stdio MCP--> mcp adapter --> hub services --> SQLite
                                       |
                                       +--> kernel invariants
+
+Codex lifecycle --JSON stdin--> fail-open hook --> bounded context read
 
 local CLI --> runner --> exact argv process --> hashed receipt --> SQLite
 ```
@@ -80,10 +83,22 @@ call. Tests replay events independently and compare the result with projections.
   contracts, dependency gates, non-overlapping write leases, and
   criterion-by-criterion verified proofs.
 
-Recall excludes records superseded by a newer decision or constraint and
-prioritizes active decisions, constraints, and material unknowns. Unresolved
-material unknowns block completion. Historical effect/verification links remain
-readable, but new writes use the typed gate.
+Recall excludes records and claims superseded by newer state. Its v0.6 selector
+combines unresolved material unknowns, active constraints and decisions, active
+tasks, verified/observed claims, handoffs, and other recent records under a
+fixed item and UTF-8 content-byte budget. Objective and focus-path token overlap
+only rank items within the higher-level safety priority; recency and stable IDs
+make ties deterministic. Each item exposes its origin, influence class, and
+selection reasons. Historical effect/verification links remain readable, but
+new writes use the typed gate.
+
+The Codex hook adapter appends no hook input or domain event. Opening the local
+store may still initialize or migrate its schema. The adapter ignores transcript
+and assistant-output fields, uses a submitted prompt only as an in-memory
+relevance query, emits model-visible text inside JSON data records under a
+data-not-instructions header, and returns an empty JSON object on errors. It does
+not block tools, request permissions, invoke models, or modify Codex
+configuration.
 
 Tool failures are returned as visible tool-level errors. Protocol errors are
 reserved for malformed MCP requests that cannot be routed or decoded.
@@ -106,6 +121,10 @@ dissent, and model-routing boundary cases.
 `verifiable_execution` simulates success, non-zero exit, timeout, missing
 artifacts, path traversal, duplicate registration, concurrent execution, retry,
 task proof binding, interrupted-run reconciliation, export, and event replay.
+
+`context_runtime` simulates migration, deterministic budget enforcement,
+supersession, unknown/task retention, memory-injection labeling, fail-open hook
+behavior, and non-persistence of sensitive lifecycle fields.
 
 ## Later growth
 

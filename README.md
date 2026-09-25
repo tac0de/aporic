@@ -78,13 +78,42 @@ process result and declared artifacts, not that a test is semantically adequate
 or that an external real-world effect occurred. Material unknowns block
 completion until an observed or verified claim supersedes them.
 
+## Authority-bound context
+
+v0.6 adds a deterministic context capsule alongside the legacy recall fields.
+Every selected item carries an origin channel, an influence class, and explicit
+selection reasons. Stored free text enters as `historical_context`; it cannot
+declare itself an instruction, verified fact, permission, or completed effect.
+Verified/observed typed claims are the only recalled items promoted to
+`verified_fact`.
+
+Selection is deterministic and byte-bounded. It favors unresolved material
+unknowns, active constraints and decisions, active tasks, directly supported
+claims, and recent handoffs, then uses objective/path token overlap, recency,
+and stable identifiers as tie-breakers. Superseded records and claims are not
+selected. The policy digest and budget accounting travel with every capsule.
+
+An optional, API-free Codex command hook is available as `aporic hook codex`.
+It accepts `SessionStart` and `UserPromptSubmit` event JSON on stdin and returns
+only `hookSpecificOutput.additionalContext`, following the official
+[Codex Hooks contract](https://learn.chatgpt.com/docs/hooks). Prompt text is used ephemerally for
+ranking; prompt text, transcript paths, assistant messages, session IDs, and
+turn IDs are not persisted. Malformed input, an unavailable database, or an
+unknown workspace returns `{}` with a successful exit, so the integration is
+advisory and fail-open. The model and permission mode are labeled as
+host-observed, not attested.
+
+The example in `integrations/codex/hooks.json.example` is intentionally not
+installed. Copying it into an active Codex configuration and trusting the hook
+remain explicit operator actions.
+
 The router is advisory and outside the behavioral kernel. It does not dispatch a
 model, grant authority, or turn a model review into evidence. See
 [model routing](docs/model-routing.md).
 
 ## Offline evaluation
 
-Aporic does not call the OpenAI API or any other model endpoint. Its v0.5
+Aporic does not call the OpenAI API or any other model endpoint. Its offline
 evaluation core is deterministic and offline. It checks structured outcomes for
 false completion, unsupported certainty, preservation of unknowns, needless
 dissent, missing necessary dissent, and failed-tool overclaiming. Built-in
@@ -99,6 +128,7 @@ Run the offline grader simulation:
 cargo run -p aporic -- eval simulate --actor calibrated
 cargo run -p aporic -- eval simulate --actor overclaiming
 cargo run -p aporic -- eval simulate --actor contrarian
+cargo run -p aporic -- eval context
 ```
 
 State is stored in platform-native application data, not in the governed
@@ -148,6 +178,7 @@ cargo test -p aporic --test long_horizon -- --nocapture
 cargo test -p aporic --test epistemic_gate -- --nocapture
 cargo test -p aporic --test verifiable_execution -- --nocapture
 cargo test -p aporic --test offline_eval -- --nocapture
+cargo test -p aporic --test context_runtime -- --nocapture
 ```
 
 The Codex bridge template is under `integrations/codex/`. Nothing in the build

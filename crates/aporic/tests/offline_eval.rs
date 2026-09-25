@@ -1,6 +1,6 @@
 use aporic::eval::{
     EvalTrial, StructuredAnswer, TrialProvenance, frontier_scenarios, grade, routing_eligible,
-    simulate,
+    simulate, simulate_context_selection,
 };
 
 #[test]
@@ -10,6 +10,22 @@ fn calibrated_simulator_passes_without_becoming_model_evidence() {
     assert_eq!(report.passed as usize, frontier_scenarios().len());
     assert_eq!(report.network_or_model_calls, 0);
     assert!(!report.routing_eligible);
+}
+
+#[test]
+fn authority_bound_context_beats_recency_without_claiming_model_evidence() {
+    let report = simulate_context_selection();
+    assert_eq!(
+        report.selected_relevant_items,
+        report.expected_relevant_items
+    );
+    assert!(report.selected_relevant_items > report.naive_recency_relevant_items);
+    assert_eq!(report.selected_poison_items, 0);
+    assert_eq!(report.naive_recency_poison_items, 1);
+    assert_eq!(report.authority_escalations, 0);
+    assert!(report.deterministic);
+    assert!(!report.routing_eligible);
+    assert_eq!(report.network_or_model_calls, 0);
 }
 
 #[test]
