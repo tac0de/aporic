@@ -219,6 +219,20 @@ fn copy_safe_environment(command: &mut Command) {
             command.env(name, value);
         }
     }
+    #[cfg(windows)]
+    for name in [
+        "SYSTEMROOT",
+        "WINDIR",
+        "COMSPEC",
+        "PATHEXT",
+        "TEMP",
+        "TMP",
+        "USERPROFILE",
+    ] {
+        if let Some(value) = env::var_os(name) {
+            command.env(name, value);
+        }
+    }
 }
 
 fn resolve_executable(program: &str, cwd: &Path) -> Option<String> {

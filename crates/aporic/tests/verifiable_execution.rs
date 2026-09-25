@@ -19,6 +19,72 @@ fn executable(candidates: &[&str]) -> String {
         .into_owned()
 }
 
+#[cfg(unix)]
+fn success_command() -> (String, Vec<String>) {
+    (executable(&["/usr/bin/true", "/bin/true"]), Vec::new())
+}
+
+#[cfg(windows)]
+fn success_command() -> (String, Vec<String>) {
+    (
+        std::env::var("COMSPEC").expect("Windows provides COMSPEC"),
+        vec!["/D".to_owned(), "/C".to_owned(), "exit 0".to_owned()],
+    )
+}
+
+#[cfg(unix)]
+fn failure_command() -> (String, Vec<String>) {
+    (executable(&["/usr/bin/false", "/bin/false"]), Vec::new())
+}
+
+#[cfg(windows)]
+fn failure_command() -> (String, Vec<String>) {
+    (
+        std::env::var("COMSPEC").expect("Windows provides COMSPEC"),
+        vec!["/D".to_owned(), "/C".to_owned(), "exit 1".to_owned()],
+    )
+}
+
+#[cfg(unix)]
+fn create_file_command(path: &str) -> (String, Vec<String>) {
+    (
+        executable(&["/usr/bin/touch", "/bin/touch"]),
+        vec![path.to_owned()],
+    )
+}
+
+#[cfg(windows)]
+fn create_file_command(path: &str) -> (String, Vec<String>) {
+    (
+        std::env::var("COMSPEC").expect("Windows provides COMSPEC"),
+        vec![
+            "/D".to_owned(),
+            "/C".to_owned(),
+            format!("type nul > {path}"),
+        ],
+    )
+}
+
+#[cfg(unix)]
+fn sleep_command(seconds: u64) -> (String, Vec<String>) {
+    (
+        executable(&["/bin/sleep", "/usr/bin/sleep"]),
+        vec![seconds.to_string()],
+    )
+}
+
+#[cfg(windows)]
+fn sleep_command(seconds: u64) -> (String, Vec<String>) {
+    (
+        std::env::var("COMSPEC").expect("Windows provides COMSPEC"),
+        vec![
+            "/D".to_owned(),
+            "/C".to_owned(),
+            format!("ping 127.0.0.1 -n {} > NUL", seconds.saturating_add(1)),
+        ],
+    )
+}
+
 fn setup(objective: &str) -> (tempfile::TempDir, PathBuf, PathBuf, Hub, String) {
     let area = tempfile::tempdir().unwrap();
     let workspace = area.path().join("workspace");
@@ -61,11 +127,12 @@ fn register(
 async fn successful_runner_receipt_is_the_only_path_to_a_verified_task_proof() {
     let (_area, workspace, _database, hub, session_id) = setup("verified execution");
     let artifact = "proof.txt".to_owned();
+    let (program, args) = create_file_command(&artifact);
     let registered = register(
         &hub,
         &session_id,
-        executable(&["/usr/bin/touch", "/bin/touch"]),
-        vec![artifact.clone()],
+        program,
+        args,
         5,
         vec![artifact.clone()],
         "spec-success",
@@ -151,24 +218,18 @@ async fn successful_runner_receipt_is_the_only_path_to_a_verified_task_proof() {
 #[tokio::test]
 async fn failure_timeout_and_missing_artifact_never_issue_verified_claims() {
     let (_area, workspace, _database, hub, session_id) = setup("negative executions");
-    let failed = register(
-        &hub,
-        &session_id,
-        executable(&["/usr/bin/false", "/bin/false"]),
-        Vec::new(),
-        5,
-        Vec::new(),
-        "spec-fail",
-    );
+    let (program, args) = failure_command();
+    let failed = register(&hub, &session_id, program, args, 5, Vec::new(), "spec-fail");
     let failed = hub.verify(&failed.spec.spec_id).await.unwrap();
     assert_eq!(failed.run.status, ExecutionStatus::Failed);
     assert!(failed.verified_claim_id.is_none());
 
+    let (program, args) = sleep_command(2);
     let timed = register(
         &hub,
         &session_id,
-        executable(&["/bin/sleep", "/usr/bin/sleep"]),
-        vec!["2".to_owned()],
+        program,
+        args,
         1,
         Vec::new(),
         "spec-timeout",
@@ -177,11 +238,12 @@ async fn failure_timeout_and_missing_artifact_never_issue_verified_claims() {
     assert_eq!(timed.run.status, ExecutionStatus::TimedOut);
     assert!(timed.verified_claim_id.is_none());
 
+    let (program, args) = success_command();
     let missing = register(
         &hub,
         &session_id,
-        executable(&["/usr/bin/true", "/bin/true"]),
-        Vec::new(),
+        program,
+        args,
         5,
         vec!["missing.txt".to_owned()],
         "spec-missing",
@@ -246,11 +308,12 @@ async fn timeout_terminates_the_normal_child_process_group() {
 #[test]
 fn registration_rejects_paths_that_escape_the_workspace() {
     let (_area, _workspace, _database, hub, session_id) = setup("path confinement");
+    let (program, args) = success_command();
     let error = hub
         .register_command_spec(&CommandSpecRequest {
             session_id,
-            program: executable(&["/usr/bin/true", "/bin/true"]),
-            args: Vec::new(),
+            program,
+            args,
             workspace_relative_cwd: "..".to_owned(),
             expected_exit_code: 0,
             timeout_seconds: 5,
@@ -264,11 +327,12 @@ fn registration_rejects_paths_that_escape_the_workspace() {
 #[test]
 fn stale_running_execution_is_reconciled_as_interrupted_with_an_event() {
     let (_area, _workspace, database, hub, session_id) = setup("interrupted execution");
+    let (program, args) = success_command();
     let registered = register(
         &hub,
         &session_id,
-        executable(&["/usr/bin/true", "/bin/true"]),
-        Vec::new(),
+        program,
+        args,
         5,
         Vec::new(),
         "spec-stale",
@@ -307,15 +371,8 @@ fn stale_running_execution_is_reconciled_as_interrupted_with_an_event() {
 #[test]
 fn cli_executes_a_registered_spec_without_an_mcp_execution_tool() {
     let (_area, _workspace, database, hub, session_id) = setup("cli execution");
-    let registered = register(
-        &hub,
-        &session_id,
-        executable(&["/usr/bin/true", "/bin/true"]),
-        Vec::new(),
-        5,
-        Vec::new(),
-        "spec-cli",
-    );
+    let (program, args) = success_command();
+    let registered = register(&hub, &session_id, program, args, 5, Vec::new(), "spec-cli");
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_aporic"))
         .args(["verify", "--spec", &registered.spec.spec_id])
         .env("APORIC_DATABASE", &database)
@@ -334,11 +391,12 @@ fn cli_executes_a_registered_spec_without_an_mcp_execution_tool() {
 #[tokio::test]
 async fn a_spec_cannot_run_concurrently_but_can_be_retried_after_completion() {
     let (_area, _workspace, _database, hub, session_id) = setup("concurrent execution");
+    let (program, args) = sleep_command(1);
     let registered = register(
         &hub,
         &session_id,
-        executable(&["/bin/sleep", "/usr/bin/sleep"]),
-        vec!["1".to_owned()],
+        program,
+        args,
         5,
         Vec::new(),
         "spec-concurrent",

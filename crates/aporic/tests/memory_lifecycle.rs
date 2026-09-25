@@ -230,16 +230,25 @@ fn hook_exposure_receipt_is_hashed_and_does_not_persist_prompt_content() {
 #[tokio::test]
 async fn failed_local_execution_becomes_verified_gotcha_memory() {
     let (_area, workspace, hub, session) = fixture();
-    let program = ["/usr/bin/false", "/bin/false"]
-        .into_iter()
-        .find(|path| std::path::Path::new(path).is_file())
-        .unwrap()
-        .to_owned();
+    #[cfg(unix)]
+    let (program, args) = (
+        ["/usr/bin/false", "/bin/false"]
+            .into_iter()
+            .find(|path| std::path::Path::new(path).is_file())
+            .unwrap()
+            .to_owned(),
+        Vec::new(),
+    );
+    #[cfg(windows)]
+    let (program, args) = (
+        std::env::var("COMSPEC").expect("Windows provides COMSPEC"),
+        vec!["/D".to_owned(), "/C".to_owned(), "exit 1".to_owned()],
+    );
     let spec = hub
         .register_command_spec(&CommandSpecRequest {
             session_id: session,
             program,
-            args: Vec::new(),
+            args,
             workspace_relative_cwd: ".".to_owned(),
             expected_exit_code: 0,
             timeout_seconds: 5,
