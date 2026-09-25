@@ -24,3 +24,7 @@ Historical Git commits and tags are context, not current design authority.
   not timeless answers. Preserve meaningful revisions and counterarguments.
 - Before material changes, state the intended scope and acceptance checks.
 - Preserve unrelated user work and keep changes reversible.
+- Unless the human explicitly requests otherwise or an external block prevents
+  it, completed implementation work includes mechanical verification, a commit,
+  fast-forward integration into `main`, pushing `origin/main`, and deletion of
+  every non-main local and remote branch.
