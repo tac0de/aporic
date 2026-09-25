@@ -25,6 +25,7 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
     assert_eq!(
         tool_names,
         [
+            "aporic_check_register",
             "aporic_claim_assert",
             "aporic_close",
             "aporic_dissent_assess",
@@ -34,6 +35,8 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_recall",
             "aporic_reconcile",
             "aporic_record",
+            "aporic_run_get",
+            "aporic_run_list",
             "aporic_task_cancel",
             "aporic_task_claim",
             "aporic_task_complete",

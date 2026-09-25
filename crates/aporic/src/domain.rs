@@ -178,6 +178,168 @@ pub struct HubStats {
     pub evidence_count: u64,
     pub claim_count: u64,
     pub unresolved_material_unknown_count: u64,
+    pub running_execution_count: u64,
+    pub interrupted_execution_count: u64,
+    pub execution_receipt_count: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ExecutionStatus {
+    Running,
+    Succeeded,
+    Failed,
+    TimedOut,
+    Interrupted,
+}
+
+impl ExecutionStatus {
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            Self::Running => "running",
+            Self::Succeeded => "succeeded",
+            Self::Failed => "failed",
+            Self::TimedOut => "timed_out",
+            Self::Interrupted => "interrupted",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct CommandSpecRequest {
+    pub session_id: String,
+    pub program: String,
+    #[serde(default)]
+    pub args: Vec<String>,
+    pub workspace_relative_cwd: String,
+    #[serde(default)]
+    pub expected_exit_code: i32,
+    pub timeout_seconds: u64,
+    #[serde(default)]
+    pub artifact_paths: Vec<String>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommandSpec {
+    pub spec_id: String,
+    pub session_id: String,
+    pub workspace: String,
+    pub program: String,
+    pub args: Vec<String>,
+    pub workspace_relative_cwd: String,
+    pub expected_exit_code: i32,
+    pub timeout_seconds: u64,
+    pub artifact_paths: Vec<String>,
+    pub canonical_sha256: String,
+    pub success_claim: String,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommandSpecOutcome {
+    pub spec: CommandSpec,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExecutionRun {
+    pub run_id: String,
+    pub spec_id: String,
+    pub session_id: String,
+    pub status: ExecutionStatus,
+    pub attempt: u32,
+    pub retry_of_run_id: Option<String>,
+    pub started_at_unix_ms: i64,
+    pub finished_at_unix_ms: Option<i64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExecutionReceipt {
+    pub receipt_id: String,
+    pub run_id: String,
+    pub command_spec_sha256: String,
+    pub resolved_executable: Option<String>,
+    pub exit_code: Option<i32>,
+    pub termination: String,
+    pub stdout_sha256: String,
+    pub stdout_bytes: u64,
+    pub stderr_sha256: String,
+    pub stderr_bytes: u64,
+    pub git_head_before: Option<String>,
+    pub git_head_after: Option<String>,
+    pub worktree_state_before_sha256: Option<String>,
+    pub worktree_state_after_sha256: Option<String>,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReceiptArtifact {
+    pub artifact_id: String,
+    pub receipt_id: String,
+    pub workspace_relative_path: String,
+    pub sha256: String,
+    pub byte_length: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExecutionOutcome {
+    pub run: ExecutionRun,
+    pub receipt: Option<ExecutionReceipt>,
+    pub artifacts: Vec<ReceiptArtifact>,
+    pub verified_claim_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExecutionStart {
+    pub spec: CommandSpec,
+    pub run: ExecutionRun,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReceiptArtifactInput {
+    pub workspace_relative_path: String,
+    pub sha256: String,
+    pub byte_length: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExecutionFinish {
+    pub run_id: String,
+    pub status: ExecutionStatus,
+    pub resolved_executable: Option<String>,
+    pub exit_code: Option<i32>,
+    pub termination: String,
+    pub stdout_sha256: String,
+    pub stdout_bytes: u64,
+    pub stderr_sha256: String,
+    pub stderr_bytes: u64,
+    pub git_head_before: Option<String>,
+    pub git_head_after: Option<String>,
+    pub worktree_state_before_sha256: Option<String>,
+    pub worktree_state_after_sha256: Option<String>,
+    pub artifacts: Vec<ReceiptArtifactInput>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ExecutionListRequest {
+    pub workspace: String,
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ExecutionGetRequest {
+    pub run_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExecutionReplayAudit {
+    pub replayed_run_count: u64,
+    pub projection_run_count: u64,
+    pub mismatches: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -301,6 +463,8 @@ pub struct EpistemicClaim {
     pub statement: String,
     pub material: bool,
     pub evidence_ids: Vec<String>,
+    #[serde(default)]
+    pub receipt_ids: Vec<String>,
     pub supersedes_claim_id: Option<String>,
     pub created_at_unix_ms: i64,
 }
@@ -518,5 +682,9 @@ pub struct ProjectExport {
     pub tasks: Vec<CoordinatedTask>,
     pub evidence: Vec<EvidenceArtifact>,
     pub claims: Vec<EpistemicClaim>,
+    pub command_specs: Vec<CommandSpec>,
+    pub execution_runs: Vec<ExecutionRun>,
+    pub execution_receipts: Vec<ExecutionReceipt>,
+    pub receipt_artifacts: Vec<ReceiptArtifact>,
     pub events: Vec<ExportEvent>,
 }

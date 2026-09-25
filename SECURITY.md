@@ -21,12 +21,18 @@ ordinary operating-system permissions.
 
 Runtime state stays outside governed workspaces and `~/.codex`. Task leases and
 write scopes are advisory coordination records, not locks on the filesystem.
-Only an in-workspace file read and hashed by Aporic is classified as direct.
-Command results, external sources, and user statements are reported; model
-assessments are model-only. This blocks those sources from independently
-establishing verified completion, but it does not prove that file contents imply
-a broader real-world effect. Do not store secrets or raw conversation history in
-Aporic records.
+An in-workspace file read and hashed by Aporic is direct. The local CLI runner
+can also produce a direct receipt for a pre-registered exact-argv specification;
+MCP cannot execute checks or submit receipts. Receipts retain output hashes and
+byte counts rather than raw stdout/stderr. External sources and user statements
+remain reported, while model assessments remain model-only.
+
+The runner is not a sandbox. Registered programs execute with the current user's
+filesystem authority and a reduced environment, and timeout cleanup does not
+guarantee containment of every descendant a hostile program may create. A
+receipt proves the recorded process result and declared artifact hashes, not the
+semantic quality of a test or a broader real-world effect. Do not run untrusted
+specifications, or store secrets or raw conversation history in Aporic records.
 
 ## Reporting
 

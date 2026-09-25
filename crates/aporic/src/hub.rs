@@ -2,8 +2,10 @@ use std::path::PathBuf;
 
 use crate::{
     domain::{
-        ClaimOutcome, ClaimRequest, CloseOutcome, CloseRequest, Consequence, ContextCapsule,
-        CoordinatedTask, DissentAssessment, DissentRequest, EvidenceOutcome, EvidenceRequest,
+        ClaimOutcome, ClaimRequest, CloseOutcome, CloseRequest, CommandSpecOutcome,
+        CommandSpecRequest, Consequence, ContextCapsule, CoordinatedTask, DissentAssessment,
+        DissentRequest, EvidenceOutcome, EvidenceRequest, ExecutionFinish, ExecutionGetRequest,
+        ExecutionListRequest, ExecutionOutcome, ExecutionReplayAudit, ExecutionRun, ExecutionStart,
         HubStats, ModelRoute, ModelRouteRequest, OpenOutcome, OpenRequest, ProjectExport,
         RecallRequest, ReconcileOutcome, ReconcileRequest, RecordOutcome, RecordRequest,
         TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest,
@@ -52,6 +54,41 @@ impl Hub {
 
     pub fn assess_dissent(&self, request: &DissentRequest) -> Result<DissentAssessment> {
         self.store.assess_dissent(request)
+    }
+
+    pub fn register_command_spec(
+        &self,
+        request: &CommandSpecRequest,
+    ) -> Result<CommandSpecOutcome> {
+        self.store.register_command_spec(request)
+    }
+
+    pub async fn verify(&self, spec_id: &str) -> Result<ExecutionOutcome> {
+        crate::runner::verify(self, spec_id).await
+    }
+
+    pub fn list_executions(&self, request: &ExecutionListRequest) -> Result<Vec<ExecutionRun>> {
+        self.store.list_executions(request)
+    }
+
+    pub fn get_execution(&self, request: &ExecutionGetRequest) -> Result<ExecutionOutcome> {
+        self.store.get_execution(request)
+    }
+
+    pub fn reconcile_executions(&self, stale_after_seconds: u64) -> Result<u64> {
+        self.store.reconcile_executions(stale_after_seconds)
+    }
+
+    pub fn audit_execution_replay(&self) -> Result<ExecutionReplayAudit> {
+        self.store.audit_execution_replay()
+    }
+
+    pub(crate) fn start_execution(&self, spec_id: &str) -> Result<ExecutionStart> {
+        self.store.start_execution(spec_id)
+    }
+
+    pub(crate) fn finish_execution(&self, finish: &ExecutionFinish) -> Result<ExecutionOutcome> {
+        self.store.finish_execution(finish)
     }
 
     pub fn route_model(&self, request: &ModelRouteRequest) -> ModelRoute {

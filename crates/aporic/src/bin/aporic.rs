@@ -11,29 +11,67 @@ async fn main() -> Result<(), Box<dyn Error>> {
         [command, flag, workspace] if command == "export" && flag == "--workspace" => {
             export(workspace)
         }
+        [command, flag, spec_id] if command == "verify" && flag == "--spec" => {
+            verify(spec_id).await
+        }
+        [executions, reconcile, flag, seconds]
+            if executions == "executions"
+                && reconcile == "reconcile"
+                && flag == "--stale-after" =>
+        {
+            reconcile_executions(seconds)
+        }
         [mcp, serve, transport] if mcp == "mcp" && serve == "serve" && transport == "--stdio" => {
             serve_stdio().await
         }
         _ => {
             eprintln!(
-                "usage: aporic doctor | aporic export --workspace PATH | aporic mcp serve --stdio"
+                "usage: aporic doctor | aporic export --workspace PATH | aporic verify --spec SPEC_ID | aporic executions reconcile --stale-after SECONDS | aporic mcp serve --stdio"
             );
             std::process::exit(2);
         }
     }
 }
 
-fn doctor() -> Result<(), Box<dyn Error>> {
+async fn verify(spec_id: &str) -> Result<(), Box<dyn Error>> {
     let database = default_database_path().map_err(std::io::Error::other)?;
-    let hub = Hub::open(&database)?;
-    let stats = hub.stats()?;
+    let hub = Hub::open(database)?;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&hub.verify(spec_id).await?)?
+    );
+    Ok(())
+}
+
+fn reconcile_executions(seconds: &str) -> Result<(), Box<dyn Error>> {
+    let stale_after_seconds = seconds.parse::<u64>()?;
+    let database = default_database_path().map_err(std::io::Error::other)?;
+    let hub = Hub::open(database)?;
+    let interrupted = hub.reconcile_executions(stale_after_seconds)?;
     println!(
         "{}",
         serde_json::to_string(&serde_json::json!({
             "ok": true,
+            "interrupted_execution_count": interrupted
+        }))?
+    );
+    Ok(())
+}
+
+fn doctor() -> Result<(), Box<dyn Error>> {
+    let database = default_database_path().map_err(std::io::Error::other)?;
+    let hub = Hub::open(&database)?;
+    let stats = hub.stats()?;
+    let execution_replay = hub.audit_execution_replay()?;
+    let replay_ok = execution_replay.mismatches.is_empty();
+    println!(
+        "{}",
+        serde_json::to_string(&serde_json::json!({
+            "ok": replay_ok,
             "kernel_sha256": aporic::kernel::digest(),
             "database": hub.database_path(),
-            "stats": stats
+            "stats": stats,
+            "execution_replay": execution_replay
         }))?
     );
     Ok(())

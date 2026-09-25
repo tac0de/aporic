@@ -32,7 +32,7 @@ saves.
 
 ## Current stage
 
-The product is in the simulated-coordination stage. The product question is:
+The product is in the verifiable-local-execution stage. The product question is:
 
 > Can a local MCP hub restore and preserve the minimum useful work context
 > across Codex tasks with less overhead than manually restating it?
@@ -55,9 +55,12 @@ manual evaluation.
 - Important state changes are append-only events with transactionally updated
   read projections.
 - Raw conversation history is not durable product memory.
-- Evidence provenance is typed as direct, reported, or model-only. Only a
-  proposition mechanically derived from Aporic's own workspace-file read-back
-  can currently become observed or verified.
+- Evidence provenance is typed as direct, reported, or model-only. A proposition
+  mechanically derived from Aporic's workspace-file read-back or local runner
+  receipt can become observed or verified.
+- Models may register immutable command specifications and inspect outcomes, but
+  cannot execute them through MCP or submit receipts. Only the local Rust runner
+  can turn a successful exact-argv execution into the canonical verified claim.
 - Free text, command reports, external-source reports, user statements, and
   model assessments cannot independently establish verified completion.
 - Material unknowns block session completion until a direct observed or
@@ -84,9 +87,9 @@ manual evaluation.
 ## Deferred operational work
 
 Privacy controls, retention, import/restore, backup, remote authentication,
-long-running agent scheduling, and controlled effect execution are intentionally
-deferred. They must be resolved before their corresponding capabilities are
-introduced.
+long-running agent scheduling, general-purpose tool execution, and remote-effect
+verification are intentionally deferred. They must be resolved before their
+corresponding capabilities are introduced.
 
 ## Current evidence
 
@@ -94,7 +97,7 @@ Observed on 2026-09-25:
 
 - the exact kernel candidate in the repository matches the installed candidate
   by SHA-256;
-- a real stdio MCP child process exposes all fourteen tools and preserves a record
+- a real stdio MCP child process exposes all seventeen tools and preserves a record
   across a server restart;
 - exact retries are idempotent and conflicting reuse of a key is rejected;
 - concurrent writers retain all tested sessions through SQLite WAL;
@@ -113,6 +116,9 @@ Observed on 2026-09-25:
   blocks completion on a material unknown, resolves it with a direct file
   read-back, suppresses low-materiality dissent, and exercises all three model
   routes.
+- the verifiable-execution simulation covers successful and failed checks,
+  timeout, missing artifacts, path traversal, concurrent-run rejection, retry,
+  interrupted-run reconciliation, task-proof binding, export, and event replay.
 
 Not yet established:
 
@@ -120,8 +126,9 @@ Not yet established:
   deterministic and long-horizon regression suites;
 - reduced restatement or coordination cost across a long synthetic workload;
 - actual agent dispatch or parallel worker execution.
-- trusted receipts for shell commands, test runners, external APIs, or remote
-  effects; these remain reported rather than direct evidence.
+- semantic adequacy of a successful test, OS-level isolation from same-user
+  processes, child-process-tree containment, and trusted receipts for external
+  APIs or remote effects.
 
 The protocol slice and its live Codex bridge are operating. The broader product
 hypothesis remains open until automated long-horizon simulations show that the

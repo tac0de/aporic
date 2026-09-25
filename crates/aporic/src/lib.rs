@@ -4,6 +4,7 @@ pub mod domain;
 pub mod hub;
 pub mod kernel;
 pub mod mcp;
+pub mod runner;
 pub mod store;
 
 use std::path::PathBuf;

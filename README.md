@@ -14,7 +14,7 @@ See [PRODUCT.md](PRODUCT.md) for the product objective and
 
 ## Current product surface
 
-The hub exposes fourteen MCP tools in four groups.
+The hub exposes seventeen MCP tools in five groups.
 
 Continuity:
 
@@ -45,6 +45,22 @@ Model routing:
 
 - `aporic_model_route`: recommend Astra, Sol, or Terra from typed task signals.
 
+Verifiable execution history:
+
+- `aporic_check_register`: register an immutable argv-based local check without
+  executing it;
+- `aporic_run_list`: list bounded run lifecycle state;
+- `aporic_run_get`: inspect one receipt, its hashes, declared artifacts, and any
+  mechanically issued claim.
+
+MCP cannot execute a registered check or submit a receipt. A human or local
+automation invokes `aporic verify --spec SPEC_ID`; the Rust runner executes the
+exact registered program and argv without a shell command string, captures only
+output hashes and byte counts, records Git/worktree snapshots and declared-file
+hashes, then issues a verified claim only for the expected exit code and complete
+artifact set. Failed, timed-out, interrupted, or incomplete runs cannot issue
+that claim.
+
 Coordination records do not launch agents, grant host authority, or block tools.
 They make parallel-work conflicts and unsupported completion claims visible at
 the hub boundary.
@@ -52,9 +68,11 @@ the hub boundary.
 Decision and constraint records may explicitly supersede older records. New
 effect and verification records use the typed evidence/claim path: free text,
 reported command output, and model assessment cannot become `verified`.
-Aporic-direct verification currently means that Aporic itself read and hashed a
-file inside the session workspace. A verified statement is the exact file and
-digest proposition, not a model-authored interpretation. Material unknowns block
+Aporic-direct verification means that Aporic itself read and hashed a file inside
+the session workspace, or that its local runner generated an execution receipt
+for a pre-registered command specification. A receipt proves the observed
+process result and declared artifacts, not that a test is semantically adequate
+or that an external real-world effect occurred. Material unknowns block
 completion until an observed or verified claim supersedes them.
 
 The router is advisory and outside the behavioral kernel. It does not dispatch a
@@ -85,6 +103,14 @@ Inspect the local kernel and database without starting MCP:
 cargo run -p aporic -- doctor
 ```
 
+Execute a previously registered check, or reconcile a run left behind by an
+interrupted runner:
+
+```console
+cargo run -p aporic -- verify --spec SPEC_ID
+cargo run -p aporic -- executions reconcile --stale-after 300
+```
+
 Export one project's complete sessions, records, and event history as JSON:
 
 ```console
@@ -98,6 +124,7 @@ cargo test -p aporic --test frontier_failures -- --nocapture
 cargo test -p aporic --test coordination_failures -- --nocapture
 cargo test -p aporic --test long_horizon -- --nocapture
 cargo test -p aporic --test epistemic_gate -- --nocapture
+cargo test -p aporic --test verifiable_execution -- --nocapture
 ```
 
 The Codex bridge template is under `integrations/codex/`. Nothing in the build

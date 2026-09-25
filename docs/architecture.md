@@ -14,13 +14,15 @@ The Aporic kernel and Aporic Hub have different lifecycles.
 ## Implementation
 
 The implementation is one Rust package with internal `kernel`, `domain`,
-`store`, `hub`, and `mcp` modules. Package boundaries will be introduced only
+`store`, `hub`, `runner`, and `mcp` modules. Package boundaries will be introduced only
 when an independently versioned contract or deployment unit exists.
 
 ```text
 Codex --stdio MCP--> mcp adapter --> hub services --> SQLite
                                       |
                                       +--> kernel invariants
+
+local CLI --> runner --> exact argv process --> hashed receipt --> SQLite
 ```
 
 Each Codex connection runs an inexpensive child process. Processes share one
@@ -41,10 +43,18 @@ source -> evidence grade -> claim status -> criterion proof -> completion
            model_only        inferred       cannot complete
 ```
 
-Only workspace files read and hashed by Aporic are currently direct. A verified
-claim must encode that exact locator and digest. This deliberately leaves shell,
-test-runner, API, and remote-effect receipts unsupported until a trusted host
-adapter exists.
+Workspace files read and hashed by Aporic are direct. The local runner also
+creates direct execution receipts for immutable, pre-registered argv-based
+command specifications. It stores executable resolution, termination and exit
+status, stdout/stderr hashes and lengths, Git/worktree snapshots, and hashes for
+declared artifacts. Raw command output is not durable state. Successful receipts
+create one canonical verified claim; other terminal states do not.
+
+The MCP boundary can register a specification and read run state, but cannot
+execute it or submit a receipt. The local CLI owns execution. This is an
+integrity boundary inside the application, not an OS sandbox: a process running
+as the same user can still alter the database or workspace. A successful receipt
+also proves only the recorded process result, not test quality or remote effects.
 
 The event log preserves accepted state transitions and idempotent results. Read
 tables provide bounded context without replaying the whole log on every tool
@@ -59,6 +69,9 @@ call. Tests replay events independently and compare the result with projections.
   enforce the evidence, certainty, unknown, and counterargument gates.
 - `aporic_model_route`: return an advisory Astra/Sol/Terra route from typed task
   signals.
+- `aporic_check_register`, `aporic_run_list`, and `aporic_run_get`: register
+  immutable checks and inspect verifiable execution history without exposing an
+  MCP execution capability.
 - `aporic_close`: complete or hand off a session.
 - `aporic_reconcile`: mark inactive sessions abandoned without converting them
   into completed work.
@@ -90,9 +103,13 @@ to detect accumulating stale state.
 `epistemic_gate` injects unsupported certainty, unresolved unknowns, irrelevant
 dissent, and model-routing boundary cases.
 
+`verifiable_execution` simulates success, non-zero exit, timeout, missing
+artifacts, path traversal, duplicate registration, concurrent execution, retry,
+task proof binding, interrupted-run reconciliation, export, and event replay.
+
 ## Later growth
 
-Actual agent dispatch, event-driven waiting, remote transports, and controlled
-effect execution are later layers. The current task and lease records are
-advisory coordination state only and do not make the continuity loop depend on
-a worker runtime.
+Actual agent dispatch, event-driven waiting, remote transports, sandboxing, and
+remote-effect verification are later layers. The current task and lease records
+are advisory coordination state only and do not make the continuity loop depend
+on a worker runtime.

@@ -4,9 +4,10 @@ use serde::Serialize;
 use crate::{
     Hub,
     domain::{
-        ClaimRequest, CloseRequest, DissentRequest, EvidenceRequest, ModelRouteRequest,
-        OpenRequest, RecallRequest, ReconcileRequest, RecordRequest, TaskCancelRequest,
-        TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest,
+        ClaimRequest, CloseRequest, CommandSpecRequest, DissentRequest, EvidenceRequest,
+        ExecutionGetRequest, ExecutionListRequest, ModelRouteRequest, OpenRequest, RecallRequest,
+        ReconcileRequest, RecordRequest, TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest,
+        TaskCreateRequest, TaskListRequest,
     },
 };
 
@@ -69,6 +70,33 @@ impl AporicMcp {
         Parameters(request): Parameters<DissentRequest>,
     ) -> String {
         render(self.hub.assess_dissent(&request))
+    }
+
+    #[tool(
+        description = "Register an immutable, argv-based local verification specification. This does not execute the command, grant authority, or accept a model-authored receipt; execution is available only through the local CLI runner."
+    )]
+    async fn aporic_check_register(
+        &self,
+        Parameters(request): Parameters<CommandSpecRequest>,
+    ) -> String {
+        render(self.hub.register_command_spec(&request))
+    }
+
+    #[tool(
+        description = "List bounded local verification runs for a workspace. This is read-only and returns lifecycle state, not raw command output."
+    )]
+    async fn aporic_run_list(
+        &self,
+        Parameters(request): Parameters<ExecutionListRequest>,
+    ) -> String {
+        render(self.hub.list_executions(&request))
+    }
+
+    #[tool(
+        description = "Read one local verification run, its receipt hashes, declared artifacts, and mechanically issued claim. This is read-only."
+    )]
+    async fn aporic_run_get(&self, Parameters(request): Parameters<ExecutionGetRequest>) -> String {
+        render(self.hub.get_execution(&request))
     }
 
     #[tool(
@@ -142,8 +170,8 @@ impl AporicMcp {
 
 #[tool_handler(
     name = "aporic",
-    version = "0.3.0",
-    instructions = "Aporic preserves bounded work continuity and distinguishes direct evidence, reports, model assessments, claims, and unknowns. Use frontier models actively through advisory routing, but never treat model output as evidence or authority."
+    version = "0.4.0",
+    instructions = "Aporic preserves bounded work continuity and distinguishes direct evidence, reports, model assessments, claims, unknowns, and locally generated execution receipts. Use frontier models actively through advisory routing, but never treat model output as evidence or authority. MCP may register checks and inspect runs, but cannot execute them or submit receipts."
 )]
 impl ServerHandler for AporicMcp {}
 
