@@ -214,6 +214,14 @@ observation record. These are advisory evidence classifications, not proof that
 a game is fun. Related local Git repository discovery is read-only, opt-in,
 limited to supplied roots, and does not persist or read repository contents.
 
+Schema v21 adds immutable task-memory-use links. During planning, a queued task
+may link up to eight active memories in its workspace to exact acceptance
+criteria, with a short intended action. The event and source link survive
+restart and export. Reads show the memory's current lifecycle and, after task
+completion, the criterion's verified claim. This establishes a planned use and
+a verified task criterion, not that the memory caused the outcome. The MCP
+surface neither enforces recalled text nor changes host permissions.
+
 ## MCP surface
 
 - `aporic_open`: start an idempotent session and return recent context.
@@ -244,6 +252,18 @@ limited to supplied roots, and does not persist or read repository contents.
   `aporic_task_complete`, and `aporic_task_cancel`: maintain advisory task
   contracts, dependency gates, non-overlapping write leases, and
   criterion-by-criterion verified proofs.
+- `aporic_task_memory_apply` and `aporic_task_memory_list`: connect an active
+  memory to a task criterion during planning, then inspect its current lifecycle
+  and the criterion's completion proof.
+
+The task-memory workflow is: search or recall current workspace memory, create
+a task with a concrete acceptance criterion, link a relevant memory and intended
+action before claiming the task, then complete the criterion with the existing
+verified-claim proof. A later list call shows both the planned application and
+the proof, while exposing if the linked memory has since been superseded. An
+unlinked task remains valid for callers with no relevant memory. Linkage is a
+reported plan, and criterion verification does not measure causal benefit; that
+requires a separate paired outcome evaluation.
 - `aporic_improvement_submit` and `aporic_improvement_list`: register bounded
   evidence-referenced client feedback as a queued core task and read its live
   status from either workspace.

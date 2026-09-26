@@ -72,6 +72,7 @@ use crate::{
 
 const SCHEMA: &str = include_str!("../../../migrations/0001_initial.sql");
 mod improvements;
+mod memory_use;
 const MIGRATION_2: &str = include_str!("../../../migrations/0002_continuity_hardening.sql");
 const MIGRATION_3: &str = include_str!("../../../migrations/0003_coordination.sql");
 const MIGRATION_4: &str = include_str!("../../../migrations/0004_epistemic_gate.sql");
@@ -91,7 +92,8 @@ const MIGRATION_17: &str = include_str!("../../../migrations/0017_product_govern
 const MIGRATION_18: &str = include_str!("../../../migrations/0018_external_research.sql");
 const MIGRATION_19: &str = include_str!("../../../migrations/0019_accountability.sql");
 const MIGRATION_20: &str = include_str!("../../../migrations/0020_improvements.sql");
-const SCHEMA_VERSION: u32 = 20;
+const MIGRATION_21: &str = include_str!("../../../migrations/0021_task_memory_use.sql");
+const SCHEMA_VERSION: u32 = 21;
 const MIGRATIONS: &[(u32, &str)] = &[
     (2, MIGRATION_2),
     (3, MIGRATION_3),
@@ -112,6 +114,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (18, MIGRATION_18),
     (19, MIGRATION_19),
     (20, MIGRATION_20),
+    (21, MIGRATION_21),
 ];
 
 #[derive(Debug, Error)]
@@ -5746,6 +5749,10 @@ impl Store {
         };
 
         let tasks = list_project_tasks(&connection, &project_id, i64::MAX)?;
+        let mut task_memory_uses = Vec::new();
+        for task in &tasks {
+            task_memory_uses.extend(memory_use::list_uses(&connection, &task.task_id)?);
+        }
 
         let evidence = load_project_evidence(&connection, &project_id)?;
         let claims = load_project_claims(&connection, &project_id)?;
@@ -6042,13 +6049,14 @@ impl Store {
         };
 
         Ok(ProjectExport {
-            format_version: 16,
+            format_version: 17,
             exported_at_unix_ms: unix_millis()?,
             project_id,
             workspace,
             sessions,
             records,
             tasks,
+            task_memory_uses,
             evidence,
             claims,
             command_specs,

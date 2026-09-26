@@ -3014,6 +3014,43 @@ pub struct TaskOutcome {
     pub duplicate: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TaskMemoryUseRequest {
+    pub task_id: String,
+    pub memory_id: String,
+    pub criterion: String,
+    pub intended_action: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TaskMemoryUseListRequest {
+    pub workspace: String,
+    pub task_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskMemoryUse {
+    pub use_id: String,
+    pub task_id: String,
+    pub memory_id: String,
+    pub criterion: String,
+    pub intended_action: String,
+    pub memory_influence_class: InfluenceClass,
+    pub memory_lifecycle_state: MemoryLifecycle,
+    pub criterion_verified_claim_id: Option<String>,
+    pub created_at_unix_ms: i64,
+    pub advisory: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskMemoryUseOutcome {
+    pub memory_use: TaskMemoryUse,
+    pub duplicate: bool,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExportSession {
     pub session_id: String,
@@ -3048,6 +3085,7 @@ pub struct ProjectExport {
     pub sessions: Vec<ExportSession>,
     pub records: Vec<DurableRecord>,
     pub tasks: Vec<CoordinatedTask>,
+    pub task_memory_uses: Vec<TaskMemoryUse>,
     pub evidence: Vec<EvidenceArtifact>,
     pub claims: Vec<EpistemicClaim>,
     pub command_specs: Vec<CommandSpec>,

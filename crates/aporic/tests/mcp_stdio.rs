@@ -95,6 +95,8 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_task_complete",
             "aporic_task_create",
             "aporic_task_list",
+            "aporic_task_memory_apply",
+            "aporic_task_memory_list",
             "aporic_token_efficiency_report",
             "aporic_token_usage_list",
             "aporic_token_usage_record",
@@ -216,6 +218,42 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
     )
     .await?;
     assert_eq!(recorded["ok"], true);
+    let memory_id = format!(
+        "record:{}",
+        recorded["result"]["record"]["record_id"].as_str().unwrap()
+    );
+    let task = call_json(
+        &client,
+        "aporic_task_create",
+        json!({
+            "session_id": session_id,
+            "objective": "Check that a recalled observation is applied",
+            "acceptance_criteria": ["The observation is reviewed"],
+            "idempotency_key": "mcp-memory-task"
+        }),
+    )
+    .await?;
+    let task_id = task["result"]["task"]["task_id"].as_str().unwrap();
+    let applied = call_json(
+        &client,
+        "aporic_task_memory_apply",
+        json!({
+            "task_id": task_id,
+            "memory_id": memory_id,
+            "criterion": "The observation is reviewed",
+            "intended_action": "Review the observation before completing the task",
+            "idempotency_key": "mcp-memory-apply"
+        }),
+    )
+    .await?;
+    assert_eq!(applied["ok"], true);
+    let uses = call_json(
+        &client,
+        "aporic_task_memory_list",
+        json!({"workspace": workspace, "task_id": task_id}),
+    )
+    .await?;
+    assert_eq!(uses["result"][0]["memory_id"], memory_id);
     client.cancel().await?;
 
     let restarted = start_server(&database).await?;

@@ -24,8 +24,8 @@ use crate::{
         RuntimeTraceGetRequest, RuntimeTraceListRequest, RuntimeWorkspaceRequest,
         SecurityAssessmentGetRequest, SecurityAssessmentListRequest, ShadowEvaluationRequest,
         TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest,
-        TaskListRequest, TokenEfficiencyReportRequest, TokenUsageListRequest,
-        TokenUsageRecordRequest,
+        TaskListRequest, TaskMemoryUseListRequest, TaskMemoryUseRequest,
+        TokenEfficiencyReportRequest, TokenUsageListRequest, TokenUsageRecordRequest,
     },
     research::{ResearchGetRequest, ResearchSearchRequest},
 };
@@ -636,6 +636,26 @@ impl AporicMcp {
         Parameters(request): Parameters<TaskCreateRequest>,
     ) -> String {
         render(self.hub.create_task(&request))
+    }
+
+    #[tool(
+        description = "During task planning, link one active workspace memory to an exact acceptance criterion and state the intended action. This is an advisory plan, not proof that memory affected the result."
+    )]
+    async fn aporic_task_memory_apply(
+        &self,
+        Parameters(request): Parameters<TaskMemoryUseRequest>,
+    ) -> String {
+        render(self.hub.apply_task_memory(&request))
+    }
+
+    #[tool(
+        description = "Read a task's planned memory uses with current memory lifecycle and any verified claim for the linked criterion. Claim evidence verifies the criterion, not memory causality."
+    )]
+    async fn aporic_task_memory_list(
+        &self,
+        Parameters(request): Parameters<TaskMemoryUseListRequest>,
+    ) -> String {
+        render(self.hub.list_task_memory_uses(&request))
     }
 
     #[tool(

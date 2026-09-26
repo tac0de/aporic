@@ -40,7 +40,8 @@ use crate::{
         SecureCapabilityAudit, SecurityArtifactImport, SecurityAssessment,
         SecurityAssessmentGetRequest, SecurityAssessmentListRequest, SecurityAssessmentOutcome,
         SecurityCoverage, SecurityImportRequest, ShadowEvaluationRequest, TaskCancelRequest,
-        TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskOutcome,
+        TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskMemoryUse,
+        TaskMemoryUseListRequest, TaskMemoryUseOutcome, TaskMemoryUseRequest, TaskOutcome,
         TokenEfficiencyReport, TokenEfficiencyReportRequest, TokenUsageAudit,
         TokenUsageListRequest, TokenUsageOutcome, TokenUsageReceipt, TokenUsageRecordRequest,
         WorkComplexity, WorkKind,
@@ -678,6 +679,20 @@ impl Hub {
 
     pub fn create_task(&self, request: &TaskCreateRequest) -> Result<TaskOutcome> {
         self.store.create_task(request)
+    }
+
+    pub fn apply_task_memory(
+        &self,
+        request: &TaskMemoryUseRequest,
+    ) -> Result<TaskMemoryUseOutcome> {
+        self.store.apply_task_memory(request)
+    }
+
+    pub fn list_task_memory_uses(
+        &self,
+        request: &TaskMemoryUseListRequest,
+    ) -> Result<Vec<TaskMemoryUse>> {
+        self.store.list_task_memory_uses(request)
     }
 
     pub fn submit_improvement(

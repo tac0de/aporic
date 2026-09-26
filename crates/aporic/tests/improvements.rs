@@ -247,12 +247,13 @@ fn upgrades_schema_19_to_20() {
     let connection = rusqlite::Connection::open(&database).unwrap();
     connection
         .execute_batch(
-            "DROP TABLE prototype_reviews;
+            "DROP TABLE task_memory_uses;
+            DROP TABLE prototype_reviews;
         DROP TABLE prototype_briefs; DROP TABLE improvement_requests;
         PRAGMA user_version = 19;",
         )
         .unwrap();
     drop(connection);
     let hub = Hub::open(&database).unwrap();
-    assert_eq!(hub.stats().unwrap().schema_version, 20);
+    assert_eq!(hub.stats().unwrap().schema_version, 21);
 }
