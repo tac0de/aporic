@@ -3146,6 +3146,8 @@ pub struct TaskBriefRequest {
     pub workspace: String,
     pub task_id: String,
     pub max_context_bytes: Option<u32>,
+    #[serde(default)]
+    pub variant: Option<String>,
     pub idempotency_key: String,
 }
 
@@ -3170,6 +3172,86 @@ pub struct TaskBriefOutcome {
     pub duplicate: bool,
     pub advisory: bool,
     pub executable: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum PromptCriterionRating {
+    Met,
+    Unmet,
+    Unknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PromptCriterionAssessment {
+    pub criterion_index: u32,
+    pub criterion: String,
+    pub rating: PromptCriterionRating,
+    pub verified_claim_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PromptTrialRequest {
+    pub workspace: String,
+    pub brief_receipt_id: String,
+    pub response_sha256: String,
+    pub response_evidence_id: Option<String>,
+    pub reported_model: Option<String>,
+    pub assessments: Vec<PromptCriterionAssessment>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PromptTrial {
+    pub trial_id: String,
+    pub task_id: String,
+    pub brief_receipt_id: String,
+    pub template_id: String,
+    pub response_sha256: String,
+    pub response_evidence_id: Option<String>,
+    pub response_file_verified: bool,
+    pub reported_model: Option<String>,
+    pub assessments: Vec<PromptCriterionAssessment>,
+    pub created_at_unix_ms: i64,
+    pub rating_provenance: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PromptTrialOutcome {
+    pub trial: PromptTrial,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PromptComparisonRequest {
+    pub workspace: String,
+    pub task_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PromptVariantSummary {
+    pub template_id: String,
+    pub template_version: u32,
+    pub template_sha256: String,
+    pub brief_count: u32,
+    pub trial_count: u32,
+    pub reported_met: u32,
+    pub reported_unmet: u32,
+    pub reported_unknown: u32,
+    pub associated_verified_claims: u32,
+    pub response_files_verified: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PromptComparison {
+    pub task_id: String,
+    pub variants: Vec<PromptVariantSummary>,
+    pub rating_provenance: String,
+    pub attribution_verified: bool,
+    pub advisory: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -3357,6 +3439,8 @@ pub struct ProjectExport {
     pub task_memory_uses: Vec<TaskMemoryUse>,
     #[serde(default)]
     pub task_brief_receipts: Vec<TaskBriefReceipt>,
+    #[serde(default)]
+    pub prompt_trials: Vec<PromptTrial>,
     pub evidence: Vec<EvidenceArtifact>,
     pub claims: Vec<EpistemicClaim>,
     pub command_specs: Vec<CommandSpec>,

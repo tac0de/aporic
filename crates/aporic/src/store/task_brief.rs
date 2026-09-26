@@ -30,11 +30,8 @@ impl Store {
     pub fn record_task_brief(
         &self,
         request: &TaskBriefRequest,
-        template_sha256: &str,
+        assembly: &crate::brief::Assembly,
         context_policy_sha256: &str,
-        selected_item_ids: &[String],
-        brief_sha256: &str,
-        brief_bytes: u32,
     ) -> Result<(TaskBriefReceipt, bool)> {
         require_text("idempotency_key", &request.idempotency_key)?;
         let workspace = canonical_workspace(&request.workspace)?;
@@ -42,11 +39,11 @@ impl Store {
             "workspace": workspace,
             "task_id": request.task_id,
             "max_context_bytes": request.max_context_bytes,
-            "template_sha256": template_sha256,
+            "template_sha256": assembly.template_sha256,
             "context_policy_sha256": context_policy_sha256,
-            "selected_item_ids": selected_item_ids,
-            "brief_sha256": brief_sha256,
-            "brief_bytes": brief_bytes,
+            "selected_item_ids": assembly.selected_item_ids,
+            "brief_sha256": assembly.brief_sha256,
+            "brief_bytes": assembly.text.len(),
         });
         let now = unix_millis()?;
         let mut connection = self.connection()?;
@@ -74,13 +71,13 @@ impl Store {
         let receipt = TaskBriefReceipt {
             receipt_id: Uuid::now_v7().to_string(),
             task_id: request.task_id.clone(),
-            template_id: crate::brief::TEMPLATE_ID.to_owned(),
-            template_version: crate::brief::TEMPLATE_VERSION,
-            template_sha256: template_sha256.to_owned(),
+            template_id: assembly.template_id.clone(),
+            template_version: assembly.template_version,
+            template_sha256: assembly.template_sha256.clone(),
             context_policy_sha256: context_policy_sha256.to_owned(),
-            selected_item_ids: selected_item_ids.to_vec(),
-            brief_sha256: brief_sha256.to_owned(),
-            brief_bytes,
+            selected_item_ids: assembly.selected_item_ids.clone(),
+            brief_sha256: assembly.brief_sha256.clone(),
+            brief_bytes: u32::try_from(assembly.text.len()).expect("bounded task brief"),
             created_at_unix_ms: now,
         };
         transaction.execute(

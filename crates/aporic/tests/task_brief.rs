@@ -46,6 +46,7 @@ fn task_brief_is_versioned_bounded_idempotent_and_privacy_preserving() {
         workspace: workspace.to_string_lossy().into_owned(),
         task_id: task.task_id,
         max_context_bytes: Some(4_096),
+        variant: None,
         idempotency_key: "brief-assembly".to_owned(),
     };
     let first = hub.task_brief(&request).unwrap();
@@ -88,7 +89,7 @@ fn task_brief_is_versioned_bounded_idempotent_and_privacy_preserving() {
     assert!(hub.task_brief(&request).is_err());
 
     let restarted = Hub::open(&database).unwrap();
-    assert_eq!(restarted.stats().unwrap().schema_version, 23);
+    assert_eq!(restarted.stats().unwrap().schema_version, 24);
     let export = restarted
         .export_project(workspace.to_string_lossy().as_ref())
         .unwrap();
@@ -139,6 +140,7 @@ fn task_brief_rejects_invalid_budget_and_cross_workspace_task() {
         workspace: first_workspace.to_string_lossy().into_owned(),
         task_id,
         max_context_bytes: Some(16),
+        variant: None,
         idempotency_key: "scope-brief".to_owned(),
     };
     assert!(hub.task_brief(&request).is_err());

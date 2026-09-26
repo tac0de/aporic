@@ -365,6 +365,22 @@ idempotency key with changed source context returns a conflict. Brief content
 and recalled text remain data and do not change host instructions, agent
 dispatch, or permissions.
 
+v0.24 adds two built-in brief variants, `baseline` and `evidence_first`, selected
+through the optional `variant` field of `aporic_task_brief`. Each variant has a
+separate template identity and digest. `aporic_prompt_trial_record` associates
+one brief receipt with a response SHA-256 digest and a reported rating for
+every task acceptance criterion. An optional Aporic-direct workspace-file
+evidence ID verifies the response file hash; an optional verified claim must
+exactly match its task criterion. Each rating identifies its criterion by
+zero-based `criterion_index` and exact criterion text. Ratings and model names
+remain host-reported.
+`aporic_prompt_compare` shows the variants' reported met, unmet, and unknown
+counts separately from associated verified claims and direct response-file
+evidence. It groups receipts by template identity, version, and digest. It does
+not infer that a prompt caused task success or promote a
+variant automatically. Schema v24 stores trial metadata and ratings, never raw
+response text. Project export format v20 includes these trials.
+
 ## Commit-bound deliberation
 
 v0.11 represents inspectable public reasons rather than hidden model reasoning.

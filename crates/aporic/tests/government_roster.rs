@@ -217,7 +217,7 @@ fn initial_cabinet_bootstraps_once_and_survives_restart_and_export() {
 
     drop(hub);
     let restarted = Hub::open(area.path().join("aporic.sqlite3")).unwrap();
-    assert_eq!(restarted.stats().unwrap().schema_version, 23);
+    assert_eq!(restarted.stats().unwrap().schema_version, 24);
     let roster = restarted
         .government_roster(&GovernmentWorkspaceRequest {
             workspace: workspace.clone(),
@@ -419,7 +419,8 @@ fn schema_21_upgrade_preserves_existing_product_minister_without_auto_bootstrap(
     let connection = rusqlite::Connection::open(&database).unwrap();
     connection
         .execute_batch(
-            "DROP TABLE task_brief_receipts;
+            "DROP TABLE prompt_trials;
+            DROP TABLE task_brief_receipts;
             DROP TABLE government_terms;
          DROP TABLE government_roster_state;
          DROP TABLE government_people;
@@ -428,7 +429,7 @@ fn schema_21_upgrade_preserves_existing_product_minister_without_auto_bootstrap(
         .unwrap();
     drop(connection);
     let upgraded = Hub::open(&database).unwrap();
-    assert_eq!(upgraded.stats().unwrap().schema_version, 23);
+    assert_eq!(upgraded.stats().unwrap().schema_version, 24);
     assert_eq!(
         upgraded
             .list_office_appointments(&GovernmentWorkspaceRequest {

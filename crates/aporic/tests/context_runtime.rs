@@ -48,7 +48,7 @@ fn migrates_v5_records_with_non_authoritative_defaults() {
     drop(connection);
 
     let hub = Hub::open(&database).unwrap();
-    assert_eq!(hub.stats().unwrap().schema_version, 23);
+    assert_eq!(hub.stats().unwrap().schema_version, 24);
     let exported = hub
         .export_project(workspace.to_string_lossy().as_ref())
         .unwrap();

@@ -35,7 +35,8 @@ use crate::{
         OpenOutcome, OpenRequest, OrchestrationAudit, OrchestrationOutcome,
         OrchestrationRunCreateRequest, OrchestrationRunGetRequest, OrchestrationRunListRequest,
         OrchestrationRunSummary, OrchestrationRunView, ProductCell, ProductCellCreateRequest,
-        ProductCellOutcome, ProjectExport, PrototypeBriefCreateRequest, PrototypeBriefOutcome,
+        ProductCellOutcome, ProjectExport, PromptComparison, PromptComparisonRequest,
+        PromptTrialOutcome, PromptTrialRequest, PrototypeBriefCreateRequest, PrototypeBriefOutcome,
         PrototypeGetRequest, PrototypeReviewOutcome, PrototypeReviewRequest, PrototypeStatus,
         RecallRequest, ReconcileOutcome, ReconcileRequest, RecordOutcome, RecordRequest,
         ResumeBrief, ResumeRequest, RoleAppointment, RoleAppointmentAudit,
@@ -756,15 +757,15 @@ impl Hub {
             focus_paths: task.write_scope.clone(),
             max_bytes: Some(max_context_bytes),
         })?;
-        let assembly = crate::brief::assemble(&task, &capsule, max_context_bytes as usize)?;
-        let (receipt, duplicate) = self.store.record_task_brief(
-            request,
-            &assembly.template_sha256,
-            &capsule.policy_sha256,
-            &assembly.selected_item_ids,
-            &assembly.brief_sha256,
-            u32::try_from(assembly.text.len()).expect("bounded task brief"),
+        let assembly = crate::brief::assemble_variant(
+            &task,
+            &capsule,
+            max_context_bytes as usize,
+            request.variant.as_deref().unwrap_or("baseline"),
         )?;
+        let (receipt, duplicate) =
+            self.store
+                .record_task_brief(request, &assembly, &capsule.policy_sha256)?;
         Ok(TaskBriefOutcome {
             brief: assembly.text,
             receipt,
@@ -772,6 +773,17 @@ impl Hub {
             advisory: true,
             executable: false,
         })
+    }
+
+    pub fn record_prompt_trial(&self, request: &PromptTrialRequest) -> Result<PromptTrialOutcome> {
+        self.store.record_prompt_trial(request)
+    }
+
+    pub fn compare_prompt_trials(
+        &self,
+        request: &PromptComparisonRequest,
+    ) -> Result<PromptComparison> {
+        self.store.compare_prompt_trials(request)
     }
 
     pub fn assess_delegation(

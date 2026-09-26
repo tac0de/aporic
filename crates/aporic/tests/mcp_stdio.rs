@@ -78,6 +78,8 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_orchestration_run_list",
             "aporic_product_cell_create",
             "aporic_product_cell_list",
+            "aporic_prompt_compare",
+            "aporic_prompt_trial_record",
             "aporic_prototype_brief_create",
             "aporic_prototype_get",
             "aporic_prototype_review",
@@ -344,6 +346,27 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
     assert_eq!(brief["ok"], true);
     assert_eq!(brief["result"]["receipt"]["template_version"], 1);
     assert_eq!(brief["result"]["advisory"], true);
+    let trial = call_json(
+        &client,
+        "aporic_prompt_trial_record",
+        json!({
+            "workspace": workspace,
+            "brief_receipt_id": brief["result"]["receipt"]["receipt_id"],
+            "response_sha256": "a".repeat(64),
+            "assessments": [{"criterion_index": 0, "criterion": "The observation is reviewed", "rating": "unknown", "verified_claim_id": null}],
+            "idempotency_key": "mcp-prompt-trial"
+        }),
+    )
+    .await?;
+    assert_eq!(trial["ok"], true);
+    let comparison = call_json(
+        &client,
+        "aporic_prompt_compare",
+        json!({"workspace": workspace, "task_id": task_id}),
+    )
+    .await?;
+    assert_eq!(comparison["result"]["variants"][0]["reported_unknown"], 1);
+    assert_eq!(comparison["result"]["attribution_verified"], false);
     assert_eq!(packet["result"]["memory_uses"][0]["memory_id"], memory_id);
     assert_eq!(
         packet["result"]["delegation"]["decisions"]

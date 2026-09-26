@@ -20,15 +20,16 @@ use crate::{
         ImprovementSubmitRequest, MemoryGetRequest, MemorySearchRequest, ModelRouteRequest,
         OfficeAppointmentCreateRequest, OfficeAppointmentRevokeRequest, OpenRequest,
         OrchestrationRunCreateRequest, OrchestrationRunGetRequest, OrchestrationRunListRequest,
-        ProductCellCreateRequest, PrototypeBriefCreateRequest, PrototypeGetRequest,
-        PrototypeReviewRequest, RecallRequest, ReconcileRequest, RecordRequest,
-        RelatedWorkspaceRequest, ResumeRequest, RoleAppointmentCreateRequest,
-        RoleAppointmentListRequest, RoleAppointmentRevokeRequest, RuntimeTraceGetRequest,
-        RuntimeTraceListRequest, RuntimeWorkspaceRequest, SecurityAssessmentGetRequest,
-        SecurityAssessmentListRequest, ShadowEvaluationRequest, TaskBriefRequest,
-        TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest,
-        TaskListRequest, TaskMemoryUseListRequest, TaskMemoryUseRequest, TaskWorkPacketRequest,
-        TokenEfficiencyReportRequest, TokenUsageListRequest, TokenUsageRecordRequest,
+        ProductCellCreateRequest, PromptComparisonRequest, PromptTrialRequest,
+        PrototypeBriefCreateRequest, PrototypeGetRequest, PrototypeReviewRequest, RecallRequest,
+        ReconcileRequest, RecordRequest, RelatedWorkspaceRequest, ResumeRequest,
+        RoleAppointmentCreateRequest, RoleAppointmentListRequest, RoleAppointmentRevokeRequest,
+        RuntimeTraceGetRequest, RuntimeTraceListRequest, RuntimeWorkspaceRequest,
+        SecurityAssessmentGetRequest, SecurityAssessmentListRequest, ShadowEvaluationRequest,
+        TaskBriefRequest, TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest,
+        TaskCreateRequest, TaskListRequest, TaskMemoryUseListRequest, TaskMemoryUseRequest,
+        TaskWorkPacketRequest, TokenEfficiencyReportRequest, TokenUsageListRequest,
+        TokenUsageRecordRequest,
     },
     research::{ResearchGetRequest, ResearchSearchRequest},
 };
@@ -706,6 +707,26 @@ impl AporicMcp {
     )]
     async fn aporic_task_brief(&self, Parameters(request): Parameters<TaskBriefRequest>) -> String {
         render(self.hub.task_brief(&request))
+    }
+
+    #[tool(
+        description = "Record a bounded, criterion-by-criterion host-reported assessment of one response to a versioned task brief. Stores only response hash, optional direct file evidence ID, ratings, and valid criterion claim links; never raw response text or model authority."
+    )]
+    async fn aporic_prompt_trial_record(
+        &self,
+        Parameters(request): Parameters<PromptTrialRequest>,
+    ) -> String {
+        render(self.hub.record_prompt_trial(&request))
+    }
+
+    #[tool(
+        description = "Compare reported criterion ratings for task-brief variants, separately showing direct response-file evidence and associated verified task claims. This never proves that a variant caused an outcome or automatically promotes a prompt."
+    )]
+    async fn aporic_prompt_compare(
+        &self,
+        Parameters(request): Parameters<PromptComparisonRequest>,
+    ) -> String {
+        render(self.hub.compare_prompt_trials(&request))
     }
 
     #[tool(

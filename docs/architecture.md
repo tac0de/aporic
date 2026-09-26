@@ -258,6 +258,18 @@ evaluation suite reports fixed-fixture coverage, untrusted-item selection,
 authority-label preservation, byte budgets, and replay determinism; it does
 not measure model outcomes.
 
+Schema v24 adds append-only prompt trials linked to task-brief receipts. The
+host supplies a response digest and a bounded rating for each task criterion,
+identified by its zero-based index and exact text. A direct workspace-file evidence ID, when provided, must match the
+digest; a linked verified claim must match the task criterion and workspace.
+The response hash/evidence proves only the recorded file bytes, while all
+quality ratings remain host-reported. Read-only comparison separates reported
+ratings, directly hashed response artifacts, and associated verified claims,
+grouped by immutable template identity, version, and digest;
+it never attributes task success to a prompt variant or activates a variant.
+The two built-in templates are `baseline` and `evidence_first`. Project export
+format v20 includes trials without raw response text.
+
 ## MCP surface
 
 - `aporic_open`: start an idempotent session and return recent context.
@@ -301,6 +313,9 @@ not measure model outcomes.
   before delegation. The packet is read-only and never dispatches an agent.
 - `aporic_task_brief`: assemble a versioned bounded advisory brief and record a
   content-free receipt, without dispatching an agent or changing host instructions.
+- `aporic_prompt_trial_record` and `aporic_prompt_compare`: record bounded
+  host-reported criterion ratings for one brief receipt and compare variants
+  without treating ratings or association as causal proof.
 
 The task-memory workflow is: search or recall current workspace memory, create
 a task with a concrete acceptance criterion, link a relevant memory and intended
