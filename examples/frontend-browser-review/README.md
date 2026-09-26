@@ -5,6 +5,9 @@ first module, `frontend.browser_review`. The page is sample UI; it does not
 write to Aporic or persist a review. The Aporic procedure records the separate
 task, file evidence, and review status.
 
+This example is not an A/B test of Aporic. The [paired evaluation protocol](ab-protocol.md)
+specifies the baseline and Aporic runs needed to measure its contribution.
+
 ## Run the page
 
 From the repository root:
