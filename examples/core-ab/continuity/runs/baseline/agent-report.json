@@ -1,0 +1,8 @@
+{
+  "source": "participant agent final/status message; host-reported, not independently attested",
+  "start_utc": "2026-09-26 14:08:24 UTC",
+  "end_utc": "2026-09-26 14:09:29 UTC",
+  "context_path": "local HANDOFF.md",
+  "reported_visible_checks": "5 unittest checks passed",
+  "user_clarifications": 0
+}

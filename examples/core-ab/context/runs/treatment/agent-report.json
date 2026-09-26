@@ -1,0 +1,13 @@
+{
+  "source": "participant agent final/follow-up message; host-reported, not independently attested",
+  "start_utc": "2026-09-26 14:10:52 UTC",
+  "end_utc": "2026-09-26 14:12:07 UTC",
+  "context_path": "aporic_open, aporic_recall, aporic_memory_search settlement; no local notes read",
+  "governing_record_ids_reported": [
+    "SET-003",
+    "SET-004",
+    "SET-005"
+  ],
+  "reported_visible_checks": "cargo test --offline passed; 5 tests",
+  "user_clarifications": 0
+}

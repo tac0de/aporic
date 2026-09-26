@@ -1,0 +1,13 @@
+{
+  "source": "participant agent final message; host-reported, not independently attested",
+  "start_utc": "2026-09-26 14:10:44 UTC",
+  "end_utc": "2026-09-26 14:12:07 UTC",
+  "context_path": "local dated notes",
+  "governing_record_ids_reported": [
+    "SET-003",
+    "SET-004",
+    "SET-005"
+  ],
+  "reported_visible_checks": "cargo test --offline passed; 6 tests",
+  "user_clarifications": 0
+}

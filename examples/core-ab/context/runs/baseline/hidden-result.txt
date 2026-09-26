@@ -1,0 +1,39 @@
+exit_code=0
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 7 tests
+test highest_revision_wins_even_when_input_order_is_reversed ... ok
+test duplicate_highest_revision_is_invalid_even_if_identical ... ok
+test lower_duplicate_revision_does_not_invalidate_unique_winner ... ok
+test invoice_keys_are_scoped_to_merchant ... ok
+test checked_addition_reports_overflow ... ok
+test totals_are_sorted_and_zero_totals_omitted ... ok
+test winning_void_replaces_prior_paid_revision ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 6 tests
+test empty_input_is_empty_output ... ok
+test void_winner_replaces_paid_and_zero_totals_are_omitted ... ok
+test highest_revision_wins_even_when_rows_are_out_of_order ... ok
+test duplicate_highest_revision_is_invalid_even_if_identical ... ok
+test duplicate_lower_revision_is_superseded ... ok
+test checked_sum_rejects_overflow ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.07s
+     Running unittests src/lib.rs (target/debug/deps/settlement_fixture-990ca44d8526762d)
+     Running tests/hidden_tests.rs (target/debug/deps/hidden_tests-69f7484b8a078cc3)
+     Running tests/public_smoke.rs (target/debug/deps/public_smoke-c13ec16598911bd5)
+   Doc-tests settlement_fixture

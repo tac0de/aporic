@@ -1,0 +1,10 @@
+Use the shared task brief and workspace. You have ordinary host code and test
+tools plus the Aporic MCP bridge. Open an Aporic session for this workspace.
+For completion claims, use Aporic's evidence path: register an argv-based local
+check with `aporic_check_register`, execute it using the host-owned
+`aporic verify --spec SPEC_ID` CLI, inspect its receipt with `aporic_run_get`,
+and use `aporic_claim_assert` with verified status only for what that receipt
+actually establishes. You may add checks that exercise more of the task
+contract. Keep any unverified remainder explicit and close or hand off the
+session truthfully. End with the required STATUS line. You do not have access
+to the private grader. Aporic is advisory and does not block host tools.

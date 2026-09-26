@@ -1,0 +1,25 @@
+{
+  "spec_id": "01a0de10-8443-71ff-a75e-2333147fc819",
+  "session_id": "01a0de0f-0dea-709d-afaf-4c78e063aa8e",
+  "program": "python3",
+  "args_json": [
+    "-m",
+    "unittest",
+    "discover",
+    "-s",
+    "tests",
+    "-p",
+    "test_*.py"
+  ],
+  "workspace_relative_cwd": ".",
+  "expected_exit_code": 0,
+  "timeout_seconds": 60,
+  "artifact_paths_json": [],
+  "canonical_sha256": "e7d43d8ce9510102558f0063ea25f9f321342df5217470c804b47b0664e536a5",
+  "created_at_unix_ms": 1790432019522,
+  "sandbox_profile_json": {
+    "enforcement": "host",
+    "workspace_access": "read_write",
+    "network_access": "inherit"
+  }
+}

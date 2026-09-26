@@ -1,0 +1,11 @@
+Aporic treatment arm report
+
+Change: Repaired event_reader.py to buffer arbitrary byte chunks until LF, then decode each complete physical line as UTF-8. It accepts LF and CRLF, ignores whitespace-only lines, parses a final record without a newline, returns an empty list for empty/blank streams, rejects non-object JSON, and includes the 1-based physical line number in ValueError messages for invalid UTF-8, invalid JSON, and non-object values.
+
+Checks actually run: Registered the public command `python3 -m unittest discover -s tests -p 'test_*.py'` with Aporic check_register, then executed it through `APORIC_DATABASE=/private/tmp/aporic-core-ab/evidence/treatment.sqlite3 /Users/wonyoung_choi/projects/aporic/target/release/aporic verify --spec 01a0de10-8443-71ff-a75e-2333147fc819`. The run status was succeeded and its retrieved receipt reported exit_code 0 and termination exited. The receipt had no stdout and 100 stderr bytes. Aporic returned verified_claim_id 01a0de11-0b6d-70bc-a818-4044980ebc3e for that run. An additional manual claim assertion was rejected because the receipt identifiers were not accepted as evidence IDs; no separate claim was recorded.
+
+Remaining uncertainty: The check covers only the bundled public tests and a successful process exit. The receipt does not expose test names or prove the full contract independently; edge cases beyond those exercised by the public tests remain unverified. No A/B outcome is claimed. No user clarification was needed.
+
+UTC times: Started 2026-09-26 14:13:03 UTC. Aporic session closed at approximately 2026-09-26 14:15 UTC. Report prepared 2026-09-26 14:16:01 UTC.
+
+STATUS: COMPLETE

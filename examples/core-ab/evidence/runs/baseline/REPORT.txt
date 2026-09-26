@@ -1,0 +1,14 @@
+Baseline arm report
+
+Change: Reworked read_events to accumulate bytes across arbitrary chunks, split records only at LF boundaries, remove the optional CR in CRLF, decode each physical line as UTF-8, ignore whitespace-only lines, and parse a final unterminated record. Invalid encoding, invalid JSON, or a non-object JSON value now raises ValueError with the 1-based physical line number.
+
+Checks run:
+- `python3 -m unittest discover -s tests -p 'test_*.py'` (2 public tests passed).
+- Inline contract probes for UTF-8 split across chunks, CRLF split across chunks, multiple records, blank lines, final unterminated record, empty/blank streams, invalid UTF-8, invalid JSON, non-object JSON, and physical line numbering (passed).
+
+Remaining uncertainty: The supplied public suite contains only two cases. The inline probes exercise the contract's listed boundaries, but do not establish behavior for exceptionally large records or resource exhaustion.
+
+UTC start: 2026-09-26 14:12:55 UTC
+UTC end: 2026-09-26 14:13:42 UTC
+User clarification needed: None.
+STATUS: COMPLETE

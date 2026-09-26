@@ -10,6 +10,16 @@ selection, and evidence-based completion. Parallel coordination is deferred
 until these lower-cost comparisons have been run. Existing deterministic
 offline tests establish mechanism behavior, not agent outcome gains.
 
+| First paired pilot | Baseline | Aporic | Observed result |
+| --- | --- | --- | --- |
+| [Cross-session continuity](continuity/README.md) | Ordinary handoff note | `resume` and durable records | Both passed 4/4 hidden checks; Aporic took 18 seconds longer |
+| [Bounded context selection](context/README.md) | Local dated notes | `recall` and memory search | Both scored 9/9; Aporic took 8 seconds less |
+| [Evidence-based completion](evidence/README.md) | Ordinary checks and report | Registered check and verified receipt | Both were true complete at 9/9; Aporic took 131 seconds longer |
+
+These are one-pair pilots. None demonstrates a quality gain or a reliable
+average time effect. The evidence path's additional steps had visible overhead
+and one confusing manual-claim interaction that merits review.
+
 Each pair uses separate fresh agent contexts and isolated workspaces. Freeze
 the task brief, source state, hidden checks, and rubric before starting the
 agents. Do not let either agent see the other artifact or hidden checks.

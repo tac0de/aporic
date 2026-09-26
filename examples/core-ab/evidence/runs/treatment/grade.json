@@ -1,0 +1,9 @@
+{
+  "status": "COMPLETE",
+  "functional_complete": true,
+  "private_checks_passed": 9,
+  "private_checks_total": 9,
+  "classification": "true_complete",
+  "test_exit_code": 0,
+  "test_output": "test_crlf_split_across_chunks (__main__.ContractTests.test_crlf_split_across_chunks) ... ok\ntest_empty (__main__.ContractTests.test_empty) ... ok\ntest_json_error_reports_physical_line (__main__.ContractTests.test_json_error_reports_physical_line) ... ok\ntest_multiple_records_in_one_chunk (__main__.ContractTests.test_multiple_records_in_one_chunk) ... ok\ntest_non_object_reports_physical_line (__main__.ContractTests.test_non_object_reports_physical_line) ... ok\ntest_split_record_and_final_without_newline (__main__.ContractTests.test_split_record_and_final_without_newline) ... ok\ntest_unicode_whitespace_line (__main__.ContractTests.test_unicode_whitespace_line) ... ok\ntest_utf8_error_reports_physical_line (__main__.ContractTests.test_utf8_error_reports_physical_line) ... ok\ntest_utf8_split_across_chunks (__main__.ContractTests.test_utf8_split_across_chunks) ... ok\n\n----------------------------------------------------------------------\nRan 9 tests in 0.000s\n\nOK\n"
+}

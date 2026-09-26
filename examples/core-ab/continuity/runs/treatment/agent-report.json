@@ -1,0 +1,8 @@
+{
+  "source": "participant agent final/status message; host-reported, not independently attested",
+  "start_utc": "2026-09-26 14:08:31 UTC",
+  "end_utc": "2026-09-26 14:09:54 UTC",
+  "context_path": "aporic_resume, aporic_open, aporic_task_list; no local handoff file read",
+  "reported_visible_checks": "5 unittest checks passed",
+  "user_clarifications": 0
+}

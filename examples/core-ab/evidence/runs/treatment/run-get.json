@@ -1,0 +1,36 @@
+{
+  "ok": true,
+  "result": {
+    "artifacts": [],
+    "receipt": {
+      "command_spec_sha256": "e7d43d8ce9510102558f0063ea25f9f321342df5217470c804b47b0664e536a5",
+      "created_at_unix_ms": 1790432054123,
+      "exit_code": 0,
+      "git_head_after": "ce130101c50e3b4be9c5cba1bb5e4ec19ea03a91",
+      "git_head_before": "ce130101c50e3b4be9c5cba1bb5e4ec19ea03a91",
+      "receipt_id": "01a0de11-0b6c-7667-9c46-4457a677ea91",
+      "resolved_executable": "/opt/homebrew/Cellar/python@3.14/3.14.4/Frameworks/Python.framework/Versions/3.14/bin/python3.14",
+      "run_id": "01a0de11-0ab1-7220-a059-c25010f9d64c",
+      "sandbox_backend": "none",
+      "sandbox_enforced": false,
+      "stderr_bytes": 100,
+      "stderr_sha256": "a6707d4eff38012da33ddc34bc6dc076a3b17151cfc9aef223c8790cbe64c3da",
+      "stdout_bytes": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "termination": "exited",
+      "worktree_state_after_sha256": "ce5773c7ca8b870d4d4f5c3906224c257dfd26c521629c4554ef30ec698410be",
+      "worktree_state_before_sha256": "c91759cc6e76d5c6ee4b84f4cc411c2fc28e4be8843e91badeb7129e81b3c280"
+    },
+    "run": {
+      "attempt": 1,
+      "finished_at_unix_ms": 1790432054123,
+      "retry_of_run_id": null,
+      "run_id": "01a0de11-0ab1-7220-a059-c25010f9d64c",
+      "session_id": "01a0de0f-0dea-709d-afaf-4c78e063aa8e",
+      "spec_id": "01a0de10-8443-71ff-a75e-2333147fc819",
+      "started_at_unix_ms": 1790432053936,
+      "status": "succeeded"
+    },
+    "verified_claim_id": "01a0de11-0b6d-70bc-a818-4044980ebc3e"
+  }
+}
