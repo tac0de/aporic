@@ -222,6 +222,14 @@ completion, the criterion's verified claim. This establishes a planned use and
 a verified task criterion, not that the memory caused the outcome. The MCP
 surface neither enforces recalled text nor changes host permissions.
 
+Task-scoped delegation decisions and host-run reports are append-only events.
+Worker parallelism and independent Inspector review are assessed separately;
+each skipped path has a stated reason. Later reports identify host agents and
+selected models as reported observations. Work packets expose the bounded
+history and advisory gaps. These records never dispatch agents, attest host
+execution, or become task-completion and permission gates. Worker and Inspector
+assignee separation holds across revoked appointments for the same task.
+
 ## MCP surface
 
 - `aporic_open`: start an idempotent session and return recent context.

@@ -37,6 +37,9 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_check_register",
             "aporic_claim_assert",
             "aporic_close",
+            "aporic_delegation_assess",
+            "aporic_delegation_report",
+            "aporic_delegation_status",
             "aporic_deliberation_create",
             "aporic_deliberation_decide",
             "aporic_deliberation_get",
@@ -235,6 +238,40 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
     )
     .await?;
     let task_id = task["result"]["task"]["task_id"].as_str().unwrap();
+    let decision = call_json(
+        &client,
+        "aporic_delegation_assess",
+        json!({
+            "task_id": task_id,
+            "parallel_paths": 2,
+            "material_change": true,
+            "worker": {"disposition": "delegate", "reason": "Independent implementation path"},
+            "reviewer": {"disposition": "delegate", "reason": "Material code change"},
+            "idempotency_key": "mcp-delegation-assess"
+        }),
+    )
+    .await?;
+    assert_eq!(decision["ok"], true);
+    let decision_id = decision["result"]["decision"]["decision_id"]
+        .as_str()
+        .unwrap();
+    let reported = call_json(
+        &client,
+        "aporic_delegation_report",
+        json!({
+            "task_id": task_id,
+            "decision_id": decision_id,
+            "dimension": "worker",
+            "host_agent_id": "host-agent-1",
+            "model": "gpt-6-luna",
+            "reasoning_effort": "low",
+            "outcome": "started",
+            "result_summary": "Host reported agent start",
+            "idempotency_key": "mcp-delegation-report"
+        }),
+    )
+    .await?;
+    assert_eq!(reported["ok"], true);
     let applied = call_json(
         &client,
         "aporic_task_memory_apply",
@@ -266,6 +303,17 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
     .await?;
     assert_eq!(packet["result"]["task"]["task_id"], task_id);
     assert_eq!(packet["result"]["memory_uses"][0]["memory_id"], memory_id);
+    assert_eq!(
+        packet["result"]["delegation"]["decisions"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        packet["result"]["delegation"]["reports"][0]["host_agent_id"],
+        "host-agent-1"
+    );
     assert_eq!(packet["result"]["executable"], false);
     let uses = call_json(
         &client,
@@ -274,6 +322,13 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
     )
     .await?;
     assert_eq!(uses["result"][0]["memory_id"], memory_id);
+    let delegation = call_json(
+        &client,
+        "aporic_delegation_status",
+        json!({"workspace": workspace, "task_id": task_id}),
+    )
+    .await?;
+    assert_eq!(delegation["result"]["advisory"], true);
     client.cancel().await?;
 
     let restarted = start_server(&database).await?;

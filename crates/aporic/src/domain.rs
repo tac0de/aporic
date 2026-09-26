@@ -3027,7 +3027,119 @@ pub struct TaskWorkPacket {
     pub task: CoordinatedTask,
     pub route: ModelRoute,
     pub memory_uses: Vec<TaskMemoryUse>,
+    pub delegation: DelegationStatus,
     pub reviewer_reasoning_effort: Option<String>,
+    pub advisory: bool,
+    pub executable: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum DelegationDisposition {
+    Delegate,
+    Skip,
+    NotRequired,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DelegationChoice {
+    pub disposition: DelegationDisposition,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DelegationDecisionRequest {
+    pub task_id: String,
+    pub parallel_paths: u8,
+    pub material_change: bool,
+    pub worker: DelegationChoice,
+    pub reviewer: DelegationChoice,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DelegationDecision {
+    pub decision_id: String,
+    pub task_id: String,
+    pub parallel_paths: u8,
+    pub material_change: bool,
+    pub worker: DelegationChoice,
+    pub reviewer: DelegationChoice,
+    pub evidence_grade: EvidenceGrade,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DelegationDecisionOutcome {
+    pub decision: DelegationDecision,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum DelegationDimension {
+    Worker,
+    Reviewer,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum DelegationRunOutcome {
+    Started,
+    Completed,
+    Failed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DelegationReportRequest {
+    pub task_id: String,
+    pub decision_id: String,
+    pub dimension: DelegationDimension,
+    pub host_agent_id: String,
+    pub model: String,
+    pub reasoning_effort: String,
+    pub outcome: DelegationRunOutcome,
+    pub result_summary: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DelegationReport {
+    pub report_id: String,
+    pub task_id: String,
+    pub decision_id: String,
+    pub dimension: DelegationDimension,
+    pub host_agent_id: String,
+    pub model: String,
+    pub reasoning_effort: String,
+    pub outcome: DelegationRunOutcome,
+    pub result_summary: String,
+    pub evidence_grade: EvidenceGrade,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DelegationReportOutcome {
+    pub report: DelegationReport,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DelegationStatusRequest {
+    pub workspace: String,
+    pub task_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DelegationStatus {
+    pub task_id: String,
+    pub decisions: Vec<DelegationDecision>,
+    pub reports: Vec<DelegationReport>,
+    pub advisory_gaps: Vec<String>,
     pub advisory: bool,
     pub executable: bool,
 }

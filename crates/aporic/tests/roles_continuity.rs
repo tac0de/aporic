@@ -161,6 +161,38 @@ fn appointments_are_advisory_and_separate_worker_from_inspector() {
         })
         .unwrap();
     assert!(revoked.appointment.revoked_at_unix_ms.is_some());
+    let formerly_worker_as_inspector = RoleAppointmentCreateRequest {
+        assignee_id: "agent.sol".to_owned(),
+        idempotency_key: "revoked-worker-as-inspector".to_owned(),
+        ..inspector.clone()
+    };
+    assert!(
+        hub.create_role_appointment(&formerly_worker_as_inspector)
+            .is_err()
+    );
+    let inspector_appointment = hub
+        .list_role_appointments(&RoleAppointmentListRequest {
+            workspace: workspace.clone(),
+            limit: None,
+        })
+        .unwrap()
+        .into_iter()
+        .find(|item| item.role_id == "oversight.inspector")
+        .unwrap();
+    hub.revoke_role_appointment(&RoleAppointmentRevokeRequest {
+        appointment_id: inspector_appointment.appointment_id,
+        idempotency_key: "revoke-inspector".to_owned(),
+    })
+    .unwrap();
+    let formerly_inspector_as_worker = RoleAppointmentCreateRequest {
+        assignee_id: "agent.astra".to_owned(),
+        idempotency_key: "revoked-inspector-as-worker".to_owned(),
+        ..worker.clone()
+    };
+    assert!(
+        hub.create_role_appointment(&formerly_inspector_as_worker)
+            .is_err()
+    );
     drop(hub);
     let restarted = Hub::open(area.path().join("aporic.sqlite3")).unwrap();
     let listed = restarted
@@ -170,7 +202,7 @@ fn appointments_are_advisory_and_separate_worker_from_inspector() {
         })
         .unwrap();
     assert_eq!(listed.len(), 2);
-    assert!(listed.iter().any(|item| item.revoked_at_unix_ms.is_some()));
+    assert!(listed.iter().all(|item| item.revoked_at_unix_ms.is_some()));
     let exported = restarted.export_project(&workspace).unwrap();
     assert_eq!(exported.role_appointments.len(), 2);
     assert_eq!(
@@ -179,7 +211,7 @@ fn appointments_are_advisory_and_separate_worker_from_inspector() {
             .iter()
             .filter(|event| event.kind.starts_with("role_appointment_"))
             .count(),
-        3
+        4
     );
     assert!(restarted.audit_role_appointments().unwrap().consistent);
     let connection = rusqlite::Connection::open(area.path().join("aporic.sqlite3")).unwrap();

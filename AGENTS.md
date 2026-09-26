@@ -32,7 +32,12 @@ Historical Git commits and tags are context, not current design authority.
   record a model hint, but must not override host selection or call a model API.
 - For substantive work with independent bounded paths, proactively use Codex
   host subagents when parallel work or a separate review improves speed or
-  quality. Keep short sequential work with the primary agent. The host owns
+  quality. Before dispatch, record a task-scoped `aporic_delegation_assess`
+  decision when an Aporic task exists. If two or more independent paths exist,
+  delegate a Worker or record a concrete skip reason. For material changes,
+  delegate a distinct Inspector or record a concrete skip reason. Report actual
+  starts, completions, and failures with `aporic_delegation_report`; a plan is
+  not proof that an agent ran. Keep short sequential work with the primary agent. The host owns
   spawning, tool permissions, and the actual model and reasoning effort.
   Choose a lighter available host model and lower effort for clear low-impact
   tasks, Sol for ordinary implementation, and Astra with higher effort for
@@ -41,7 +46,9 @@ Historical Git commits and tags are context, not current design authority.
   current static route. For material changes, use an Inspector distinct from
   the author to review the artifact and acceptance criteria independently.
   Model review never replaces mechanical evidence or the primary agent's
-  responsibility to integrate and report the result.
+  responsibility to integrate and report the result. Aporic delegation records
+  are advisory and fail-open; missing records never deny host tools or task
+  completion.
 
 - Decisions are provisional directions supported by their recorded context,
   not timeless answers. Preserve meaningful revisions and counterarguments.

@@ -8,7 +8,8 @@ use crate::{
         AccountabilityListRequest, AccountabilityOpenRequest, AccountabilityPlanRequest,
         AccountabilityResolveRequest, AdvisoryRoleReportRequest, CapabilityGetRequest,
         CapabilityRegisterRequest, CapabilitySearchRequest, ClaimRequest, CloseRequest,
-        CommandSpecRequest, DeliberationCreateRequest, DeliberationDecisionRequest,
+        CommandSpecRequest, DelegationDecisionRequest, DelegationReportRequest,
+        DelegationStatusRequest, DeliberationCreateRequest, DeliberationDecisionRequest,
         DeliberationGetRequest, DeliberationListRequest, DeliberationNodeAddRequest,
         DissentRequest, EvidenceRequest, ExecutionGetRequest, ExecutionListRequest,
         ExperimentCreateRequest, ExperimentDecisionRequest, ExperimentGetRequest,
@@ -646,6 +647,36 @@ impl AporicMcp {
         Parameters(request): Parameters<TaskWorkPacketRequest>,
     ) -> String {
         render(self.hub.task_work_packet(&request))
+    }
+
+    #[tool(
+        description = "Record a task-scoped advisory decision for parallel Worker delegation and independent Inspector review. Required skips carry a reason; this never restricts host tools."
+    )]
+    async fn aporic_delegation_assess(
+        &self,
+        Parameters(request): Parameters<DelegationDecisionRequest>,
+    ) -> String {
+        render(self.hub.assess_delegation(&request))
+    }
+
+    #[tool(
+        description = "Record a reported host subagent start, completion, or failure against a prior delegation decision. Host identity and model are reported, not attested."
+    )]
+    async fn aporic_delegation_report(
+        &self,
+        Parameters(request): Parameters<DelegationReportRequest>,
+    ) -> String {
+        render(self.hub.report_delegation(&request))
+    }
+
+    #[tool(
+        description = "Read bounded delegation decisions, reported agent runs, and advisory gaps for one workspace task. This is not a permission or task completion gate."
+    )]
+    async fn aporic_delegation_status(
+        &self,
+        Parameters(request): Parameters<DelegationStatusRequest>,
+    ) -> String {
+        render(self.hub.delegation_status(&request))
     }
 
     #[tool(

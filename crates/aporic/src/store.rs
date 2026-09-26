@@ -72,6 +72,7 @@ use crate::{
 };
 
 const SCHEMA: &str = include_str!("../../../migrations/0001_initial.sql");
+mod delegation;
 mod improvements;
 mod memory_use;
 const MIGRATION_2: &str = include_str!("../../../migrations/0002_continuity_hardening.sql");
@@ -572,9 +573,15 @@ impl Store {
                 "delivery.worker"
             };
             if request.role_id == "delivery.worker" || request.role_id == "oversight.inspector" {
+                delegation::validate_role_assignee(
+                    &transaction,
+                    task_id,
+                    &request.role_id,
+                    &request.assignee_id,
+                )?;
                 let conflict: u64 = transaction.query_row(
                     "SELECT COUNT(*) FROM role_appointments WHERE task_id = ?1 AND role_id = ?2
-                       AND assignee_id = ?3 AND revoked_at_unix_ms IS NULL",
+                       AND assignee_id = ?3",
                     params![task_id, opposed, request.assignee_id],
                     |row| row.get(0),
                 )?;

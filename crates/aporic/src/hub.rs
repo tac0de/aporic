@@ -13,34 +13,37 @@ use crate::{
         CapabilityManifest, CapabilityOutcome, CapabilityRegisterRequest, CapabilityReport,
         CapabilitySearchRequest, CapabilitySummary, ClaimOutcome, ClaimRequest, CloseOutcome,
         CloseRequest, CommandSpecOutcome, CommandSpecRequest, Consequence, ContextCapsule,
-        CoordinatedTask, DeliberationAudit, DeliberationCreateRequest, DeliberationDecisionRequest,
-        DeliberationGetRequest, DeliberationGraph, DeliberationListRequest,
-        DeliberationNodeAddRequest, DeliberationOutcome, DeliberationSummary, DissentAssessment,
-        DissentRequest, EvidenceOutcome, EvidenceRequest, ExecutionFinish, ExecutionGetRequest,
-        ExecutionListRequest, ExecutionOutcome, ExecutionReplayAudit, ExecutionRun, ExecutionStart,
-        ExperimentCreateRequest, ExperimentDecisionRequest, ExperimentGetRequest,
-        ExperimentListRequest, ExperimentMeasurementAddRequest, ExperimentOutcome,
-        ExperimentPortfolio, ExperimentSummary, ExperimentVariantAddRequest, GitObserveRequest,
-        GitSnapshot, GitSnapshotAudit, GitSnapshotGetRequest, GitSnapshotListRequest,
-        GovernmentAudit, GovernmentDefinition, GovernmentWorkspaceRequest, HookHealthReport,
-        HubStats, ImprovementListRequest, ImprovementOutcome, ImprovementRequest,
-        ImprovementSubmitRequest, MemoryGetRequest, MemoryItem, MemoryProjectionAudit,
-        MemorySearchRequest, MemorySearchResult, ModelRoute, ModelRouteRequest, OfficeAppointment,
-        OfficeAppointmentCreateRequest, OfficeAppointmentOutcome, OfficeAppointmentRevokeRequest,
-        OpenOutcome, OpenRequest, OrchestrationAudit, OrchestrationOutcome,
-        OrchestrationRunCreateRequest, OrchestrationRunGetRequest, OrchestrationRunListRequest,
-        OrchestrationRunSummary, OrchestrationRunView, ProductCell, ProductCellCreateRequest,
-        ProductCellOutcome, ProjectExport, PrototypeBriefCreateRequest, PrototypeBriefOutcome,
-        PrototypeGetRequest, PrototypeReviewOutcome, PrototypeReviewRequest, PrototypeStatus,
-        RecallRequest, ReconcileOutcome, ReconcileRequest, RecordOutcome, RecordRequest,
-        ResumeBrief, ResumeRequest, RoleAppointment, RoleAppointmentAudit,
-        RoleAppointmentCreateRequest, RoleAppointmentListRequest, RoleAppointmentOutcome,
-        RoleAppointmentRevokeRequest, RuntimeEvent, RuntimeObservation, RuntimeProjectionAudit,
-        RuntimeTraceGetRequest, RuntimeTraceListRequest, RuntimeWorkspaceRequest,
-        SecureCapabilityAudit, SecurityArtifactImport, SecurityAssessment,
-        SecurityAssessmentGetRequest, SecurityAssessmentListRequest, SecurityAssessmentOutcome,
-        SecurityCoverage, SecurityImportRequest, ShadowEvaluationRequest, TaskCancelRequest,
-        TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskMemoryUse,
+        CoordinatedTask, DelegationDecisionOutcome, DelegationDecisionRequest,
+        DelegationReportOutcome, DelegationReportRequest, DelegationStatus,
+        DelegationStatusRequest, DeliberationAudit, DeliberationCreateRequest,
+        DeliberationDecisionRequest, DeliberationGetRequest, DeliberationGraph,
+        DeliberationListRequest, DeliberationNodeAddRequest, DeliberationOutcome,
+        DeliberationSummary, DissentAssessment, DissentRequest, EvidenceOutcome, EvidenceRequest,
+        ExecutionFinish, ExecutionGetRequest, ExecutionListRequest, ExecutionOutcome,
+        ExecutionReplayAudit, ExecutionRun, ExecutionStart, ExperimentCreateRequest,
+        ExperimentDecisionRequest, ExperimentGetRequest, ExperimentListRequest,
+        ExperimentMeasurementAddRequest, ExperimentOutcome, ExperimentPortfolio, ExperimentSummary,
+        ExperimentVariantAddRequest, GitObserveRequest, GitSnapshot, GitSnapshotAudit,
+        GitSnapshotGetRequest, GitSnapshotListRequest, GovernmentAudit, GovernmentDefinition,
+        GovernmentWorkspaceRequest, HookHealthReport, HubStats, ImprovementListRequest,
+        ImprovementOutcome, ImprovementRequest, ImprovementSubmitRequest, MemoryGetRequest,
+        MemoryItem, MemoryProjectionAudit, MemorySearchRequest, MemorySearchResult, ModelRoute,
+        ModelRouteRequest, OfficeAppointment, OfficeAppointmentCreateRequest,
+        OfficeAppointmentOutcome, OfficeAppointmentRevokeRequest, OpenOutcome, OpenRequest,
+        OrchestrationAudit, OrchestrationOutcome, OrchestrationRunCreateRequest,
+        OrchestrationRunGetRequest, OrchestrationRunListRequest, OrchestrationRunSummary,
+        OrchestrationRunView, ProductCell, ProductCellCreateRequest, ProductCellOutcome,
+        ProjectExport, PrototypeBriefCreateRequest, PrototypeBriefOutcome, PrototypeGetRequest,
+        PrototypeReviewOutcome, PrototypeReviewRequest, PrototypeStatus, RecallRequest,
+        ReconcileOutcome, ReconcileRequest, RecordOutcome, RecordRequest, ResumeBrief,
+        ResumeRequest, RoleAppointment, RoleAppointmentAudit, RoleAppointmentCreateRequest,
+        RoleAppointmentListRequest, RoleAppointmentOutcome, RoleAppointmentRevokeRequest,
+        RuntimeEvent, RuntimeObservation, RuntimeProjectionAudit, RuntimeTraceGetRequest,
+        RuntimeTraceListRequest, RuntimeWorkspaceRequest, SecureCapabilityAudit,
+        SecurityArtifactImport, SecurityAssessment, SecurityAssessmentGetRequest,
+        SecurityAssessmentListRequest, SecurityAssessmentOutcome, SecurityCoverage,
+        SecurityImportRequest, ShadowEvaluationRequest, TaskCancelRequest, TaskClaimRequest,
+        TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskMemoryUse,
         TaskMemoryUseListRequest, TaskMemoryUseOutcome, TaskMemoryUseRequest, TaskOutcome,
         TaskWorkPacket, TaskWorkPacketRequest, TokenEfficiencyReport, TokenEfficiencyReportRequest,
         TokenUsageAudit, TokenUsageListRequest, TokenUsageOutcome, TokenUsageReceipt,
@@ -683,16 +686,39 @@ impl Hub {
 
     pub fn task_work_packet(&self, request: &TaskWorkPacketRequest) -> Result<TaskWorkPacket> {
         let (task, memory_uses) = self.store.task_work_packet_source(request)?;
+        let delegation = self.store.delegation_status(&DelegationStatusRequest {
+            workspace: request.workspace.clone(),
+            task_id: request.task_id.clone(),
+        })?;
         let route = self.route_model(&request.route);
         let reviewer_reasoning_effort = route.verifier_model.as_ref().map(|_| "high".to_owned());
         Ok(TaskWorkPacket {
             task,
             route,
             memory_uses,
+            delegation,
             reviewer_reasoning_effort,
             advisory: true,
             executable: false,
         })
+    }
+
+    pub fn assess_delegation(
+        &self,
+        request: &DelegationDecisionRequest,
+    ) -> Result<DelegationDecisionOutcome> {
+        self.store.assess_delegation(request)
+    }
+
+    pub fn report_delegation(
+        &self,
+        request: &DelegationReportRequest,
+    ) -> Result<DelegationReportOutcome> {
+        self.store.report_delegation(request)
+    }
+
+    pub fn delegation_status(&self, request: &DelegationStatusRequest) -> Result<DelegationStatus> {
+        self.store.delegation_status(request)
     }
 
     pub fn apply_task_memory(

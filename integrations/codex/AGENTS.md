@@ -52,14 +52,22 @@ every acceptance criterion; otherwise cancel it or leave it queued.
 
 For a bounded task that can run independently, call `aporic_task_work_packet`
 with the task ID and typed complexity, consequence, work kind, ambiguity, and
-review need. It returns the existing task contract, linked memories, and an
-advisory worker/reviewer route. Check task status, dependencies, and write scope
-before delegation. Use Codex's host collaboration tools to spawn agents;
-Aporic never spawns them. Select an available host model and reasoning effort
+review need. It returns the existing task contract, linked memories, an
+advisory worker/reviewer route, and delegation history. Check task status,
+dependencies, and write scope before delegation. For substantive work, call
+`aporic_delegation_assess` before host dispatch. When two or more independent
+bounded paths exist, select Worker delegation or record a concrete skip reason.
+For material changes, select a distinct Inspector or record a concrete skip
+reason. This is advisory and never limits host tools or task completion. Use
+Codex's host collaboration tools to spawn agents; Aporic never spawns them.
+Select an available host model and reasoning effort
 proportionate to the work. The current route table may recommend Terra for
 bounded work; the host may choose a lighter available model such as Luna for
 low-risk work and should record that difference as reported task progress.
-After spawning, record the returned host agent ID in a task-scoped
+After spawning, use `aporic_delegation_report` to record the actual host agent
+ID, selected model and effort, and start. Report completion or failure after it
+occurs. These are reported observations, not host attestations. Record the
+returned host agent ID in a task-scoped
 `delivery.worker` role appointment and claim the task lease with that ID. A
 model hint is reported selection intent, not attestation of the executed model.
 Use `aporic_record` task progress to note the route recommendation, host-selected
