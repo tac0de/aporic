@@ -247,6 +247,17 @@ history and advisory gaps. These records never dispatch agents, attest host
 execution, or become task-completion and permission gates. Worker and Inspector
 assignee separation holds across revoked appointments for the same task.
 
+Schema v23 adds append-only task-brief assembly receipts. A built-in, versioned
+template combines a task objective and exact acceptance criteria with a bounded
+selection from the existing context policy. The MCP response includes the
+advisory rendered brief, while the database and project export retain only the
+template/context policy digests, selected item IDs, brief digest and byte count.
+No raw hook prompt or rendered brief is added to durable state. Reusing a key
+after the selected source context changes is a conflict. The offline context
+evaluation suite reports fixed-fixture coverage, untrusted-item selection,
+authority-label preservation, byte budgets, and replay determinism; it does
+not measure model outcomes.
+
 ## MCP surface
 
 - `aporic_open`: start an idempotent session and return recent context.
@@ -288,6 +299,8 @@ assignee separation holds across revoked appointments for the same task.
 - `aporic_task_work_packet`: combine one existing task, its planned memory uses,
   and a typed advisory worker/reviewer model route for a Codex host to inspect
   before delegation. The packet is read-only and never dispatches an agent.
+- `aporic_task_brief`: assemble a versioned bounded advisory brief and record a
+  content-free receipt, without dispatching an agent or changing host instructions.
 
 The task-memory workflow is: search or recall current workspace memory, create
 a task with a concrete acceptance criterion, link a relevant memory and intended

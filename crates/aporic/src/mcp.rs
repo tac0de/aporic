@@ -25,9 +25,9 @@ use crate::{
         RelatedWorkspaceRequest, ResumeRequest, RoleAppointmentCreateRequest,
         RoleAppointmentListRequest, RoleAppointmentRevokeRequest, RuntimeTraceGetRequest,
         RuntimeTraceListRequest, RuntimeWorkspaceRequest, SecurityAssessmentGetRequest,
-        SecurityAssessmentListRequest, ShadowEvaluationRequest, TaskCancelRequest,
-        TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest,
-        TaskMemoryUseListRequest, TaskMemoryUseRequest, TaskWorkPacketRequest,
+        SecurityAssessmentListRequest, ShadowEvaluationRequest, TaskBriefRequest,
+        TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest,
+        TaskListRequest, TaskMemoryUseListRequest, TaskMemoryUseRequest, TaskWorkPacketRequest,
         TokenEfficiencyReportRequest, TokenUsageListRequest, TokenUsageRecordRequest,
     },
     research::{ResearchGetRequest, ResearchSearchRequest},
@@ -699,6 +699,13 @@ impl AporicMcp {
         Parameters(request): Parameters<TaskWorkPacketRequest>,
     ) -> String {
         render(self.hub.task_work_packet(&request))
+    }
+
+    #[tool(
+        description = "Assemble a bounded versioned advisory brief for one task, using current labelled context. Record only a digest and selected item identifiers; never raw user prompts or rendered brief text. Does not dispatch an agent or change host instructions."
+    )]
+    async fn aporic_task_brief(&self, Parameters(request): Parameters<TaskBriefRequest>) -> String {
+        render(self.hub.task_brief(&request))
     }
 
     #[tool(

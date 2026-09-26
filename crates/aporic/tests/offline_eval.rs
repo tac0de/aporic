@@ -61,6 +61,15 @@ fn memory_lifecycle_simulation_rejects_stale_and_poisoned_authority() {
 #[test]
 fn authority_bound_context_beats_recency_without_claiming_model_evidence() {
     let report = simulate_context_selection();
+    assert_eq!(report.suite_version, 2);
+    assert_eq!(report.fixtures_evaluated, 3);
+    assert!(report.fixtures.iter().all(|fixture| {
+        fixture.required_items_selected == fixture.required_items_expected
+            && fixture.contaminated_items_selected == 0
+            && fixture.authority_label_violations == 0
+            && fixture.budget_respected
+            && fixture.deterministic
+    }));
     assert_eq!(
         report.selected_relevant_items,
         report.expected_relevant_items
@@ -69,6 +78,8 @@ fn authority_bound_context_beats_recency_without_claiming_model_evidence() {
     assert_eq!(report.selected_poison_items, 0);
     assert_eq!(report.naive_recency_poison_items, 1);
     assert_eq!(report.authority_escalations, 0);
+    assert_eq!(report.authority_label_violations, 0);
+    assert_eq!(report.budget_violations, 0);
     assert!(report.deterministic);
     assert!(!report.routing_eligible);
     assert_eq!(report.network_or_model_calls, 0);

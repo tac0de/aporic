@@ -93,7 +93,7 @@ fn migrates_v10_to_v11_without_deliberations() {
     drop(connection);
 
     let hub = Hub::open(database).unwrap();
-    assert_eq!(hub.stats().unwrap().schema_version, 22);
+    assert_eq!(hub.stats().unwrap().schema_version, 23);
     let audit = hub.audit_deliberations().unwrap();
     assert_eq!(audit.deliberation_count, 0);
     assert!(audit.consistent);

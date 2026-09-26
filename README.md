@@ -348,6 +348,23 @@ The router is advisory and outside the behavioral kernel. It does not dispatch a
 model, grant authority, or turn a model review into evidence. See
 [model routing](docs/model-routing.md).
 
+## Prompt and context evaluation baseline
+
+`aporic eval context` runs fixed offline selection fixtures. Its report separates
+required-item coverage, selected untrusted text, authority-label preservation,
+budget compliance, and deterministic replay. These fixtures measure the selector,
+not model answer quality or causal task improvement; they make no network or
+model calls.
+
+`aporic_task_brief` assembles a bounded, versioned advisory brief for one task
+from its objective, acceptance criteria, and currently selected context. The
+result includes a template digest, context-policy digest, selected item IDs,
+and brief digest. Schema v23 records only this receipt and its event; it does
+not store the rendered brief or a new copy of the user's prompt. Reusing an
+idempotency key with changed source context returns a conflict. Brief content
+and recalled text remain data and do not change host instructions, agent
+dispatch, or permissions.
+
 ## Commit-bound deliberation
 
 v0.11 represents inspectable public reasons rather than hidden model reasoning.

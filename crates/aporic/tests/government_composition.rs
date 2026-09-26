@@ -266,7 +266,7 @@ fn product_minister_and_multidisciplinary_cell_preserve_independent_oversight() 
 
     drop(hub);
     let restarted = Hub::open(area.path().join("aporic.sqlite3")).unwrap();
-    assert_eq!(restarted.stats().unwrap().schema_version, 22);
+    assert_eq!(restarted.stats().unwrap().schema_version, 23);
     assert_eq!(
         restarted
             .list_office_appointments(&GovernmentWorkspaceRequest {
@@ -288,7 +288,7 @@ fn product_minister_and_multidisciplinary_cell_preserve_independent_oversight() 
         1
     );
     let export = restarted.export_project(&workspace).unwrap();
-    assert_eq!(export.format_version, 18);
+    assert_eq!(export.format_version, 19);
     assert_eq!(export.office_appointments.len(), 1);
     assert_eq!(export.product_cells.len(), 1);
     assert_eq!(export.product_cells[0].members.len(), 8);
@@ -406,7 +406,8 @@ fn upgrades_schema_16_to_product_government() {
     let connection = rusqlite::Connection::open(&database).unwrap();
     connection
         .execute_batch(
-            "DROP TABLE government_terms;
+            "DROP TABLE task_brief_receipts;
+            DROP TABLE government_terms;
             DROP TABLE government_roster_state;
             DROP TABLE government_people;
             DROP TABLE task_memory_uses;
@@ -425,6 +426,6 @@ fn upgrades_schema_16_to_product_government() {
         .unwrap();
     drop(connection);
     let upgraded = Hub::open(database).unwrap();
-    assert_eq!(upgraded.stats().unwrap().schema_version, 22);
+    assert_eq!(upgraded.stats().unwrap().schema_version, 23);
     assert!(upgraded.audit_government().unwrap().consistent);
 }

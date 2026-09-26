@@ -3141,6 +3141,38 @@ pub struct TaskWorkPacket {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TaskBriefRequest {
+    pub workspace: String,
+    pub task_id: String,
+    pub max_context_bytes: Option<u32>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskBriefReceipt {
+    pub receipt_id: String,
+    pub task_id: String,
+    pub template_id: String,
+    pub template_version: u32,
+    pub template_sha256: String,
+    pub context_policy_sha256: String,
+    pub selected_item_ids: Vec<String>,
+    pub brief_sha256: String,
+    pub brief_bytes: u32,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskBriefOutcome {
+    pub brief: String,
+    pub receipt: TaskBriefReceipt,
+    pub duplicate: bool,
+    pub advisory: bool,
+    pub executable: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum DelegationDisposition {
     Delegate,
@@ -3323,6 +3355,8 @@ pub struct ProjectExport {
     pub records: Vec<DurableRecord>,
     pub tasks: Vec<CoordinatedTask>,
     pub task_memory_uses: Vec<TaskMemoryUse>,
+    #[serde(default)]
+    pub task_brief_receipts: Vec<TaskBriefReceipt>,
     pub evidence: Vec<EvidenceArtifact>,
     pub claims: Vec<EpistemicClaim>,
     pub command_specs: Vec<CommandSpec>,

@@ -239,7 +239,8 @@ fn upgrades_existing_role_schema_without_recreating_appointments() {
     let connection = rusqlite::Connection::open(&database).unwrap();
     connection
         .execute_batch(
-            "DROP TABLE government_terms;
+            "DROP TABLE task_brief_receipts;
+            DROP TABLE government_terms;
             DROP TABLE government_roster_state;
             DROP TABLE government_people;
             DROP TABLE task_memory_uses;
@@ -259,7 +260,7 @@ fn upgrades_existing_role_schema_without_recreating_appointments() {
         .unwrap();
     drop(connection);
     let upgraded = Hub::open(database).unwrap();
-    assert_eq!(upgraded.stats().unwrap().schema_version, 22);
+    assert_eq!(upgraded.stats().unwrap().schema_version, 23);
     assert_eq!(
         upgraded
             .list_role_appointments(&RoleAppointmentListRequest {

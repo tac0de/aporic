@@ -98,6 +98,7 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_security_assessment_get",
             "aporic_security_assessment_list",
             "aporic_shadow_evaluate",
+            "aporic_task_brief",
             "aporic_task_cancel",
             "aporic_task_claim",
             "aporic_task_complete",
@@ -329,6 +330,20 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
     )
     .await?;
     assert_eq!(packet["result"]["task"]["task_id"], task_id);
+    let brief = call_json(
+        &client,
+        "aporic_task_brief",
+        json!({
+            "workspace": workspace,
+            "task_id": task_id,
+            "max_context_bytes": 2048,
+            "idempotency_key": "mcp-task-brief"
+        }),
+    )
+    .await?;
+    assert_eq!(brief["ok"], true);
+    assert_eq!(brief["result"]["receipt"]["template_version"], 1);
+    assert_eq!(brief["result"]["advisory"], true);
     assert_eq!(packet["result"]["memory_uses"][0]["memory_id"], memory_id);
     assert_eq!(
         packet["result"]["delegation"]["decisions"]

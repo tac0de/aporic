@@ -22,8 +22,8 @@ fn restores_a_validated_backup_into_a_new_database() {
     let restored = area.path().join("restored.sqlite3");
 
     let outcome = restore_to(&backup, &restored).unwrap();
-    assert_eq!(outcome.source_schema_version, 22);
-    assert_eq!(outcome.restored_schema_version, 22);
+    assert_eq!(outcome.source_schema_version, 23);
+    assert_eq!(outcome.restored_schema_version, 23);
     assert!(outcome.byte_length > 0);
     assert!(
         restore_to(&backup, &restored)

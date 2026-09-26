@@ -77,6 +77,7 @@ mod delegation;
 mod government_roster;
 mod improvements;
 mod memory_use;
+mod task_brief;
 const MIGRATION_2: &str = include_str!("../../../migrations/0002_continuity_hardening.sql");
 const MIGRATION_3: &str = include_str!("../../../migrations/0003_coordination.sql");
 const MIGRATION_4: &str = include_str!("../../../migrations/0004_epistemic_gate.sql");
@@ -98,7 +99,8 @@ const MIGRATION_19: &str = include_str!("../../../migrations/0019_accountability
 const MIGRATION_20: &str = include_str!("../../../migrations/0020_improvements.sql");
 const MIGRATION_21: &str = include_str!("../../../migrations/0021_task_memory_use.sql");
 const MIGRATION_22: &str = include_str!("../../../migrations/0022_government_roster.sql");
-const SCHEMA_VERSION: u32 = 22;
+const MIGRATION_23: &str = include_str!("../../../migrations/0023_task_briefs.sql");
+const SCHEMA_VERSION: u32 = 23;
 const MIGRATIONS: &[(u32, &str)] = &[
     (2, MIGRATION_2),
     (3, MIGRATION_3),
@@ -121,6 +123,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (20, MIGRATION_20),
     (21, MIGRATION_21),
     (22, MIGRATION_22),
+    (23, MIGRATION_23),
 ];
 
 #[derive(Debug, Error)]
@@ -6163,7 +6166,7 @@ impl Store {
         };
 
         Ok(ProjectExport {
-            format_version: 18,
+            format_version: 19,
             exported_at_unix_ms: unix_millis()?,
             project_id,
             workspace,
@@ -6171,6 +6174,7 @@ impl Store {
             records,
             tasks,
             task_memory_uses,
+            task_brief_receipts: self.list_task_brief_receipts(raw_workspace)?,
             evidence,
             claims,
             command_specs,

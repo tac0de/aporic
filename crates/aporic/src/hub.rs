@@ -44,10 +44,11 @@ use crate::{
         RuntimeTraceGetRequest, RuntimeTraceListRequest, RuntimeWorkspaceRequest,
         SecureCapabilityAudit, SecurityArtifactImport, SecurityAssessment,
         SecurityAssessmentGetRequest, SecurityAssessmentListRequest, SecurityAssessmentOutcome,
-        SecurityCoverage, SecurityImportRequest, ShadowEvaluationRequest, TaskCancelRequest,
-        TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskMemoryUse,
-        TaskMemoryUseListRequest, TaskMemoryUseOutcome, TaskMemoryUseRequest, TaskOutcome,
-        TaskWorkPacket, TaskWorkPacketRequest, TokenEfficiencyReport, TokenEfficiencyReportRequest,
+        SecurityCoverage, SecurityImportRequest, ShadowEvaluationRequest, TaskBriefOutcome,
+        TaskBriefRequest, TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest,
+        TaskCreateRequest, TaskListRequest, TaskMemoryUse, TaskMemoryUseListRequest,
+        TaskMemoryUseOutcome, TaskMemoryUseRequest, TaskOutcome, TaskWorkPacket,
+        TaskWorkPacketRequest, TokenEfficiencyReport, TokenEfficiencyReportRequest,
         TokenUsageAudit, TokenUsageListRequest, TokenUsageOutcome, TokenUsageReceipt,
         TokenUsageRecordRequest, WorkComplexity, WorkKind,
     },
@@ -735,6 +736,39 @@ impl Hub {
             memory_uses,
             delegation,
             reviewer_reasoning_effort,
+            advisory: true,
+            executable: false,
+        })
+    }
+
+    pub fn task_brief(&self, request: &TaskBriefRequest) -> Result<TaskBriefOutcome> {
+        let max_context_bytes = request.max_context_bytes.unwrap_or(4_096);
+        if !(256..=8_192).contains(&max_context_bytes) {
+            return Err(crate::store::Error::Invalid(
+                "max_context_bytes must be between 256 and 8192".to_owned(),
+            ));
+        }
+        let task = self.store.task_brief_task(request)?;
+        let capsule = self.recall(&RecallRequest {
+            workspace: request.workspace.clone(),
+            limit: Some(24),
+            objective: Some(task.objective.clone()),
+            focus_paths: task.write_scope.clone(),
+            max_bytes: Some(max_context_bytes),
+        })?;
+        let assembly = crate::brief::assemble(&task, &capsule, max_context_bytes as usize)?;
+        let (receipt, duplicate) = self.store.record_task_brief(
+            request,
+            &assembly.template_sha256,
+            &capsule.policy_sha256,
+            &assembly.selected_item_ids,
+            &assembly.brief_sha256,
+            u32::try_from(assembly.text.len()).expect("bounded task brief"),
+        )?;
+        Ok(TaskBriefOutcome {
+            brief: assembly.text,
+            receipt,
+            duplicate,
             advisory: true,
             executable: false,
         })
