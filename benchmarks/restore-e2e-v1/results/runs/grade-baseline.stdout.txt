@@ -1,0 +1,12 @@
+
+running 7 tests
+test retention_only_removes_strictly_named_backup_files ... ok
+test restore_rejects_an_unrelated_sqlite_database ... ok
+test restore_propagates_destination_metadata_errors ... ok
+test hidden_restore_preserves_a_dangling_symlink_destination ... ok
+test restore_preserves_dangling_and_live_symlinks ... ok
+test restore_preserves_existing_files_and_directories ... ok
+test restores_a_validated_backup_into_a_new_database ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s
+

@@ -1,0 +1,66 @@
+{
+  "source_commit": "aaf736aff7894594f12eec05ceac243b36deb92b",
+  "setup_seconds": 0.283199,
+  "codex_version": "codex-cli 0.154.0",
+  "arms": {
+    "baseline": {
+      "passed": true,
+      "authored_test": true,
+      "scope_violations": [],
+      "stage_seconds": [
+        135.643677,
+        101.81587
+      ],
+      "total_seconds": 237.459547,
+      "stage_input_tokens": [
+        245251,
+        178524
+      ],
+      "total_input_tokens": 423775,
+      "total_cached_input_tokens": 381696,
+      "total_output_tokens": 5645,
+      "total_reasoning_output_tokens": 98,
+      "total_tool_calls": 21,
+      "source_sha256": "8b75350b09d0b96fcaa597fa405e5eba42f600f9f13df0db30ae010dfb22b364",
+      "test_sha256": "cd40e0ce50a90878379b6609d2ba6724866dd2741da391e18bda14500750bc4c",
+      "operator_grade_seconds": 53.616284
+    },
+    "treatment": {
+      "passed": true,
+      "authored_test": true,
+      "scope_violations": [],
+      "stage_seconds": [
+        101.453584,
+        84.174464
+      ],
+      "total_seconds": 185.628048,
+      "stage_input_tokens": [
+        238086,
+        150196
+      ],
+      "total_input_tokens": 388282,
+      "total_cached_input_tokens": 356608,
+      "total_output_tokens": 3789,
+      "total_reasoning_output_tokens": 235,
+      "total_tool_calls": 17,
+      "source_sha256": "8b75350b09d0b96fcaa597fa405e5eba42f600f9f13df0db30ae010dfb22b364",
+      "test_sha256": "08b354255d118c6f2e4ca9504a5e68b5482b9dbb5545919e5c8dbcfbab88bb4b",
+      "operator_grade_seconds": 1.446231
+    }
+  },
+  "audit": {
+    "frozen_hashes_match": true,
+    "stage_one_source_unchanged": true,
+    "observed_sibling_references": 0,
+    "treatment_mcp_reply_capture_matches": true,
+    "baseline_handoff_bytes": 5644,
+    "treatment_record_bytes": 2995,
+    "treatment_database_bytes": 880640
+  },
+  "descriptive_difference": {
+    "treatment_minus_baseline_seconds": -51.831499,
+    "treatment_minus_baseline_input_tokens": -35493,
+    "treatment_time_percent": -21.83,
+    "treatment_input_percent": -8.38
+  }
+}

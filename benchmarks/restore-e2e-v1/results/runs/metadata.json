@@ -1,0 +1,8 @@
+{
+  "protocol_sha256": "09dc10b532214dfacd22ae434b91d98cbe27d4ac06e9b3426f6147bcf4ec80de",
+  "prepare_sha256": "dd388f250b500663021c95b3d8bc3e3d52bbf4be5cedfa045a0f721470c051b1",
+  "run_sha256": "828e0c8c046b90e81a2d350bd8110094666bca77ef0db83c8de58400cfc07ade",
+  "hidden_test_sha256": "06de6986d61f8c316b912acbd75974b55c24a68fdeaba755e70648b92a2789c8",
+  "helper_sha256": "bc7f09931fcdd2ef8f78a84cc6b3623e764b5d3e9086c94e7cc444aa7cb9789f",
+  "codex_version": "codex-cli 0.154.0"
+}

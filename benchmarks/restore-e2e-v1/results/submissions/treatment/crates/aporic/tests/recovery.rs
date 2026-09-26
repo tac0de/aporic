@@ -20,7 +20,7 @@ fn restores_a_validated_backup_into_a_new_database() {
     .unwrap();
     let backup = area.path().join("aporic-backup-001.sqlite3");
     hub.backup_to(&backup).unwrap();
-    let restored = area.path().join("missing-parent/restored.sqlite3");
+    let restored = area.path().join("new-parent/restored.sqlite3");
 
     let outcome = restore_to(&backup, &restored).unwrap();
     assert_eq!(outcome.source_schema_version, 25);
@@ -46,13 +46,49 @@ fn restores_a_validated_backup_into_a_new_database() {
     assert_eq!(recalled.active_sessions.len(), 1);
 }
 
-fn assert_destination_conflict(backup: &std::path::Path, destination: &std::path::Path) {
-    let error = restore_to(backup, destination).unwrap_err();
-    assert!(
-        matches!(error, Error::Conflict(ref message) if message == &format!(
-            "restore destination {} already exists", destination.display()
-        ))
-    );
+#[cfg(unix)]
+#[test]
+fn restore_preserves_destination_symlinks() {
+    use std::os::unix::fs::symlink;
+
+    let area = tempfile::tempdir().unwrap();
+    let hub = Hub::open(area.path().join("source.sqlite3")).unwrap();
+    let backup = area.path().join("backup.sqlite3");
+    hub.backup_to(&backup).unwrap();
+
+    for target_exists in [false, true] {
+        let directory = area.path().join(format!("destination-{target_exists}"));
+        std::fs::create_dir(&directory).unwrap();
+        let target = directory.join("target");
+        if target_exists {
+            std::fs::write(&target, b"preserve target bytes").unwrap();
+        }
+        let destination = directory.join("restored.sqlite3");
+        symlink(&target, &destination).unwrap();
+
+        let error = restore_to(&backup, &destination).unwrap_err();
+        assert!(matches!(error, Error::Conflict(_)));
+        assert!(error.to_string().contains("already exists"));
+        assert!(
+            std::fs::symlink_metadata(&destination)
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+        assert_eq!(std::fs::read_link(&destination).unwrap(), target);
+        if target_exists {
+            assert_eq!(std::fs::read(&target).unwrap(), b"preserve target bytes");
+        } else {
+            assert_eq!(
+                std::fs::symlink_metadata(&target).unwrap_err().kind(),
+                std::io::ErrorKind::NotFound
+            );
+        }
+        assert_eq!(
+            std::fs::read_dir(&directory).unwrap().count(),
+            if target_exists { 2 } else { 1 }
+        );
+    }
 }
 
 #[test]
@@ -61,85 +97,19 @@ fn restore_preserves_existing_files_and_directories() {
     let hub = Hub::open(area.path().join("source.sqlite3")).unwrap();
     let backup = area.path().join("backup.sqlite3");
     hub.backup_to(&backup).unwrap();
-
-    let file = area.path().join("existing.sqlite3");
-    std::fs::write(&file, b"existing file").unwrap();
-    assert_destination_conflict(&backup, &file);
-    assert_eq!(std::fs::read(&file).unwrap(), b"existing file");
-
+    let file = area.path().join("existing-file");
+    std::fs::write(&file, b"preserve file bytes").unwrap();
     let directory = area.path().join("existing-directory");
     std::fs::create_dir(&directory).unwrap();
-    let child = directory.join("child");
-    std::fs::write(&child, b"existing child").unwrap();
-    assert_destination_conflict(&backup, &directory);
-    assert!(directory.is_dir());
-    assert_eq!(std::fs::read(&child).unwrap(), b"existing child");
-    assert_eq!(std::fs::read_dir(&directory).unwrap().count(), 1);
-}
 
-#[cfg(unix)]
-#[test]
-fn restore_preserves_dangling_and_live_symlinks() {
-    use std::os::unix::fs::symlink;
-
-    let area = tempfile::tempdir().unwrap();
-    let hub = Hub::open(area.path().join("source.sqlite3")).unwrap();
-    let backup = area.path().join("backup.sqlite3");
-    hub.backup_to(&backup).unwrap();
-
-    for live in [false, true] {
-        let target = area.path().join(format!("target-{live}"));
-        let destination = area.path().join(format!("destination-{live}"));
-        if live {
-            std::fs::write(&target, b"existing target").unwrap();
-        }
-        symlink(&target, &destination).unwrap();
-        assert!(
-            std::fs::symlink_metadata(&destination)
-                .unwrap()
-                .file_type()
-                .is_symlink()
-        );
-        let original_link = std::fs::read_link(&destination).unwrap();
-
-        assert_destination_conflict(&backup, &destination);
-
-        assert!(
-            std::fs::symlink_metadata(&destination)
-                .unwrap()
-                .file_type()
-                .is_symlink()
-        );
-        assert_eq!(std::fs::read_link(&destination).unwrap(), original_link);
-        if live {
-            assert_eq!(std::fs::read(&target).unwrap(), b"existing target");
-        } else {
-            assert_eq!(
-                std::fs::symlink_metadata(&target).unwrap_err().kind(),
-                std::io::ErrorKind::NotFound
-            );
-        }
+    for destination in [&file, &directory] {
+        let error = restore_to(&backup, destination).unwrap_err();
+        assert!(matches!(error, Error::Conflict(_)));
+        assert!(error.to_string().contains("already exists"));
     }
-}
-
-#[cfg(unix)]
-#[test]
-fn restore_propagates_destination_metadata_errors() {
-    let area = tempfile::tempdir().unwrap();
-    let hub = Hub::open(area.path().join("source.sqlite3")).unwrap();
-    let backup = area.path().join("backup.sqlite3");
-    hub.backup_to(&backup).unwrap();
-    let parent = area.path().join("loop");
-    std::os::unix::fs::symlink(&parent, &parent).unwrap();
-    let destination = parent.join("restored.sqlite3");
-    let expected = std::fs::symlink_metadata(&destination).unwrap_err();
-    assert_ne!(expected.kind(), std::io::ErrorKind::NotFound);
-
-    let error = restore_to(&backup, &destination).unwrap_err();
-    assert!(
-        matches!(error, Error::Io(ref error) if error.raw_os_error() == expected.raw_os_error())
-    );
-    assert_eq!(std::fs::read_link(&parent).unwrap(), parent);
+    assert_eq!(std::fs::read(&file).unwrap(), b"preserve file bytes");
+    assert!(directory.is_dir());
+    assert_eq!(std::fs::read_dir(directory).unwrap().count(), 0);
 }
 
 #[test]
@@ -178,7 +148,7 @@ fn restore_rejects_an_unrelated_sqlite_database() {
         .execute("CREATE TABLE unrelated (value TEXT)", [])
         .unwrap();
     drop(connection);
-    let destination = area.path().join("missing-parent/restored.sqlite3");
+    let destination = area.path().join("restored.sqlite3");
 
     let error = restore_to(&unrelated, &destination).unwrap_err();
     assert!(
@@ -187,13 +157,4 @@ fn restore_rejects_an_unrelated_sqlite_database() {
             .contains("not a recognized Aporic database")
     );
     assert!(!destination.exists());
-    assert!(!destination.parent().unwrap().exists());
-
-    let existing = area.path().join("existing.sqlite3");
-    std::fs::write(&existing, b"existing file").unwrap();
-    let error = restore_to(&unrelated, &existing).unwrap_err();
-    assert!(
-        matches!(error, Error::Invalid(ref message) if message.contains("not a recognized Aporic database"))
-    );
-    assert_eq!(std::fs::read(&existing).unwrap(), b"existing file");
 }
