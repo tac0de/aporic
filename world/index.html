@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#101b2b" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <title>Aporic 정부 월드</title>
+    <link rel="stylesheet" href="./style.css" />
+    <script type="module" src="./world.js"></script>
+  </head>
+  <body>
+    <main class="app">
+      <div class="scene" id="scene">
+        <canvas id="world" aria-label="대통령 시점의 3D 정부 월드"></canvas>
+        <div class="sky-glow" aria-hidden="true"></div>
+        <div class="scene-labels" id="labels" role="group" aria-label="월드의 장소와 인물"></div>
+        <div class="scene-vignette" aria-hidden="true"></div>
+        <div class="scene-topline"><span class="topline-brand"><span class="live-dot"></span> APORIC / GOVERNMENT WORLD</span><span class="topline-right">ADVISORY SNAPSHOT · 26 SEP 2026</span></div>
+        <div class="location-tag"><span>현재 위치</span><strong id="location">중앙 광장</strong></div>
+        <button class="view-toggle" id="view-toggle" type="button">전체 지도 보기 <span>↗</span></button>
+        <div class="scene-bottomline"><span>W A S D 이동 · 마우스 드래그로 시점 회전</span><span>인물 또는 건물을 선택해 살펴보세요</span></div>
+        <div class="touch-pad" id="touch-pad" aria-label="이동 컨트롤">
+          <button data-move="forward" aria-label="앞으로 이동">↑</button>
+          <div><button data-move="left" aria-label="왼쪽으로 이동">←</button><button data-move="backward" aria-label="뒤로 이동">↓</button><button data-move="right" aria-label="오른쪽으로 이동">→</button></div>
+        </div>
+      </div>
+
+      <aside class="sidebar">
+        <header class="brand"><span class="brand-mark">A<span>✦</span></span><div><span class="eyebrow">THE APORIC WORLD</span><h1>정부를 거닐다<span>.</span></h1></div></header>
+        <p class="intro">대통령님이 중앙 광장에 서 있습니다. 부처를 방문하고, 사람을 만나 현재 정부의 구성을 살펴보세요.</p>
+        <div class="president"><span class="president-icon">♛</span><div><small>YOU ARE HERE</small><strong>대통령님</strong><span>최종 판단은 언제나 현재 인간 지시에서 시작됩니다.</span></div></div>
+        <div class="status-strip" aria-label="정부 기록 현황"><div><strong id="status-ministries">—</strong><span>부처</span></div><div><strong id="status-people">—</strong><span>현직</span></div><div><strong id="status-cells">—</strong><span>제품반</span></div></div>
+        <div class="task-status"><span>작업 레지스트리 스냅샷</span><strong id="status-tasks"></strong><small id="status-time"></small></div>
+        <div class="section-heading"><span>01 / 정부 지도</span><span>4개 구역</span></div>
+        <nav class="districts" id="districts" aria-label="정부 구역"></nav>
+        <div class="section-heading people-heading"><span>02 / 현직 인물</span><span>9명</span></div>
+        <div class="people" id="people"></div>
+        <div class="snapshot-note"><strong>현재 기록의 한 장면</strong><p>이 화면은 2026-09-26에 확인한 Aporic 자문 정부 명단입니다. 실시간 인사 현황이나 실행 권한을 뜻하지 않습니다.</p></div>
+      </aside>
+
+      <section class="detail hidden" id="detail" aria-live="polite" aria-label="선택한 대상 정보">
+        <button class="detail-close" id="detail-close" aria-label="정보 닫기">×</button>
+        <span class="detail-overline" id="detail-overline"></span>
+        <h2 id="detail-title"></h2>
+        <p class="detail-subtitle" id="detail-subtitle"></p>
+        <p class="detail-description" id="detail-description"></p>
+        <div class="detail-meta" id="detail-meta"></div>
+        <button class="travel" id="travel">이곳으로 이동 <span>↗</span></button>
+      </section>
+    </main>
+  </body>
+</html>
