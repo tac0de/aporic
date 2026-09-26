@@ -1,0 +1,14 @@
+{
+  "hashes_match": true,
+  "source_facts_match": true,
+  "case_count": 8,
+  "tool_anomalies": [
+    {
+      "case_id": "C04",
+      "arm": "treatment",
+      "command": "/bin/zsh -lc 'python3 aporic_read.py recall'",
+      "problem": "mcp_empty_or_malformed"
+    }
+  ],
+  "evaluator_sha256": "f4b2f9a1ed02c99023c8c57cb607448ef0ac879bc3059e7a69e4e877180e65b1"
+}

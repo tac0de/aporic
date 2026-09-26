@@ -1,0 +1,8 @@
+{
+  "manifest_sha256": "eb9383eb96979006495cd6d92cb88fee1c66e0ac38b4f1aefc9d94e1b8533af5",
+  "protocol_sha256": "126b6e77ce5da9247189b4ddf9a4e72dfd9fd0f999f10d083decdaa16f3b1d2d",
+  "runner_sha256": "2eb5893fd1239b53d78ecad14a7b778c0c4e4ffc1f098fa7419ce64eee74bae9",
+  "schema_sha256": "cf2045a931077586f4bf08c89dde98dbb09f6e9edc15b0150cdc3c57c39a416d",
+  "codex_version": "codex-cli 0.154.0",
+  "timeout_seconds": 180
+}

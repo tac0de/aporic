@@ -1,0 +1,182 @@
+{
+  "manifest_sha256": "eb9383eb96979006495cd6d92cb88fee1c66e0ac38b4f1aefc9d94e1b8533af5",
+  "case_order": {
+    "C01": "treatment",
+    "C02": "baseline",
+    "C03": "baseline",
+    "C04": "baseline",
+    "C05": "treatment",
+    "C06": "baseline",
+    "C07": "treatment",
+    "C08": "treatment"
+  },
+  "cases": {
+    "C01": {
+      "baseline_note_sha256": "b068b22f7e23112efafd854946f0d9015632821aaa2f116a2df2e6512a3e9fde",
+      "state_sha256": "16c1f832169b26e04e5cb634a22e5aeb3fbf896d07d6112f1d5198a47bae9731",
+      "treatment_seed": {
+        "database": "/private/tmp/aporic-continuity-v2/C01/treatment/aporic.sqlite3",
+        "session_id": "01a0de2e-b11d-74be-ba5e-8bafd88366fe",
+        "record_ids": {
+          "FE-R2": "01a0de2e-b11f-7648-bcb6-5bb99b81f3bf"
+        },
+        "task_ids": [
+          "01a0de2e-b123-7592-bd2d-0c3a6a2f2342"
+        ],
+        "resume_status": "ready",
+        "resume_selected": {
+          "next_action": "Inspect the task's acceptance criteria and current repository state, then continue the unfinished work.",
+          "objective": "[FE-12] Finish the responsive browser review for the frontend module",
+          "source": "active_task",
+          "source_id": "01a0de2e-b123-7592-bd2d-0c3a6a2f2342",
+          "updated_at_unix_ms": 1790433997090
+        }
+      },
+      "setup_seconds": 0.049776
+    },
+    "C02": {
+      "baseline_note_sha256": "d374e4556e48921ab45402c72a9a2cbdc6fe6882fce51f9d954e7981eb455b26",
+      "state_sha256": "479660cbc7a1bb8fdc946279886abda4b5c62887133a7c02092afc77d743ca27",
+      "treatment_seed": {
+        "database": "/private/tmp/aporic-continuity-v2/C02/treatment/aporic.sqlite3",
+        "session_id": "01a0de2e-b14d-7511-8b02-37cf879ba595",
+        "record_ids": {
+          "BE-R1": "01a0de2e-b14f-7395-86d2-476e138876a7"
+        },
+        "task_ids": [],
+        "resume_status": "ready",
+        "resume_selected": {
+          "next_action": "[BE-07] Inspect current code and continue the backend replay check",
+          "objective": "Historical handoff for [BE-07].",
+          "source": "handoff",
+          "source_id": "01a0de2e-b14d-7511-8b02-37cf879ba595",
+          "updated_at_unix_ms": 1790433997138
+        }
+      },
+      "setup_seconds": 0.044091
+    },
+    "C03": {
+      "baseline_note_sha256": "d96f8ed7e72b144fb0b6b39a17ff0193aa565f8e36e4b4c034744a98ed26bbe3",
+      "state_sha256": "f13af0ce4ccc23c0d7ff2cf6766336721a348a18c52f075813d47f3055b1eae2",
+      "treatment_seed": {
+        "database": "/private/tmp/aporic-continuity-v2/C03/treatment/aporic.sqlite3",
+        "session_id": "01a0de2e-b17a-712e-8610-e65811063d4a",
+        "record_ids": {
+          "RS-R1": "01a0de2e-b17e-770b-83c0-6fc7ca8c14d0",
+          "RS-R2": "01a0de2e-b181-7273-b36f-6cba3a4534a3"
+        },
+        "task_ids": [
+          "01a0de2e-b184-765e-83e3-3cb64fdbd33a"
+        ],
+        "resume_status": "ready",
+        "resume_selected": {
+          "next_action": "Inspect the task's acceptance criteria and current repository state, then continue the unfinished work.",
+          "objective": "[RS-05] Continue task-scoped research retrieval",
+          "source": "active_task",
+          "source_id": "01a0de2e-b184-765e-83e3-3cb64fdbd33a",
+          "updated_at_unix_ms": 1790433997187
+        }
+      },
+      "setup_seconds": 0.051758
+    },
+    "C04": {
+      "baseline_note_sha256": "5a06e29ffdaf48af8128d6d319485e754a842a5493ba8554a4bbacb4d7ad5c30",
+      "state_sha256": "ad4c7c95ed2618142ca6561be82bf3c2f62605ebe8ec80111591ae18a48f894d",
+      "treatment_seed": {
+        "database": "/private/tmp/aporic-continuity-v2/C04/treatment/aporic.sqlite3",
+        "session_id": "01a0de2e-b1ae-7279-b8c8-d696756bd79c",
+        "record_ids": {
+          "FE-R1": "01a0de2e-b1b2-7458-9302-35e1531a55fa",
+          "FE-R3": "01a0de2e-b1b5-74e6-abf4-a6d65b7e8402"
+        },
+        "task_ids": [],
+        "resume_status": "ready",
+        "resume_selected": {
+          "next_action": "[FE-14] Continue frontend procedure integration",
+          "objective": "Historical handoff for [FE-14].",
+          "source": "handoff",
+          "source_id": "01a0de2e-b1ae-7279-b8c8-d696756bd79c",
+          "updated_at_unix_ms": 1790433997238
+        }
+      },
+      "setup_seconds": 0.048119
+    },
+    "C05": {
+      "baseline_note_sha256": "8205b51508a390d5fe79adcb77090c3a8f849bb772131845e0996cc73ae5d097",
+      "state_sha256": "a55559dc707a73e93f282916a14116d05d68c584a5e25da24f41f6368d5d9451",
+      "treatment_seed": {
+        "database": "/private/tmp/aporic-continuity-v2/C05/treatment/aporic.sqlite3",
+        "session_id": "01a0de2e-b1df-7502-8f5a-87d1b6f15d3e",
+        "record_ids": {},
+        "task_ids": [
+          "01a0de2e-b1e3-7503-80b3-d090463eea84",
+          "01a0de2e-b1e6-758b-b1f9-c06f9200aaa6"
+        ],
+        "resume_status": "ambiguous",
+        "resume_selected": null
+      },
+      "setup_seconds": 0.048854
+    },
+    "C06": {
+      "baseline_note_sha256": "3cdced023873def2bae3b8797bb58b1ae33bd849702b4f8582f47247c34f95d4",
+      "state_sha256": "031f696d4c7b51b44b07b404bf6a9bd0dabd3eefdac40e5ec11201f65e4c0aad",
+      "treatment_seed": {
+        "database": "/private/tmp/aporic-continuity-v2/C06/treatment/aporic.sqlite3",
+        "session_id": "01a0de2e-b210-753f-806d-4ea7ebd010c5",
+        "record_ids": {
+          "ARCH-R1": "01a0de2e-b214-71c2-a848-46e7975dec14"
+        },
+        "task_ids": [],
+        "resume_status": "none",
+        "resume_selected": null
+      },
+      "setup_seconds": 0.046384
+    },
+    "C07": {
+      "baseline_note_sha256": "32ad0d82ef8bfeb38c8ad45d72ca00926c375f5a68df609f699f8df8f96dea8a",
+      "state_sha256": "c94c9951bd185c8b8afaf35eceea674695026a86f556d68b76e1f9c2077819c9",
+      "treatment_seed": {
+        "database": "/private/tmp/aporic-continuity-v2/C07/treatment/aporic.sqlite3",
+        "session_id": "01a0de2e-b23e-707a-a711-34caeeb1d528",
+        "record_ids": {
+          "WF-R1": "01a0de2e-b241-755a-81cd-e3a471a7f484"
+        },
+        "task_ids": [
+          "01a0de2e-b245-723a-94fa-ce0f0cb63bd3"
+        ],
+        "resume_status": "ready",
+        "resume_selected": {
+          "next_action": "Inspect the task's acceptance criteria and current repository state, then continue the unfinished work.",
+          "objective": "[WF-02] Finish workflow migration",
+          "source": "active_task",
+          "source_id": "01a0de2e-b245-723a-94fa-ce0f0cb63bd3",
+          "updated_at_unix_ms": 1790433997379
+        }
+      },
+      "setup_seconds": 0.049778
+    },
+    "C08": {
+      "baseline_note_sha256": "d76a15a21ed2efeca429977873370026100fb89d3dddadd9def6aa2b424d583d",
+      "state_sha256": "e0a72db1208d62e11f913dc5dfe414466b2a3bcf2fb286cf56cbe544a03bc018",
+      "treatment_seed": {
+        "database": "/private/tmp/aporic-continuity-v2/C08/treatment/aporic.sqlite3",
+        "session_id": "01a0de2e-b271-717d-9f7e-0d0caf137033",
+        "record_ids": {
+          "DEP-R1": "01a0de2e-b273-74e8-bcce-dd48ec16590a"
+        },
+        "task_ids": [
+          "01a0de2e-b277-7356-8f70-d04235426ab6"
+        ],
+        "resume_status": "ready",
+        "resume_selected": {
+          "next_action": "Inspect the task's acceptance criteria and current repository state, then continue the unfinished work.",
+          "objective": "[DEP-09] Continue deployment readiness work",
+          "source": "active_task",
+          "source_id": "01a0de2e-b277-7356-8f70-d04235426ab6",
+          "updated_at_unix_ms": 1790433997429
+        }
+      },
+      "setup_seconds": 0.049903
+    }
+  }
+}

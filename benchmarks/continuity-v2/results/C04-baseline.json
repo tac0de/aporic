@@ -1,0 +1,39 @@
+{
+  "case_id": "C04",
+  "arm": "baseline",
+  "workspace": "/private/tmp/aporic-continuity-v2/C04/baseline",
+  "prompt_sha256": "0426d30f8ac78777edca3608d17112f7296ba069b2307ad4d4ea43deae592f1e",
+  "command": [
+    "codex",
+    "exec",
+    "--ephemeral",
+    "--ignore-user-config",
+    "--skip-git-repo-check",
+    "--sandbox",
+    "workspace-write",
+    "--json",
+    "--output-schema",
+    "/Users/wonyoung_choi/projects/aporic/benchmarks/continuity-v2/answer.schema.json",
+    "-C",
+    "/private/tmp/aporic-continuity-v2/C04/baseline",
+    "-"
+  ],
+  "elapsed_seconds": 11.749584,
+  "exit_code": 0,
+  "timed_out": false,
+  "usage": {
+    "input_tokens": 28731,
+    "cached_input_tokens": 14080,
+    "cache_write_input_tokens": 0,
+    "output_tokens": 92,
+    "reasoning_output_tokens": 0
+  },
+  "tool_calls": 1,
+  "answer": {
+    "resume_status": "ready",
+    "target_id": "FE-14",
+    "rule_id": "FE-R3",
+    "ask_user": false
+  },
+  "error_events": []
+}
