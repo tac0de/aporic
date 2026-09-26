@@ -5,7 +5,9 @@ use aporic::{
         DelegationDimension, DelegationDisposition, DelegationReportRequest, DelegationRunOutcome,
         EvidenceKind, EvidenceRequest, OpenRequest, TaskCancelRequest, TaskClaimRequest,
         TaskCompleteRequest, TaskCreateRequest, WorkflowAdvanceRequest, WorkflowPlanRequest,
-        WorkflowStage, WorkflowStatusRequest, WorkflowUnknownResolution, workspace_file_claim,
+        WorkflowProcedureDepth, WorkflowProcedureProfile, WorkflowStage, WorkflowStatusRequest,
+        WorkflowStepDisposition, WorkflowStepRecordRequest, WorkflowStepsRequest,
+        WorkflowUnknownResolution, workspace_file_claim,
     },
 };
 use sha2::{Digest, Sha256};
@@ -39,6 +41,337 @@ fn advance(
         user_decision_evidence_id: choice,
         idempotency_key: key.into(),
     }
+}
+
+fn step(
+    task_id: &str,
+    step_id: &str,
+    disposition: WorkflowStepDisposition,
+    evidence_ids: Vec<String>,
+    reason: Option<&str>,
+    key: &str,
+) -> WorkflowStepRecordRequest {
+    WorkflowStepRecordRequest {
+        task_id: task_id.into(),
+        step_id: step_id.into(),
+        disposition,
+        evidence_ids,
+        reason: reason.map(str::to_owned),
+        idempotency_key: key.into(),
+    }
+}
+
+#[test]
+fn new_material_plan_defaults_to_versioned_standard_procedure() {
+    let area = tempfile::tempdir().unwrap();
+    let workspace = area.path().join("workspace");
+    std::fs::create_dir(&workspace).unwrap();
+    let database = area.path().join("aporic.sqlite3");
+    let hub = Hub::open(&database).unwrap();
+    let session = hub
+        .open_session(&OpenRequest {
+            workspace: workspace.to_string_lossy().into_owned(),
+            objective: "Default procedure".into(),
+            idempotency_key: "default-open".into(),
+        })
+        .unwrap()
+        .session_id;
+    let task_id = hub
+        .create_task(&TaskCreateRequest {
+            session_id: session,
+            objective: "Material change".into(),
+            acceptance_criteria: vec!["Checked".into()],
+            write_scope: vec![],
+            depends_on: vec![],
+            idempotency_key: "default-task".into(),
+        })
+        .unwrap()
+        .task
+        .task_id;
+    let status = hub
+        .plan_workflow(&WorkflowPlanRequest {
+            task_id: task_id.clone(),
+            objective: "Improve behavior".into(),
+            target_user: "Operator".into(),
+            constraints: "Local".into(),
+            success_measure: "Scenario works".into(),
+            material_unknowns: vec![],
+            unknown_resolutions: vec![],
+            scope_change_evidence_id: None,
+            requires_user_decision: false,
+            material_change: true,
+            procedure_profile: None,
+            procedure_depth: None,
+            idempotency_key: "default-plan".into(),
+        })
+        .unwrap()
+        .status;
+    let plan = status.plan.unwrap();
+    assert_eq!(
+        plan.procedure_profile,
+        Some(WorkflowProcedureProfile::General)
+    );
+    assert_eq!(plan.procedure_depth, Some(WorkflowProcedureDepth::Standard));
+    assert_eq!(plan.procedure_template_version, Some(1));
+    assert!(
+        hub.advance_workflow(&advance(
+            &task_id,
+            WorkflowStage::Intake,
+            "default-bypass",
+            vec![],
+            None
+        ))
+        .is_err()
+    );
+    rusqlite::Connection::open(&database)
+        .unwrap()
+        .execute(
+            "UPDATE events SET result_json = json_set(result_json,
+         '$.status.plan.procedure_template_version', 99)
+         WHERE idempotency_key = 'default-plan'",
+            [],
+        )
+        .unwrap();
+    let status = hub
+        .workflow_status(&WorkflowStatusRequest {
+            workspace: workspace.to_string_lossy().into_owned(),
+            task_id: task_id.clone(),
+        })
+        .unwrap();
+    assert!(
+        status
+            .missing_for_next_stage
+            .contains(&"procedure_template_version_unsupported".into())
+    );
+    assert!(
+        hub.advance_workflow(&advance(
+            &task_id,
+            WorkflowStage::Intake,
+            "unsupported-template-advance",
+            vec![],
+            None
+        ))
+        .is_err()
+    );
+}
+
+#[test]
+fn nested_ui_steps_require_evidence_and_rework_invalidates_downstream_progress() {
+    let area = tempfile::tempdir().unwrap();
+    let workspace = area.path().join("workspace");
+    std::fs::create_dir(&workspace).unwrap();
+    let database = area.path().join("aporic.sqlite3");
+    let hub = Hub::open(&database).unwrap();
+    let session = hub
+        .open_session(&OpenRequest {
+            workspace: workspace.to_string_lossy().into_owned(),
+            objective: "Nested UI workflow".into(),
+            idempotency_key: "open-nested".into(),
+        })
+        .unwrap()
+        .session_id;
+    let task_id = hub
+        .create_task(&TaskCreateRequest {
+            session_id: session.clone(),
+            objective: "Deliver an interface".into(),
+            acceptance_criteria: vec!["UI reviewed".into()],
+            write_scope: vec![],
+            depends_on: vec![],
+            idempotency_key: "nested-task".into(),
+        })
+        .unwrap()
+        .task
+        .task_id;
+    let plan = WorkflowPlanRequest {
+        task_id: task_id.clone(),
+        objective: "Make the UI usable".into(),
+        target_user: "Operator".into(),
+        constraints: "Local only".into(),
+        success_measure: "Operator completes primary flow".into(),
+        material_unknowns: vec![],
+        unknown_resolutions: vec![],
+        scope_change_evidence_id: None,
+        requires_user_decision: false,
+        material_change: true,
+        procedure_profile: Some(WorkflowProcedureProfile::Ui),
+        procedure_depth: Some(WorkflowProcedureDepth::Standard),
+        idempotency_key: "nested-plan".into(),
+    };
+    hub.plan_workflow(&plan).unwrap();
+    assert!(
+        hub.plan_workflow(&WorkflowPlanRequest {
+            procedure_profile: Some(WorkflowProcedureProfile::General),
+            procedure_depth: Some(WorkflowProcedureDepth::Light),
+            idempotency_key: "weaken-without-user".into(),
+            ..plan.clone()
+        })
+        .is_err()
+    );
+    let steps = hub
+        .workflow_steps(&WorkflowStepsRequest {
+            workspace: workspace.to_string_lossy().into_owned(),
+            task_id: task_id.clone(),
+        })
+        .unwrap();
+    assert_eq!(steps.template_version, Some(1));
+    assert!(
+        steps
+            .definitions
+            .iter()
+            .any(|step| step.step_id == "rendered_browser_review")
+    );
+    assert!(
+        steps
+            .status
+            .missing_for_next_stage
+            .contains(&"procedure_step_missing:problem_and_outcome".into())
+    );
+    assert!(
+        hub.record_workflow_step(&step(
+            &task_id,
+            "problem_and_outcome",
+            WorkflowStepDisposition::Skipped,
+            vec![],
+            Some("too much work"),
+            "bad-skip"
+        ))
+        .is_err()
+    );
+    let problem = file_evidence(
+        &hub,
+        &session,
+        &workspace.join("problem.md"),
+        "problem-evidence",
+    );
+    let completed = step(
+        &task_id,
+        "problem_and_outcome",
+        WorkflowStepDisposition::Completed,
+        vec![problem],
+        None,
+        "problem-step",
+    );
+    assert!(
+        hub.record_workflow_step(&completed)
+            .unwrap()
+            .status
+            .missing_for_next_stage
+            .is_empty()
+    );
+    assert!(hub.record_workflow_step(&completed).unwrap().duplicate);
+    hub.advance_workflow(&advance(
+        &task_id,
+        WorkflowStage::Intake,
+        "nested-to-planning",
+        vec![],
+        None,
+    ))
+    .unwrap();
+    let baseline = file_evidence(
+        &hub,
+        &session,
+        &workspace.join("baseline.md"),
+        "baseline-evidence",
+    );
+    hub.record_workflow_step(&step(
+        &task_id,
+        "baseline_and_constraints",
+        WorkflowStepDisposition::Completed,
+        vec![baseline.clone()],
+        None,
+        "baseline-step",
+    ))
+    .unwrap();
+    hub.record_workflow_step(&step(
+        &task_id,
+        "options_and_risks",
+        WorkflowStepDisposition::Skipped,
+        vec![],
+        Some("One bounded option exists in this pilot"),
+        "options-skip",
+    ))
+    .unwrap();
+    hub.record_workflow_step(&step(
+        &task_id,
+        "verification_strategy",
+        WorkflowStepDisposition::Skipped,
+        vec![],
+        Some("The pilot reuses the existing visual review contract"),
+        "strategy-skip",
+    ))
+    .unwrap();
+    hub.advance_workflow(&advance(
+        &task_id,
+        WorkflowStage::Planning,
+        "nested-to-design",
+        vec![baseline.clone()],
+        None,
+    ))
+    .unwrap();
+    let rework = hub
+        .record_workflow_step(&step(
+            &task_id,
+            "baseline_and_constraints",
+            WorkflowStepDisposition::ReworkRequired,
+            vec![],
+            Some("New evidence changed the baseline"),
+            "baseline-rework",
+        ))
+        .unwrap()
+        .status;
+    assert_eq!(rework.stage, WorkflowStage::Planning);
+    assert!(
+        rework
+            .missing_for_next_stage
+            .contains(&"procedure_step_missing:baseline_and_constraints".into())
+    );
+    assert!(
+        rework
+            .missing_for_next_stage
+            .contains(&"procedure_step_missing:options_and_risks".into())
+    );
+    assert!(
+        !rework
+            .transitions
+            .iter()
+            .any(|transition| transition.stage == WorkflowStage::Design)
+    );
+    assert!(
+        hub.record_workflow_step(&step(
+            &task_id,
+            "baseline_and_constraints",
+            WorkflowStepDisposition::Completed,
+            vec![baseline],
+            None,
+            "stale-baseline",
+        ))
+        .is_err()
+    );
+    let fresh = file_evidence(
+        &hub,
+        &session,
+        &workspace.join("fresh-baseline.md"),
+        "fresh-baseline-evidence",
+    );
+    hub.record_workflow_step(&step(
+        &task_id,
+        "baseline_and_constraints",
+        WorkflowStepDisposition::Completed,
+        vec![fresh],
+        None,
+        "fresh-baseline-step",
+    ))
+    .unwrap();
+    drop(hub);
+    let restarted = Hub::open(&database).unwrap();
+    let status = restarted
+        .workflow_status(&WorkflowStatusRequest {
+            workspace: workspace.to_string_lossy().into_owned(),
+            task_id,
+        })
+        .unwrap();
+    assert_eq!(status.stage, WorkflowStage::Planning);
+    assert_eq!(status.step_statuses.len(), 2);
 }
 
 #[test]
@@ -83,12 +416,18 @@ fn missing_requirements_and_stage_evidence_prevent_advancement_across_restart() 
         scope_change_evidence_id: None,
         requires_user_decision: true,
         material_change: true,
+        procedure_profile: Some(WorkflowProcedureProfile::General),
+        procedure_depth: Some(WorkflowProcedureDepth::Light),
         idempotency_key: "plan-1".into(),
     };
     let status = hub.plan_workflow(&initial).unwrap().status;
     assert_eq!(
         status.missing_for_next_stage,
-        ["target_user_missing", "material_unknowns_unresolved"]
+        [
+            "procedure_step_missing:problem_and_outcome",
+            "target_user_missing",
+            "material_unknowns_unresolved"
+        ]
     );
     assert!(
         hub.advance_workflow(&advance(
@@ -133,14 +472,29 @@ fn missing_requirements_and_stage_evidence_prevent_advancement_across_restart() 
         idempotency_key: "plan-2".into(),
         ..initial
     };
-    assert!(
+    assert_eq!(
         hub.plan_workflow(&revised)
             .unwrap()
             .status
-            .missing_for_next_stage
-            .is_empty()
+            .missing_for_next_stage,
+        ["procedure_step_missing:problem_and_outcome"]
     );
     assert!(hub.plan_workflow(&revised).unwrap().duplicate);
+    let problem = file_evidence(
+        &hub,
+        &session,
+        &workspace.join("problem-legacy.md"),
+        "problem-legacy",
+    );
+    hub.record_workflow_step(&step(
+        &task_id,
+        "problem_and_outcome",
+        WorkflowStepDisposition::Completed,
+        vec![problem],
+        None,
+        "legacy-problem-step",
+    ))
+    .unwrap();
     hub.advance_workflow(&advance(
         &task_id,
         WorkflowStage::Intake,
@@ -160,6 +514,15 @@ fn missing_requirements_and_stage_evidence_prevent_advancement_across_restart() 
         .is_err()
     );
     let planning = file_evidence(&hub, &session, &workspace.join("plan.md"), "planning");
+    hub.record_workflow_step(&step(
+        &task_id,
+        "baseline_and_constraints",
+        WorkflowStepDisposition::Completed,
+        vec![planning.clone()],
+        None,
+        "legacy-baseline-step",
+    ))
+    .unwrap();
     hub.advance_workflow(&advance(
         &task_id,
         WorkflowStage::Planning,
@@ -175,9 +538,21 @@ fn missing_requirements_and_stage_evidence_prevent_advancement_across_restart() 
         })
         .unwrap()
         .missing_for_next_stage,
-        ["delegation_assessment_missing_for_plan"]
+        [
+            "procedure_step_missing:delivery_contract",
+            "delegation_assessment_missing_for_plan"
+        ]
     );
     let design = file_evidence(&hub, &session, &workspace.join("design.md"), "design");
+    hub.record_workflow_step(&step(
+        &task_id,
+        "delivery_contract",
+        WorkflowStepDisposition::Completed,
+        vec![design.clone()],
+        None,
+        "legacy-design-step",
+    ))
+    .unwrap();
     assert!(
         hub.advance_workflow(&advance(
             &task_id,
@@ -253,6 +628,15 @@ fn missing_requirements_and_stage_evidence_prevent_advancement_across_restart() 
         &workspace.join("source.rs"),
         "implementation",
     );
+    hub.record_workflow_step(&step(
+        &task_id,
+        "vertical_slice",
+        WorkflowStepDisposition::Completed,
+        vec![implementation.clone()],
+        None,
+        "legacy-implementation-step",
+    ))
+    .unwrap();
     hub.advance_workflow(&advance(
         &task_id,
         WorkflowStage::Implementation,
@@ -323,6 +707,15 @@ fn missing_requirements_and_stage_evidence_prevent_advancement_across_restart() 
         .unwrap()
         .evidence
         .evidence_id;
+    hub.record_workflow_step(&step(
+        &task_id,
+        "mechanical_checks",
+        WorkflowStepDisposition::Completed,
+        vec![proof.clone()],
+        None,
+        "legacy-checks-step",
+    ))
+    .unwrap();
     let verified_claim_id = hub
         .assert_claim(&ClaimRequest {
             session_id: session,
@@ -377,6 +770,14 @@ fn missing_requirements_and_stage_evidence_prevent_advancement_across_restart() 
             .iter()
             .any(|event| event.kind == "task_workflow_advanced")
     );
+    assert!(
+        restarted
+            .export_project(&request.workspace)
+            .unwrap()
+            .events
+            .iter()
+            .any(|event| event.kind == "task_workflow_step_recorded")
+    );
 }
 
 #[test]
@@ -426,8 +827,25 @@ fn evidence_cannot_cross_task_workflows_and_cancelled_tasks_stop() {
             scope_change_evidence_id: None,
             requires_user_decision: false,
             material_change: false,
+            procedure_profile: None,
+            procedure_depth: None,
             idempotency_key: format!("plan-{i}"),
         })
+        .unwrap();
+        let problem = file_evidence(
+            &hub,
+            &session,
+            &workspace.join(format!("problem-{i}.md")),
+            &format!("problem-{i}"),
+        );
+        hub.record_workflow_step(&step(
+            task_id,
+            "problem_and_outcome",
+            WorkflowStepDisposition::Completed,
+            vec![problem],
+            None,
+            &format!("problem-step-{i}"),
+        ))
         .unwrap();
         hub.advance_workflow(&advance(
             task_id,
@@ -439,12 +857,36 @@ fn evidence_cannot_cross_task_workflows_and_cancelled_tasks_stop() {
         .unwrap();
     }
     let artifact = file_evidence(&hub, &session, &workspace.join("plan.md"), "shared-plan");
+    hub.record_workflow_step(&step(
+        &tasks[0],
+        "baseline_and_constraints",
+        WorkflowStepDisposition::Completed,
+        vec![artifact.clone()],
+        None,
+        "first-baseline",
+    ))
+    .unwrap();
     hub.advance_workflow(&advance(
         &tasks[0],
         WorkflowStage::Planning,
         "first-design",
         vec![artifact.clone()],
         None,
+    ))
+    .unwrap();
+    let second_baseline = file_evidence(
+        &hub,
+        &session,
+        &workspace.join("second-baseline.md"),
+        "second-baseline",
+    );
+    hub.record_workflow_step(&step(
+        &tasks[1],
+        "baseline_and_constraints",
+        WorkflowStepDisposition::Completed,
+        vec![second_baseline],
+        None,
+        "second-baseline-step",
     ))
     .unwrap();
     assert!(

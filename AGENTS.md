@@ -60,6 +60,13 @@ Historical Git commits and tags are context, not current design authority.
   prerequisites exist. Aporic stage transitions are advisory and never narrow
   host tool permissions. Do not describe a reported user choice or reported
   subagent run as independently attested.
+- For new substantive task plans, select the versioned `general` or `ui`
+  procedure profile and a depth proportional to the work. Inspect
+  `aporic_workflow_steps`, record each applicable step as completed with direct
+  file evidence or skipped with a concrete reason when allowed, and use
+  `rework_required` when a change invalidates earlier review. These records
+  govern Aporic stage claims, never host tool permissions. Older tasks without
+  a profile remain valid under their original plan.
 - When a task depends on current external facts, ecosystem practice, or user
   reports, make a bounded research decision during the task. For GitHub issues
   or Stack Overflow questions, call `aporic_research_fetch` explicitly for an

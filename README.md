@@ -69,6 +69,9 @@ Advisory coordination:
   `aporic_workflow_status`: record iterative planning and evidence-backed
   advisory stage transitions, with explicit unresolved material inputs. See
   the [workflow gates](docs/workflow-gates.md).
+- `aporic_workflow_steps` and `aporic_workflow_step_record`: inspect and record
+  versioned general or UI procedure checks, concrete skips, and rework within
+  those advisory stages.
 
 Client feedback and prototype planning:
 

@@ -51,3 +51,70 @@ For substantial tasks, create the task, record its plan, resolve material
 unknowns, advance each stage, and read gaps before claiming the next stage is
 finished. The existing `aporic_task_claim` and host tools remain fail-open and
 advisory; this workflow governs Aporic's stage claims only.
+
+## Nested procedures (v1)
+
+A procedure is a versioned checklist inside the advisory workflow stages. New
+plans may choose `procedure_profile` as `general` or `ui`, and
+`procedure_depth` as `light`, `standard`, or `high`. The `ui` profile includes
+the applicable general steps. Existing plans with no profile remain legacy and
+do not acquire procedure requirements retroactively. A new plan that omits
+both fields receives `general` at `standard` depth for a material change and
+`general` at `light` depth otherwise, so an old client cannot bypass the new
+procedure. A plan must supply both fields when it chooses either one.
+
+`aporic_workflow_steps` lists the definitions and the current status for a
+task. An absent record means a required step is unresolved; it is not a
+separate state. `aporic_workflow_status.missing_for_next_stage` reports it as
+`procedure_step_missing:<step_id>`.
+
+### `general@v1` steps
+
+| Depth | Stage | Step ID | Skippable |
+| --- | --- | --- | --- |
+| light | `intake` | `problem_and_outcome` | No |
+| light | `planning` | `baseline_and_constraints` | No |
+| light | `design` | `delivery_contract` | No |
+| light | `implementation` | `vertical_slice` | No |
+| light | `verification` | `mechanical_checks` | No |
+| standard | `planning` | `options_and_risks` | Yes |
+| standard | `planning` | `verification_strategy` | Yes |
+| standard | `implementation` | `scenario_walkthrough` | Yes |
+| standard | `verification` | `quality_review` | Yes |
+| high | `design` | `prototype_feedback` | Yes |
+| high | `verification` | `residual_risks` | Yes |
+
+`standard` adds its rows to `light`; `high` adds its rows to `standard`.
+
+### `ui@v1` additions
+
+| Depth | Stage | Step ID | Skippable |
+| --- | --- | --- | --- |
+| standard | `design` | `concept_comparison` | Yes |
+| standard | `design` | `interaction_spec` | Yes |
+| standard | `implementation` | `rendered_browser_review` | No |
+| high | `verification` | `responsive_accessibility_review` | No |
+
+### Recording and rework
+
+`aporic_workflow_step_record` accepts one of three resolution states:
+
+| State | Record requirements | Effect |
+| --- | --- | --- |
+| `completed` | One to eight direct workspace-file evidence IDs. | Resolves the step for the current plan. |
+| `skipped` | A concrete reason and no evidence IDs; available only for a skippable step. | Resolves the step for the current plan. |
+| `rework_required` | A reason and optionally direct workspace-file evidence. | Reopens the step's stage, clears resolution status for that stage and every later step, and truncates later workflow transitions. |
+
+The older records stay in the append-only task history. A new completion or
+skip must therefore be recorded after rework before the task can claim the
+affected stage again.
+
+Procedure evidence follows the task's existing provenance rules. A direct
+workspace-file receipt proves only that Aporic read the registered bytes. It
+does not prove quality, user approval, or an unobserved host action.
+
+These procedures are advisory and fail-open. They make missing checks visible
+and constrain only Aporic's procedure and stage-completion claims. They do not
+block edits, tests, browser use, delegation, tool calls, Git operations, or any
+other host permission. A missing Aporic service or record is a continuity gap
+to report, never a reason to represent host work as denied or undone.

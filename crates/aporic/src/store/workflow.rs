@@ -11,17 +11,39 @@ use super::{
 use crate::domain::{
     CoordinatedTask, DelegationDisposition, DelegationRunOutcome, EvidenceGrade, EvidenceKind,
     TaskStatus, WorkflowAdvanceRequest, WorkflowOutcome, WorkflowPlan, WorkflowPlanRequest,
-    WorkflowStage, WorkflowStatus, WorkflowStatusRequest, WorkflowTransition,
+    WorkflowProcedureDepth, WorkflowProcedureProfile, WorkflowStage, WorkflowStatus,
+    WorkflowStatusRequest, WorkflowStepDefinition, WorkflowStepDisposition,
+    WorkflowStepRecordRequest, WorkflowStepStatus, WorkflowSteps, WorkflowStepsRequest,
+    WorkflowTransition,
 };
 
 const PLAN_EVENT: &str = "task_workflow_planned";
 const ADVANCE_EVENT: &str = "task_workflow_advanced";
-const MAX_EVENTS: i64 = 48;
+const STEP_EVENT: &str = "task_workflow_step_recorded";
+const MAX_EVENTS: i64 = 128;
+const PROCEDURE_TEMPLATE_VERSION: u32 = 1;
 
 impl Store {
     pub fn plan_workflow(&self, request: &WorkflowPlanRequest) -> Result<WorkflowOutcome> {
         require_text("task_id", &request.task_id)?;
         require_text("idempotency_key", &request.idempotency_key)?;
+        if request.procedure_profile.is_some() != request.procedure_depth.is_some() {
+            return Err(Error::Invalid(
+                "procedure_profile and procedure_depth must be set together".into(),
+            ));
+        }
+        let (procedure_profile, procedure_depth) =
+            match (request.procedure_profile, request.procedure_depth) {
+                (None, None) => (
+                    Some(WorkflowProcedureProfile::General),
+                    Some(if request.material_change {
+                        WorkflowProcedureDepth::Standard
+                    } else {
+                        WorkflowProcedureDepth::Light
+                    }),
+                ),
+                pair => pair,
+            };
         for (name, value) in [
             ("objective", &request.objective),
             ("target_user", &request.target_user),
@@ -98,6 +120,11 @@ impl Store {
         let scope_changed = previous.plan.as_ref().is_some_and(|plan| {
             (plan.requires_user_decision && !request.requires_user_decision)
                 || (plan.material_change && !request.material_change)
+                || (plan.procedure_profile == Some(WorkflowProcedureProfile::Ui)
+                    && procedure_profile != Some(WorkflowProcedureProfile::Ui))
+                || (plan.procedure_profile.is_some() && procedure_profile.is_none())
+                || (plan.procedure_depth.is_some()
+                    && (procedure_depth.is_none() || procedure_depth < plan.procedure_depth))
         });
         if scope_changed {
             let evidence_id = request.scope_change_evidence_id.as_deref().ok_or_else(|| {
@@ -134,8 +161,12 @@ impl Store {
                 scope_change_evidence_id: request.scope_change_evidence_id.clone(),
                 requires_user_decision: request.requires_user_decision,
                 material_change: request.material_change,
+                procedure_profile,
+                procedure_depth,
+                procedure_template_version: procedure_profile.map(|_| PROCEDURE_TEMPLATE_VERSION),
             }),
             transitions: Vec::new(),
+            step_statuses: Vec::new(),
             missing_for_next_stage: Vec::new(),
             advisory: true,
             executable: false,
@@ -331,6 +362,168 @@ impl Store {
         }
         read_status(&connection, &task)
     }
+
+    pub fn workflow_steps(&self, request: &WorkflowStepsRequest) -> Result<WorkflowSteps> {
+        let status = self.workflow_status(&WorkflowStatusRequest {
+            workspace: request.workspace.clone(),
+            task_id: request.task_id.clone(),
+        })?;
+        let definitions = status
+            .plan
+            .as_ref()
+            .map_or_else(Vec::new, definitions_for_plan);
+        Ok(WorkflowSteps {
+            task_id: request.task_id.clone(),
+            template_version: status
+                .plan
+                .as_ref()
+                .and_then(|plan| plan.procedure_template_version),
+            definitions,
+            status,
+        })
+    }
+
+    pub fn record_workflow_step(
+        &self,
+        request: &WorkflowStepRecordRequest,
+    ) -> Result<WorkflowOutcome> {
+        require_text("task_id", &request.task_id)?;
+        require_text("step_id", &request.step_id)?;
+        require_text("idempotency_key", &request.idempotency_key)?;
+        if request.evidence_ids.len() > 8
+            || request.evidence_ids.iter().collect::<BTreeSet<_>>().len()
+                != request.evidence_ids.len()
+        {
+            return Err(Error::Invalid(
+                "step evidence IDs must be unique and at most 8".into(),
+            ));
+        }
+        if request
+            .reason
+            .as_ref()
+            .is_some_and(|reason| reason.len() > 500)
+        {
+            return Err(Error::Invalid("step reason exceeds 500 bytes".into()));
+        }
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        if let Some(mut outcome) = duplicate_result::<WorkflowOutcome, _>(
+            &transaction,
+            &request.idempotency_key,
+            STEP_EVENT,
+            request,
+        )? {
+            outcome.duplicate = true;
+            return Ok(outcome);
+        }
+        let task = active_task(&transaction, &request.task_id)?;
+        let mut status = read_status(&transaction, &task)?;
+        let plan = status
+            .plan
+            .as_ref()
+            .ok_or_else(|| Error::Conflict("workflow plan is missing".into()))?;
+        let definition = definitions_for_plan(plan)
+            .into_iter()
+            .find(|step| step.step_id == request.step_id)
+            .ok_or_else(|| {
+                Error::Invalid(format!(
+                    "unknown step for current procedure: {}",
+                    request.step_id
+                ))
+            })?;
+        let target_index = stage_index(definition.stage);
+        let current_index = stage_index(status.stage);
+        if request.disposition == WorkflowStepDisposition::ReworkRequired {
+            if target_index > current_index || status.stage == WorkflowStage::Completed {
+                return Err(Error::Conflict(
+                    "rework target must be the current or an earlier active stage".into(),
+                ));
+            }
+        } else if definition.stage != status.stage {
+            return Err(Error::Conflict("step is not in the current stage".into()));
+        }
+        match request.disposition {
+            WorkflowStepDisposition::Completed => {
+                if request.evidence_ids.is_empty() || request.reason.is_some() {
+                    return Err(Error::Invalid(
+                        "completed step needs direct file evidence and no reason".into(),
+                    ));
+                }
+            }
+            WorkflowStepDisposition::Skipped => {
+                if !definition.skippable
+                    || !request.evidence_ids.is_empty()
+                    || request
+                        .reason
+                        .as_deref()
+                        .is_none_or(|reason| reason.trim().is_empty())
+                {
+                    return Err(Error::Invalid(
+                        "step is not skippable, or skip needs a reason and no evidence".into(),
+                    ));
+                }
+            }
+            WorkflowStepDisposition::ReworkRequired => {
+                if request
+                    .reason
+                    .as_deref()
+                    .is_none_or(|reason| reason.trim().is_empty())
+                {
+                    return Err(Error::Invalid("rework needs a concrete reason".into()));
+                }
+            }
+        }
+        for evidence_id in &request.evidence_ids {
+            check_evidence(
+                &transaction,
+                &task,
+                evidence_id,
+                EvidenceKind::WorkspaceFile,
+                EvidenceGrade::Direct,
+                plan.created_at_unix_ms,
+            )?;
+            if request.disposition == WorkflowStepDisposition::Completed {
+                require_evidence_after_latest_rework(&transaction, &task, evidence_id)?;
+            }
+        }
+        require_capacity(&transaction, &request.task_id)?;
+        if request.disposition == WorkflowStepDisposition::ReworkRequired {
+            status.stage = definition.stage;
+            status
+                .transitions
+                .retain(|transition| stage_index(transition.stage) <= target_index);
+            status
+                .step_statuses
+                .retain(|step| stage_index(step.stage) < target_index);
+        } else {
+            status
+                .step_statuses
+                .retain(|step| step.step_id != request.step_id);
+        }
+        status.step_statuses.push(WorkflowStepStatus {
+            step_id: request.step_id.clone(),
+            stage: definition.stage,
+            disposition: request.disposition,
+            evidence_ids: request.evidence_ids.clone(),
+            reason: request.reason.clone(),
+        });
+        status.missing_for_next_stage = missing(&transaction, &task, &status)?;
+        let outcome = WorkflowOutcome {
+            status,
+            duplicate: false,
+        };
+        append_event(
+            &transaction,
+            &request.idempotency_key,
+            &request.task_id,
+            STEP_EVENT,
+            request,
+            &outcome,
+            unix_millis()?,
+        )?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
 }
 
 fn active_task(connection: &Transaction<'_>, task_id: &str) -> Result<CoordinatedTask> {
@@ -347,8 +540,8 @@ fn active_task(connection: &Transaction<'_>, task_id: &str) -> Result<Coordinate
 
 fn require_capacity(connection: &Connection, task_id: &str) -> Result<()> {
     let count: i64 = connection.query_row(
-        "SELECT COUNT(*) FROM events WHERE stream_id = ?1 AND kind IN (?2, ?3)",
-        params![task_id, PLAN_EVENT, ADVANCE_EVENT],
+        "SELECT COUNT(*) FROM events WHERE stream_id = ?1 AND kind IN (?2, ?3, ?4)",
+        params![task_id, PLAN_EVENT, ADVANCE_EVENT, STEP_EVENT],
         |row| row.get(0),
     )?;
     if count >= MAX_EVENTS {
@@ -359,8 +552,8 @@ fn require_capacity(connection: &Connection, task_id: &str) -> Result<()> {
 
 fn read_status(connection: &Connection, task: &CoordinatedTask) -> Result<WorkflowStatus> {
     let result: Option<String> = connection.query_row(
-        "SELECT result_json FROM events WHERE stream_id = ?1 AND kind IN (?2, ?3) ORDER BY sequence DESC LIMIT 1",
-        params![task.task_id, PLAN_EVENT, ADVANCE_EVENT], |row| row.get(0),
+        "SELECT result_json FROM events WHERE stream_id = ?1 AND kind IN (?2, ?3, ?4) ORDER BY sequence DESC LIMIT 1",
+        params![task.task_id, PLAN_EVENT, ADVANCE_EVENT, STEP_EVENT], |row| row.get(0),
     ).optional()?;
     let mut status = if let Some(result) = result {
         serde_json::from_str::<WorkflowOutcome>(&result)?.status
@@ -370,6 +563,7 @@ fn read_status(connection: &Connection, task: &CoordinatedTask) -> Result<Workfl
             stage: WorkflowStage::Intake,
             plan: None,
             transitions: Vec::new(),
+            step_statuses: Vec::new(),
             missing_for_next_stage: Vec::new(),
             advisory: true,
             executable: false,
@@ -388,6 +582,23 @@ fn missing(
     let Some(plan) = &status.plan else {
         return Ok(vec!["workflow_plan_missing".into()]);
     };
+    if plan.procedure_profile.is_some() && plan.procedure_template_version != Some(1) {
+        gaps.push("procedure_template_version_unsupported".into());
+    }
+    for definition in definitions_for_plan(plan)
+        .into_iter()
+        .filter(|definition| definition.stage == status.stage)
+    {
+        if !status.step_statuses.iter().any(|step| {
+            step.step_id == definition.step_id
+                && matches!(
+                    step.disposition,
+                    WorkflowStepDisposition::Completed | WorkflowStepDisposition::Skipped
+                )
+        }) {
+            gaps.push(format!("procedure_step_missing:{}", definition.step_id));
+        }
+    }
     match status.stage {
         WorkflowStage::Intake => {
             for (name, value) in [
@@ -528,8 +739,15 @@ fn ensure_not_bound_elsewhere(
          JOIN tasks t ON t.task_id = e.stream_id
          JOIN json_tree(e.result_json) value
          WHERE t.project_id = ?1 AND e.stream_id != ?2
-           AND e.kind IN (?3, ?4) AND value.type = 'text' AND value.value = ?5)",
-        params![task.project_id, task.task_id, PLAN_EVENT, ADVANCE_EVENT, id],
+           AND e.kind IN (?3, ?4, ?5) AND value.type = 'text' AND value.value = ?6)",
+        params![
+            task.project_id,
+            task.task_id,
+            PLAN_EVENT,
+            ADVANCE_EVENT,
+            STEP_EVENT,
+            id
+        ],
         |row| row.get(0),
     )?;
     if used {
@@ -538,4 +756,200 @@ fn ensure_not_bound_elsewhere(
         )));
     }
     Ok(())
+}
+
+fn require_evidence_after_latest_rework(
+    connection: &Connection,
+    task: &CoordinatedTask,
+    evidence_id: &str,
+) -> Result<()> {
+    let latest_rework: Option<i64> = connection.query_row(
+        "SELECT MAX(sequence) FROM events WHERE stream_id = ?1 AND kind = ?2
+         AND json_extract(payload_json, '$.disposition') = 'rework_required'",
+        params![task.task_id, STEP_EVENT],
+        |row| row.get(0),
+    )?;
+    let Some(latest_rework) = latest_rework else {
+        return Ok(());
+    };
+    let evidence_sequence: Option<i64> = connection
+        .query_row(
+            "SELECT sequence FROM events WHERE stream_id = ?1 AND kind = 'evidence_added'
+         AND json_extract(result_json, '$.evidence.evidence_id') = ?2 LIMIT 1",
+            params![task.session_id, evidence_id],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if evidence_sequence.is_none_or(|sequence| sequence <= latest_rework) {
+        return Err(Error::Conflict(format!(
+            "evidence {evidence_id} must be registered after the latest workflow rework"
+        )));
+    }
+    Ok(())
+}
+
+struct StepSpec {
+    id: &'static str,
+    stage: WorkflowStage,
+    description: &'static str,
+    minimum_depth: WorkflowProcedureDepth,
+    ui_only: bool,
+    skippable: bool,
+}
+
+const STEP_SPECS: &[StepSpec] = &[
+    StepSpec {
+        id: "problem_and_outcome",
+        stage: WorkflowStage::Intake,
+        description: "Describe the user problem and observable outcome",
+        minimum_depth: WorkflowProcedureDepth::Light,
+        ui_only: false,
+        skippable: false,
+    },
+    StepSpec {
+        id: "baseline_and_constraints",
+        stage: WorkflowStage::Planning,
+        description: "Inspect current behavior and constraints",
+        minimum_depth: WorkflowProcedureDepth::Light,
+        ui_only: false,
+        skippable: false,
+    },
+    StepSpec {
+        id: "options_and_risks",
+        stage: WorkflowStage::Planning,
+        description: "Compare approaches and identify risks",
+        minimum_depth: WorkflowProcedureDepth::Standard,
+        ui_only: false,
+        skippable: true,
+    },
+    StepSpec {
+        id: "verification_strategy",
+        stage: WorkflowStage::Planning,
+        description: "Define checks for the desired outcome",
+        minimum_depth: WorkflowProcedureDepth::Standard,
+        ui_only: false,
+        skippable: true,
+    },
+    StepSpec {
+        id: "delivery_contract",
+        stage: WorkflowStage::Design,
+        description: "Specify behavior, interfaces, and handoff details",
+        minimum_depth: WorkflowProcedureDepth::Light,
+        ui_only: false,
+        skippable: false,
+    },
+    StepSpec {
+        id: "prototype_feedback",
+        stage: WorkflowStage::Design,
+        description: "Evaluate a small prototype and revise the design",
+        minimum_depth: WorkflowProcedureDepth::High,
+        ui_only: false,
+        skippable: true,
+    },
+    StepSpec {
+        id: "concept_comparison",
+        stage: WorkflowStage::Design,
+        description: "Compare distinct visual concepts when direction is uncertain",
+        minimum_depth: WorkflowProcedureDepth::Standard,
+        ui_only: true,
+        skippable: true,
+    },
+    StepSpec {
+        id: "interaction_spec",
+        stage: WorkflowStage::Design,
+        description: "Specify interaction states, responsive behavior, and assets",
+        minimum_depth: WorkflowProcedureDepth::Standard,
+        ui_only: true,
+        skippable: true,
+    },
+    StepSpec {
+        id: "vertical_slice",
+        stage: WorkflowStage::Implementation,
+        description: "Implement a usable end-to-end slice",
+        minimum_depth: WorkflowProcedureDepth::Light,
+        ui_only: false,
+        skippable: false,
+    },
+    StepSpec {
+        id: "scenario_walkthrough",
+        stage: WorkflowStage::Implementation,
+        description: "Walk through the primary user scenario and revise defects",
+        minimum_depth: WorkflowProcedureDepth::Standard,
+        ui_only: false,
+        skippable: true,
+    },
+    StepSpec {
+        id: "rendered_browser_review",
+        stage: WorkflowStage::Implementation,
+        description: "Inspect the rendered UI and its interactions",
+        minimum_depth: WorkflowProcedureDepth::Standard,
+        ui_only: true,
+        skippable: false,
+    },
+    StepSpec {
+        id: "mechanical_checks",
+        stage: WorkflowStage::Verification,
+        description: "Run relevant mechanical checks and record results",
+        minimum_depth: WorkflowProcedureDepth::Light,
+        ui_only: false,
+        skippable: false,
+    },
+    StepSpec {
+        id: "quality_review",
+        stage: WorkflowStage::Verification,
+        description: "Review usability or operational quality and triage findings",
+        minimum_depth: WorkflowProcedureDepth::Standard,
+        ui_only: false,
+        skippable: true,
+    },
+    StepSpec {
+        id: "residual_risks",
+        stage: WorkflowStage::Verification,
+        description: "Document remaining risks and follow-up work",
+        minimum_depth: WorkflowProcedureDepth::High,
+        ui_only: false,
+        skippable: true,
+    },
+    StepSpec {
+        id: "responsive_accessibility_review",
+        stage: WorkflowStage::Verification,
+        description: "Review narrow layouts, keyboard behavior, and accessibility",
+        minimum_depth: WorkflowProcedureDepth::High,
+        ui_only: true,
+        skippable: false,
+    },
+];
+
+fn definitions_for_plan(plan: &WorkflowPlan) -> Vec<WorkflowStepDefinition> {
+    // Keep each stored version's catalog even when new plans use a later version.
+    if plan.procedure_template_version != Some(1) {
+        return Vec::new();
+    }
+    let (Some(profile), Some(depth)) = (plan.procedure_profile, plan.procedure_depth) else {
+        return Vec::new();
+    };
+    STEP_SPECS
+        .iter()
+        .filter(|step| {
+            depth >= step.minimum_depth
+                && (!step.ui_only || profile == WorkflowProcedureProfile::Ui)
+        })
+        .map(|step| WorkflowStepDefinition {
+            step_id: step.id.into(),
+            stage: step.stage,
+            description: step.description.into(),
+            skippable: step.skippable,
+        })
+        .collect()
+}
+
+fn stage_index(stage: WorkflowStage) -> u8 {
+    match stage {
+        WorkflowStage::Intake => 0,
+        WorkflowStage::Planning => 1,
+        WorkflowStage::Design => 2,
+        WorkflowStage::Implementation => 3,
+        WorkflowStage::Verification => 4,
+        WorkflowStage::Completed => 5,
+    }
 }

@@ -119,7 +119,9 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_trace_list",
             "aporic_workflow_advance",
             "aporic_workflow_plan",
-            "aporic_workflow_status"
+            "aporic_workflow_status",
+            "aporic_workflow_step_record",
+            "aporic_workflow_steps"
         ]
     );
 
@@ -336,11 +338,46 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "task_id": task_id, "objective": "Review observation", "target_user": "maintainer",
             "constraints": "local", "success_measure": "observation reviewed",
             "material_unknowns": ["selection pending"], "requires_user_decision": true,
-            "material_change": true, "idempotency_key": "mcp-workflow-plan"
+            "material_change": true, "procedure_profile": "general",
+            "procedure_depth": "light", "idempotency_key": "mcp-workflow-plan"
         }),
     )
     .await?;
     assert_eq!(planned["ok"], true);
+    let steps = call_json(
+        &client,
+        "aporic_workflow_steps",
+        json!({"workspace": workspace, "task_id": task_id}),
+    )
+    .await?;
+    assert_eq!(steps["result"]["template_version"], 1);
+    assert_eq!(
+        steps["result"]["definitions"][0]["step_id"],
+        "problem_and_outcome"
+    );
+    let evidence = call_json(
+        &client,
+        "aporic_evidence_add",
+        json!({
+            "session_id": session_id, "kind": "workspace_file",
+            "locator": workspace.join("design.json"), "summary": "MCP procedure artifact",
+            "idempotency_key": "mcp-procedure-evidence"
+        }),
+    )
+    .await?;
+    assert_eq!(evidence["ok"], true);
+    let step_record = call_json(
+        &client,
+        "aporic_workflow_step_record",
+        json!({
+            "task_id": task_id, "step_id": "problem_and_outcome",
+            "disposition": "completed",
+            "evidence_ids": [evidence["result"]["evidence"]["evidence_id"]],
+            "idempotency_key": "mcp-procedure-step"
+        }),
+    )
+    .await?;
+    assert_eq!(step_record["ok"], true);
     let rejected = call_json(
         &client,
         "aporic_workflow_advance",

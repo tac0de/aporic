@@ -31,6 +31,7 @@ use crate::{
         TaskResearchAttachRequest, TaskResearchListRequest, TaskWorkPacketRequest,
         TokenEfficiencyReportRequest, TokenUsageListRequest, TokenUsageRecordRequest,
         WorkflowAdvanceRequest, WorkflowPlanRequest, WorkflowStatusRequest,
+        WorkflowStepRecordRequest, WorkflowStepsRequest,
     },
     research::{ResearchFetchRequest, ResearchGetRequest, ResearchSearchRequest},
 };
@@ -751,6 +752,26 @@ impl AporicMcp {
         Parameters(request): Parameters<WorkflowStatusRequest>,
     ) -> String {
         render(self.hub.workflow_status(&request))
+    }
+
+    #[tool(
+        description = "List bounded versioned procedure steps and current step status for one advisory task. File evidence attests bytes, not product quality."
+    )]
+    async fn aporic_workflow_steps(
+        &self,
+        Parameters(request): Parameters<WorkflowStepsRequest>,
+    ) -> String {
+        render(self.hub.workflow_steps(&request))
+    }
+
+    #[tool(
+        description = "Record a task-scoped procedure step as completed, skipped, or needing rework. A rework record reopens its stage and invalidates downstream step status. Host tools remain unaffected."
+    )]
+    async fn aporic_workflow_step_record(
+        &self,
+        Parameters(request): Parameters<WorkflowStepRecordRequest>,
+    ) -> String {
+        render(self.hub.record_workflow_step(&request))
     }
 
     #[tool(

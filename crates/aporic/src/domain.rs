@@ -2931,6 +2931,75 @@ pub enum WorkflowStage {
     Completed,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkflowProcedureProfile {
+    General,
+    Ui,
+}
+
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkflowProcedureDepth {
+    Light,
+    Standard,
+    High,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkflowStepDisposition {
+    Completed,
+    Skipped,
+    ReworkRequired,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkflowStepStatus {
+    pub step_id: String,
+    pub stage: WorkflowStage,
+    pub disposition: WorkflowStepDisposition,
+    pub evidence_ids: Vec<String>,
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub struct WorkflowStepDefinition {
+    pub step_id: String,
+    pub stage: WorkflowStage,
+    pub description: String,
+    pub skippable: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct WorkflowStepRecordRequest {
+    pub task_id: String,
+    pub step_id: String,
+    pub disposition: WorkflowStepDisposition,
+    #[serde(default)]
+    pub evidence_ids: Vec<String>,
+    pub reason: Option<String>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct WorkflowStepsRequest {
+    pub workspace: String,
+    pub task_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkflowSteps {
+    pub task_id: String,
+    pub template_version: Option<u32>,
+    pub definitions: Vec<WorkflowStepDefinition>,
+    pub status: WorkflowStatus,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct WorkflowPlanRequest {
@@ -2946,6 +3015,10 @@ pub struct WorkflowPlanRequest {
     pub scope_change_evidence_id: Option<String>,
     pub requires_user_decision: bool,
     pub material_change: bool,
+    #[serde(default)]
+    pub procedure_profile: Option<WorkflowProcedureProfile>,
+    #[serde(default)]
+    pub procedure_depth: Option<WorkflowProcedureDepth>,
     pub idempotency_key: String,
 }
 
@@ -2969,6 +3042,12 @@ pub struct WorkflowPlan {
     pub scope_change_evidence_id: Option<String>,
     pub requires_user_decision: bool,
     pub material_change: bool,
+    #[serde(default)]
+    pub procedure_profile: Option<WorkflowProcedureProfile>,
+    #[serde(default)]
+    pub procedure_depth: Option<WorkflowProcedureDepth>,
+    #[serde(default)]
+    pub procedure_template_version: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -3003,6 +3082,8 @@ pub struct WorkflowStatus {
     pub stage: WorkflowStage,
     pub plan: Option<WorkflowPlan>,
     pub transitions: Vec<WorkflowTransition>,
+    #[serde(default)]
+    pub step_statuses: Vec<WorkflowStepStatus>,
     pub missing_for_next_stage: Vec<String>,
     pub advisory: bool,
     pub executable: bool,
