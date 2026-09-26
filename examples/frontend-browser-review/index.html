@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Prototype Review Board · Aporic example</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to reviews</a>
+    <div class="page-shell">
+      <header class="site-header">
+        <div class="brand" aria-label="Aporic example">
+          <span class="brand-mark" aria-hidden="true">A</span>
+          <span>Aporic <span class="brand-muted">/ Example lab</span></span>
+        </div>
+        <span class="local-badge">Local example</span>
+      </header>
+
+      <main id="main">
+        <section class="intro" aria-labelledby="page-title">
+          <div>
+            <p class="eyebrow">Frontend browser review · Case 01</p>
+            <h1 id="page-title">Prototype review board</h1>
+            <p class="intro-copy">
+              Inspect one proposal, check the experience, and record whether it is
+              ready for a closer look. This sample stays in your browser.
+            </p>
+          </div>
+          <div class="summary-card" aria-label="Review summary">
+            <span class="summary-label">Review progress</span>
+            <strong id="progress-count">0 / 3</strong>
+            <span class="summary-note">proposals reviewed</span>
+          </div>
+        </section>
+
+        <section class="board" aria-labelledby="board-title">
+          <div class="board-heading">
+            <div>
+              <p class="eyebrow">Current proposals</p>
+              <h2 id="board-title">Explore the candidates</h2>
+            </div>
+            <div class="filters" role="group" aria-label="Filter proposals">
+              <button type="button" class="filter is-active" data-filter="all" aria-pressed="true">All</button>
+              <button type="button" class="filter" data-filter="pending" aria-pressed="false">To review</button>
+              <button type="button" class="filter" data-filter="reviewed" aria-pressed="false">Reviewed</button>
+            </div>
+          </div>
+
+          <div id="cards" class="card-grid"></div>
+          <div id="empty-state" class="empty-state" hidden>
+            <span class="empty-icon" aria-hidden="true">◎</span>
+            <h3>No proposals here yet</h3>
+            <p>Complete a review, then return to this filter.</p>
+          </div>
+          <p id="board-status" class="sr-only" role="status"></p>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <span>Example data only · No project record is changed</span>
+        <span>Built for the <code>frontend.browser_review</code> case</span>
+      </footer>
+    </div>
+
+    <dialog id="review-dialog" aria-labelledby="dialog-title" aria-describedby="dialog-summary">
+      <form id="review-form" method="dialog">
+        <div class="dialog-topline">
+          <span class="eyebrow">Review proposal</span>
+          <button id="close-dialog" class="icon-button" type="button" aria-label="Close review">×</button>
+        </div>
+        <h2 id="dialog-title"></h2>
+        <p id="dialog-summary" class="dialog-summary"></p>
+        <div class="evidence-box">
+          <p class="box-label">What to inspect</p>
+          <p id="dialog-evidence"></p>
+        </div>
+        <fieldset>
+          <legend>Review checklist</legend>
+          <label><input type="checkbox" name="flow" /> Primary flow is clear</label>
+          <label><input type="checkbox" name="narrow" /> Narrow layout is usable</label>
+          <label><input type="checkbox" name="keyboard" /> Keyboard path is usable</label>
+        </fieldset>
+        <p id="checklist-hint" class="checklist-hint">Check all three items to complete this review.</p>
+        <div class="dialog-actions">
+          <button id="cancel-review" class="button-secondary" type="button">Not yet</button>
+          <button id="complete-review" class="button-primary" type="submit" disabled>Mark reviewed</button>
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>

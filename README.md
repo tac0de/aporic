@@ -544,6 +544,11 @@ advisory workflow state and direct evidence; it neither dispatches browser work
 nor changes host permissions. The older `ui` profile remains readable for
 historical tasks.
 
+The local [frontend browser review example](examples/frontend-browser-review/README.md)
+shows one complete review flow, Playwright observations at desktop and narrow
+viewports, and a completed `frontend@v2` procedure replay in an isolated test
+database.
+
 ## v0.22 initial advisory government roster
 
 v0.22 advances the government charter to version 2 and makes a small,
