@@ -2936,6 +2936,7 @@ pub enum WorkflowStage {
 pub enum WorkflowProcedureProfile {
     General,
     Ui,
+    Frontend,
 }
 
 #[derive(
@@ -2971,6 +2972,8 @@ pub struct WorkflowStepDefinition {
     pub stage: WorkflowStage,
     pub description: String,
     pub skippable: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub module_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

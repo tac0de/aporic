@@ -60,7 +60,7 @@ Historical Git commits and tags are context, not current design authority.
   prerequisites exist. Aporic stage transitions are advisory and never narrow
   host tool permissions. Do not describe a reported user choice or reported
   subagent run as independently attested.
-- For new substantive task plans, select the versioned `general` or `ui`
+- For new substantive task plans, select the versioned `general` or `frontend`
   procedure profile and a depth proportional to the work. Inspect
   `aporic_workflow_steps`, record each applicable step as completed with direct
   file evidence or skipped with a concrete reason when allowed, and use
@@ -81,14 +81,8 @@ Historical Git commits and tags are context, not current design authority.
   durable recovery, keeping a model-authored reflection separate from proof.
   An open case is an advisory obligation, never a host tool or permission gate.
 - For any browser interaction in this project, use Playwright CLI by default.
-  Never use the Codex in-app browser. For UI prototype or visual review work,
-  also use `.agents/skills/aporic-ui-ux/SKILL.md` and inspect the rendered UI.
-- For substantive backend implementation or review, use
-  `.agents/skills/aporic-backend/SKILL.md` and the references relevant to the
-  affected service, data, integration, or reliability path.
-- For playable game or level design work, use
-  `.agents/skills/aporic-game-development/SKILL.md` and verify the result through
-  actual play as well as relevant mechanical checks.
+  Never use the Codex in-app browser. For frontend work, select the native
+  `frontend` procedure profile and inspect the rendered UI.
 - Unless the human explicitly requests otherwise or an external block prevents
   it, completed implementation work includes mechanical verification, a commit,
   fast-forward integration into `main`, pushing `origin/main`, and deletion of

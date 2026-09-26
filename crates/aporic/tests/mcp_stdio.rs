@@ -9,6 +9,60 @@ use rmcp::{
 use serde_json::{Map, Value, json};
 
 #[tokio::test]
+async fn exposes_frontend_browser_module_over_stdio() -> Result<(), Box<dyn Error>> {
+    let area = tempfile::tempdir()?;
+    let workspace = area.path().join("workspace");
+    std::fs::create_dir(&workspace)?;
+    let database = area.path().join("aporic.sqlite3");
+    let client = start_server(&database).await?;
+    let opened = call_json(
+        &client,
+        "aporic_open",
+        json!({"workspace": workspace, "objective": "Frontend module", "idempotency_key": "frontend-open"}),
+    )
+    .await?;
+    assert_eq!(opened["ok"], true);
+    let session_id = opened["result"]["session_id"].as_str().unwrap();
+    let task = call_json(
+        &client,
+        "aporic_task_create",
+        json!({"session_id": session_id, "objective": "Review browser flow", "acceptance_criteria": ["Browser reviewed"], "idempotency_key": "frontend-task"}),
+    )
+    .await?;
+    let task_id = task["result"]["task"]["task_id"].as_str().unwrap();
+    let plan = call_json(
+        &client,
+        "aporic_workflow_plan",
+        json!({
+            "task_id": task_id, "objective": "Review browser flow", "target_user": "browser user",
+            "constraints": "local", "success_measure": "flow reviewed",
+            "requires_user_decision": false, "material_change": true,
+            "procedure_profile": "frontend", "procedure_depth": "standard",
+            "idempotency_key": "frontend-plan"
+        }),
+    )
+    .await?;
+    assert_eq!(plan["ok"], true);
+    let steps = call_json(
+        &client,
+        "aporic_workflow_steps",
+        json!({"workspace": workspace, "task_id": task_id}),
+    )
+    .await?;
+    assert_eq!(steps["result"]["template_version"], 2);
+    assert!(
+        steps["result"]["definitions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|step| step["step_id"] == "rendered_browser_review"
+                && step["module_id"] == "frontend.browser_review")
+    );
+    client.cancel().await?;
+    Ok(())
+}
+
+#[tokio::test]
 async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Box<dyn Error>> {
     let area = tempfile::tempdir()?;
     let workspace = area.path().join("workspace");

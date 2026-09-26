@@ -725,7 +725,7 @@ impl AporicMcp {
     }
 
     #[tool(
-        description = "Record or revise a task's bounded planning brief. A revision resets advisory stage progress; material unknowns stay explicit. This grants no host permission."
+        description = "Record or revise a task's bounded planning brief. New domain work can select the frontend procedure profile; general remains the default and ui is retained for legacy compatibility. A revision resets advisory stage progress; this grants no host permission."
     )]
     async fn aporic_workflow_plan(
         &self,
@@ -755,7 +755,7 @@ impl AporicMcp {
     }
 
     #[tool(
-        description = "List bounded versioned procedure steps and current step status for one advisory task. File evidence attests bytes, not product quality."
+        description = "List bounded versioned procedure steps and current step status for one advisory task, including module IDs for native frontend steps. File evidence attests bytes, not product quality."
     )]
     async fn aporic_workflow_steps(
         &self,

@@ -537,22 +537,12 @@ delivery cell. Digests, event history, export, restart persistence, schema-16
 migration, and doctor audit cover both office appointments and product cells.
 
 Product cells can also appoint interaction, visual, and motion design disciplines.
-The repository's [UI/UX practice skill](.agents/skills/aporic-ui-ux/SKILL.md)
-guides browser-based prototype review with Playwright CLI and distinguishes
-rendered evidence from subjective design judgment. The skill is an advisory
-Codex integration, not an executable Aporic capability.
-
-Product cells can appoint a backend engineering discipline. The repository's
-[backend practice skill](.agents/skills/aporic-backend/SKILL.md) covers Rust
-service contracts, SQLite data and search, local execution and external
-integrations, and operational reliability. It guides implementation and review;
-it does not create an independently running backend service.
-
-Product cells can also appoint game development and level design disciplines.
-The repository's [game development practice skill](.agents/skills/aporic-game-development/SKILL.md)
-guides playable prototypes, blockout and level iteration, game systems, and
-playtesting. It records design reasoning and observed behavior separately;
-it does not turn a design assessment into proof of player enjoyment.
+For new frontend tasks, the native versioned `frontend` procedure profile begins
+with the `frontend.browser_review` module: browser scenarios, rendered
+interaction review, and responsive and accessibility review. It records
+advisory workflow state and direct evidence; it neither dispatches browser work
+nor changes host permissions. The older `ui` profile remains readable for
+historical tasks.
 
 ## v0.22 initial advisory government roster
 

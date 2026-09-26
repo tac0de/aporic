@@ -1,4 +1,6 @@
 //! Advisory stage transitions for one task. Events are the durable source of truth.
+mod frontend;
+
 use std::collections::BTreeSet;
 
 use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior, params};
@@ -21,7 +23,28 @@ const PLAN_EVENT: &str = "task_workflow_planned";
 const ADVANCE_EVENT: &str = "task_workflow_advanced";
 const STEP_EVENT: &str = "task_workflow_step_recorded";
 const MAX_EVENTS: i64 = 128;
-const PROCEDURE_TEMPLATE_VERSION: u32 = 1;
+const LEGACY_PROCEDURE_TEMPLATE_VERSION: u32 = 1;
+const FRONTEND_PROCEDURE_TEMPLATE_VERSION: u32 = 2;
+
+fn new_template_version(profile: WorkflowProcedureProfile) -> u32 {
+    match profile {
+        WorkflowProcedureProfile::Frontend => FRONTEND_PROCEDURE_TEMPLATE_VERSION,
+        WorkflowProcedureProfile::General | WorkflowProcedureProfile::Ui => {
+            LEGACY_PROCEDURE_TEMPLATE_VERSION
+        }
+    }
+}
+
+fn module_steps(
+    profile: WorkflowProcedureProfile,
+    version: Option<u32>,
+) -> Option<&'static [StepSpec]> {
+    match (profile, version) {
+        (WorkflowProcedureProfile::General | WorkflowProcedureProfile::Ui, Some(1)) => Some(&[]),
+        (WorkflowProcedureProfile::Frontend, Some(2)) => Some(frontend::BROWSER_REVIEW_STEPS),
+        _ => None,
+    }
+}
 
 impl Store {
     pub fn plan_workflow(&self, request: &WorkflowPlanRequest) -> Result<WorkflowOutcome> {
@@ -120,8 +143,7 @@ impl Store {
         let scope_changed = previous.plan.as_ref().is_some_and(|plan| {
             (plan.requires_user_decision && !request.requires_user_decision)
                 || (plan.material_change && !request.material_change)
-                || (plan.procedure_profile == Some(WorkflowProcedureProfile::Ui)
-                    && procedure_profile != Some(WorkflowProcedureProfile::Ui))
+                || (plan.procedure_profile != procedure_profile)
                 || (plan.procedure_profile.is_some() && procedure_profile.is_none())
                 || (plan.procedure_depth.is_some()
                     && (procedure_depth.is_none() || procedure_depth < plan.procedure_depth))
@@ -163,7 +185,7 @@ impl Store {
                 material_change: request.material_change,
                 procedure_profile,
                 procedure_depth,
-                procedure_template_version: procedure_profile.map(|_| PROCEDURE_TEMPLATE_VERSION),
+                procedure_template_version: procedure_profile.map(new_template_version),
             }),
             transitions: Vec::new(),
             step_statuses: Vec::new(),
@@ -582,7 +604,10 @@ fn missing(
     let Some(plan) = &status.plan else {
         return Ok(vec!["workflow_plan_missing".into()]);
     };
-    if plan.procedure_profile.is_some() && plan.procedure_template_version != Some(1) {
+    if plan
+        .procedure_profile
+        .is_some_and(|profile| module_steps(profile, plan.procedure_template_version).is_none())
+    {
         gaps.push("procedure_template_version_unsupported".into());
     }
     for definition in definitions_for_plan(plan)
@@ -922,13 +947,13 @@ const STEP_SPECS: &[StepSpec] = &[
 
 fn definitions_for_plan(plan: &WorkflowPlan) -> Vec<WorkflowStepDefinition> {
     // Keep each stored version's catalog even when new plans use a later version.
-    if plan.procedure_template_version != Some(1) {
-        return Vec::new();
-    }
     let (Some(profile), Some(depth)) = (plan.procedure_profile, plan.procedure_depth) else {
         return Vec::new();
     };
-    STEP_SPECS
+    let Some(module_steps) = module_steps(profile, plan.procedure_template_version) else {
+        return Vec::new();
+    };
+    let common = STEP_SPECS
         .iter()
         .filter(|step| {
             depth >= step.minimum_depth
@@ -939,8 +964,21 @@ fn definitions_for_plan(plan: &WorkflowPlan) -> Vec<WorkflowStepDefinition> {
             stage: step.stage,
             description: step.description.into(),
             skippable: step.skippable,
-        })
-        .collect()
+            module_id: None,
+        });
+    let browser = module_steps
+        .iter()
+        .filter(|step| depth >= step.minimum_depth)
+        .map(|step| WorkflowStepDefinition {
+            step_id: step.id.into(),
+            stage: step.stage,
+            description: step.description.into(),
+            skippable: step.skippable,
+            module_id: Some(frontend::BROWSER_REVIEW_ID.into()),
+        });
+    let mut definitions: Vec<_> = common.chain(browser).collect();
+    definitions.sort_by_key(|step| stage_index(step.stage));
+    definitions
 }
 
 fn stage_index(stage: WorkflowStage) -> u8 {

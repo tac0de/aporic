@@ -156,6 +156,170 @@ fn new_material_plan_defaults_to_versioned_standard_procedure() {
 }
 
 #[test]
+fn frontend_browser_module_is_versioned_and_survives_restart() {
+    let area = tempfile::tempdir().unwrap();
+    let workspace = area.path().join("workspace");
+    std::fs::create_dir(&workspace).unwrap();
+    let database = area.path().join("aporic.sqlite3");
+    let hub = Hub::open(&database).unwrap();
+    let session = hub
+        .open_session(&OpenRequest {
+            workspace: workspace.to_string_lossy().into_owned(),
+            objective: "Review a frontend".into(),
+            idempotency_key: "frontend-open".into(),
+        })
+        .unwrap()
+        .session_id;
+    let task_id = hub
+        .create_task(&TaskCreateRequest {
+            session_id: session.clone(),
+            objective: "Review the browser flow".into(),
+            acceptance_criteria: vec!["Browser review recorded".into()],
+            write_scope: vec![],
+            depends_on: vec![],
+            idempotency_key: "frontend-task".into(),
+        })
+        .unwrap()
+        .task
+        .task_id;
+    let plan = WorkflowPlanRequest {
+        task_id: task_id.clone(),
+        objective: "Make the primary flow usable".into(),
+        target_user: "Browser user".into(),
+        constraints: "Local review".into(),
+        success_measure: "Primary flow works at desktop and narrow widths".into(),
+        material_unknowns: vec![],
+        unknown_resolutions: vec![],
+        scope_change_evidence_id: None,
+        requires_user_decision: false,
+        material_change: true,
+        procedure_profile: Some(WorkflowProcedureProfile::Frontend),
+        procedure_depth: Some(WorkflowProcedureDepth::Standard),
+        idempotency_key: "frontend-plan".into(),
+    };
+    let status = hub.plan_workflow(&plan).unwrap().status;
+    assert_eq!(status.plan.unwrap().procedure_template_version, Some(2));
+    assert!(
+        hub.plan_workflow(&WorkflowPlanRequest {
+            procedure_profile: Some(WorkflowProcedureProfile::General),
+            idempotency_key: "frontend-downgrade-without-user".into(),
+            ..plan.clone()
+        })
+        .is_err()
+    );
+    let steps = hub
+        .workflow_steps(&WorkflowStepsRequest {
+            workspace: workspace.to_string_lossy().into_owned(),
+            task_id: task_id.clone(),
+        })
+        .unwrap();
+    assert_eq!(steps.template_version, Some(2));
+    for id in [
+        "browser_scenarios",
+        "rendered_browser_review",
+        "responsive_accessibility_review",
+    ] {
+        let definition = steps
+            .definitions
+            .iter()
+            .find(|step| step.step_id == id)
+            .unwrap();
+        assert_eq!(
+            definition.module_id.as_deref(),
+            Some("frontend.browser_review")
+        );
+        assert!(!definition.skippable);
+    }
+    assert!(
+        steps
+            .definitions
+            .iter()
+            .all(|step| step.step_id != "interaction_spec")
+    );
+    let scenario = steps
+        .definitions
+        .iter()
+        .position(|step| step.step_id == "browser_scenarios")
+        .unwrap();
+    let rendered = steps
+        .definitions
+        .iter()
+        .position(|step| step.step_id == "rendered_browser_review")
+        .unwrap();
+    assert!(scenario < rendered);
+    assert!(
+        hub.record_workflow_step(&step(
+            &task_id,
+            "rendered_browser_review",
+            WorkflowStepDisposition::Completed,
+            vec![],
+            None,
+            "frontend-no-evidence",
+        ))
+        .is_err()
+    );
+    let evidence = file_evidence(
+        &hub,
+        &session,
+        &workspace.join("frontend-brief.md"),
+        "frontend-brief",
+    );
+    hub.record_workflow_step(&step(
+        &task_id,
+        "problem_and_outcome",
+        WorkflowStepDisposition::Completed,
+        vec![evidence],
+        None,
+        "frontend-problem-step",
+    ))
+    .unwrap();
+    hub.advance_workflow(&advance(
+        &task_id,
+        WorkflowStage::Intake,
+        "frontend-to-planning",
+        vec![],
+        None,
+    ))
+    .unwrap();
+    let browser_evidence = file_evidence(
+        &hub,
+        &session,
+        &workspace.join("browser-scenarios.md"),
+        "browser-scenarios-evidence",
+    );
+    hub.record_workflow_step(&step(
+        &task_id,
+        "browser_scenarios",
+        WorkflowStepDisposition::Completed,
+        vec![browser_evidence],
+        None,
+        "browser-scenarios-step",
+    ))
+    .unwrap();
+    drop(hub);
+    let restarted = Hub::open(&database).unwrap();
+    let restored = restarted
+        .workflow_steps(&WorkflowStepsRequest {
+            workspace: workspace.to_string_lossy().into_owned(),
+            task_id,
+        })
+        .unwrap();
+    assert_eq!(restored.template_version, Some(2));
+    assert_eq!(restored.status.step_statuses.len(), 2);
+    assert_eq!(
+        restored.status.step_statuses[1].step_id,
+        "browser_scenarios"
+    );
+    assert_eq!(restored.status.stage, WorkflowStage::Planning);
+    assert!(
+        !restored
+            .status
+            .missing_for_next_stage
+            .contains(&"procedure_step_missing:browser_scenarios".into())
+    );
+}
+
+#[test]
 fn nested_ui_steps_require_evidence_and_rework_invalidates_downstream_progress() {
     let area = tempfile::tempdir().unwrap();
     let workspace = area.path().join("workspace");
@@ -198,6 +362,14 @@ fn nested_ui_steps_require_evidence_and_rework_invalidates_downstream_progress()
         idempotency_key: "nested-plan".into(),
     };
     hub.plan_workflow(&plan).unwrap();
+    assert!(
+        hub.plan_workflow(&WorkflowPlanRequest {
+            procedure_profile: Some(WorkflowProcedureProfile::Frontend),
+            idempotency_key: "ui-to-frontend-without-user".into(),
+            ..plan.clone()
+        })
+        .is_err()
+    );
     assert!(
         hub.plan_workflow(&WorkflowPlanRequest {
             procedure_profile: Some(WorkflowProcedureProfile::General),

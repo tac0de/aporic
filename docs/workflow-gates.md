@@ -18,8 +18,9 @@ session: a
 direct workspace file or a reported user statement. Changing the plan resets
 the stage to `intake` and discards prior transition credit; its older events
 remain in the append-only task history.
-Relaxing a previously required user decision or material-change review also
-requires a reported user-statement evidence ID in `scope_change_evidence_id`.
+Relaxing a previously required user decision or material-change review, or
+changing an existing plan's procedure profile, requires a reported
+user-statement evidence ID in `scope_change_evidence_id`.
 
 | Advance from | Required before the transition |
 | --- | --- |
@@ -52,12 +53,16 @@ unknowns, advance each stage, and read gaps before claiming the next stage is
 finished. The existing `aporic_task_claim` and host tools remain fail-open and
 advisory; this workflow governs Aporic's stage claims only.
 
-## Nested procedures (v1)
+## Nested procedures
 
 A procedure is a versioned checklist inside the advisory workflow stages. New
-plans may choose `procedure_profile` as `general` or `ui`, and
-`procedure_depth` as `light`, `standard`, or `high`. The `ui` profile includes
-the applicable general steps. Existing plans with no profile remain legacy and
+plans may choose `procedure_profile` as `general` or `frontend`, and
+`procedure_depth` as `light`, `standard`, or `high`. The `frontend` profile
+includes the applicable general steps plus its first native module,
+`frontend.browser_review`. Existing `ui@v1` plans remain readable and
+recordable with their original steps. Changing one to `frontend@v2` is a new
+planning revision requiring the reported user evidence above. Existing plans with
+no profile remain legacy and
 do not acquire procedure requirements retroactively. A new plan that omits
 both fields receives `general` at `standard` depth for a material change and
 `general` at `light` depth otherwise, so an old client cannot bypass the new
@@ -88,12 +93,33 @@ separate state. `aporic_workflow_status.missing_for_next_stage` reports it as
 
 ### `ui@v1` additions
 
+This profile remains available for historical compatibility; new frontend work
+uses `frontend@v2`.
+
 | Depth | Stage | Step ID | Skippable |
 | --- | --- | --- | --- |
 | standard | `design` | `concept_comparison` | Yes |
 | standard | `design` | `interaction_spec` | Yes |
 | standard | `implementation` | `rendered_browser_review` | No |
 | high | `verification` | `responsive_accessibility_review` | No |
+
+### `frontend@v2` first module
+
+`frontend.browser_review` is the first small domain module. It adds the
+following steps to the applicable `general@v1` steps. MCP step definitions
+identify these additions with `module_id: "frontend.browser_review"`; common
+steps have no module ID. A later frontend module must use a new template
+version so stored tasks keep the procedure they originally selected.
+
+| Depth | Stage | Step ID | Skippable |
+| --- | --- | --- | --- |
+| standard | `planning` | `browser_scenarios` | No |
+| light | `implementation` | `rendered_browser_review` | No |
+| standard | `verification` | `responsive_accessibility_review` | No |
+
+The browser steps ask for scenario, rendered interaction, viewport, keyboard,
+and accessibility evidence. A workspace file attests recorded bytes only;
+Aporic does not run a browser or judge visual quality from the receipt.
 
 ### Recording and rework
 
