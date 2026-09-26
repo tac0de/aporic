@@ -1,0 +1,177 @@
+{
+  "advisory": true,
+  "executable": false,
+  "missing_for_next_stage": [
+    "task_acceptance_proofs_incomplete"
+  ],
+  "plan": {
+    "constraints": "No packages, assets, network, commits, or deployment; responsive and keyboard accessible",
+    "created_at_unix_ms": 1790430232620,
+    "material_change": true,
+    "material_unknowns": [],
+    "objective": "Implement and browser-review a static proposal review board",
+    "procedure_depth": "standard",
+    "procedure_profile": "frontend",
+    "procedure_template_version": 2,
+    "requires_user_decision": false,
+    "revision_id": "01a0ddf5-402c-7628-9854-02b840027bd9",
+    "scope_change_evidence_id": null,
+    "success_measure": "All specified interactions and two viewport checks pass",
+    "target_user": "Local reviewer inspecting three proposals",
+    "unknown_resolutions": []
+  },
+  "stage": "verification",
+  "step_statuses": [
+    {
+      "disposition": "completed",
+      "evidence_ids": [
+        "01a0ddfa-6ce3-77d7-a03b-8ab2de26ef7c"
+      ],
+      "reason": null,
+      "stage": "intake",
+      "step_id": "problem_and_outcome"
+    },
+    {
+      "disposition": "completed",
+      "evidence_ids": [
+        "01a0ddfa-6ce3-77d7-a03b-8ab2de26ef7c"
+      ],
+      "reason": null,
+      "stage": "planning",
+      "step_id": "baseline_and_constraints"
+    },
+    {
+      "disposition": "completed",
+      "evidence_ids": [
+        "01a0ddfa-6ce3-77d7-a03b-8ab2de26ef7c"
+      ],
+      "reason": null,
+      "stage": "planning",
+      "step_id": "options_and_risks"
+    },
+    {
+      "disposition": "completed",
+      "evidence_ids": [
+        "01a0ddfa-6ce3-77d7-a03b-8ab2de26ef7c"
+      ],
+      "reason": null,
+      "stage": "planning",
+      "step_id": "verification_strategy"
+    },
+    {
+      "disposition": "completed",
+      "evidence_ids": [
+        "01a0ddfa-6ce3-77d7-a03b-8ab2de26ef7c"
+      ],
+      "reason": null,
+      "stage": "planning",
+      "step_id": "browser_scenarios"
+    },
+    {
+      "disposition": "completed",
+      "evidence_ids": [
+        "01a0ddfa-6ce3-77d7-a03b-8ab2de26ef7c",
+        "01a0ddfa-6ce8-77a7-b9ac-0bc6713920b6"
+      ],
+      "reason": null,
+      "stage": "design",
+      "step_id": "delivery_contract"
+    },
+    {
+      "disposition": "completed",
+      "evidence_ids": [
+        "01a0ddfa-6ce8-77a7-b9ac-0bc6713920b6",
+        "01a0ddfa-6cea-74c1-885c-bdbd04ccc9eb",
+        "01a0ddfa-6ced-732e-88f9-12a02d9c567e"
+      ],
+      "reason": null,
+      "stage": "implementation",
+      "step_id": "vertical_slice"
+    },
+    {
+      "disposition": "completed",
+      "evidence_ids": [
+        "01a0ddfa-6ce3-77d7-a03b-8ab2de26ef7c",
+        "01a0ddfa-6ced-732e-88f9-12a02d9c567e"
+      ],
+      "reason": null,
+      "stage": "implementation",
+      "step_id": "scenario_walkthrough"
+    },
+    {
+      "disposition": "completed",
+      "evidence_ids": [
+        "01a0ddfa-6ce3-77d7-a03b-8ab2de26ef7c",
+        "01a0ddfa-6ce8-77a7-b9ac-0bc6713920b6"
+      ],
+      "reason": null,
+      "stage": "implementation",
+      "step_id": "rendered_browser_review"
+    },
+    {
+      "disposition": "completed",
+      "evidence_ids": [
+        "01a0ddfa-6ce3-77d7-a03b-8ab2de26ef7c",
+        "01a0ddfa-6ced-732e-88f9-12a02d9c567e"
+      ],
+      "reason": null,
+      "stage": "verification",
+      "step_id": "mechanical_checks"
+    },
+    {
+      "disposition": "completed",
+      "evidence_ids": [
+        "01a0ddfa-6ce3-77d7-a03b-8ab2de26ef7c",
+        "01a0ddfa-6cea-74c1-885c-bdbd04ccc9eb"
+      ],
+      "reason": null,
+      "stage": "verification",
+      "step_id": "quality_review"
+    },
+    {
+      "disposition": "completed",
+      "evidence_ids": [
+        "01a0ddfa-6ce3-77d7-a03b-8ab2de26ef7c",
+        "01a0ddfa-6ce8-77a7-b9ac-0bc6713920b6",
+        "01a0ddfa-6cea-74c1-885c-bdbd04ccc9eb"
+      ],
+      "reason": null,
+      "stage": "verification",
+      "step_id": "responsive_accessibility_review"
+    }
+  ],
+  "task_id": "01a0ddf5-4029-735c-98d9-8638b4c8233f",
+  "transitions": [
+    {
+      "artifact_evidence_ids": [],
+      "delegation_decision_id": null,
+      "stage": "planning",
+      "user_decision_evidence_id": null
+    },
+    {
+      "artifact_evidence_ids": [
+        "01a0ddfa-6ce3-77d7-a03b-8ab2de26ef7c"
+      ],
+      "delegation_decision_id": null,
+      "stage": "design",
+      "user_decision_evidence_id": null
+    },
+    {
+      "artifact_evidence_ids": [
+        "01a0ddfa-6ce3-77d7-a03b-8ab2de26ef7c",
+        "01a0ddfa-6ce8-77a7-b9ac-0bc6713920b6"
+      ],
+      "delegation_decision_id": "01a0ddfa-6d0a-77f9-8a9c-ed7e12021a7d",
+      "stage": "implementation",
+      "user_decision_evidence_id": null
+    },
+    {
+      "artifact_evidence_ids": [
+        "01a0ddfa-6ced-732e-88f9-12a02d9c567e"
+      ],
+      "delegation_decision_id": null,
+      "stage": "verification",
+      "user_decision_evidence_id": null
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Review board · Fieldnotes</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="site-shell">
+    <header class="masthead">
+      <a class="brand" href="index.html" aria-label="Fieldnotes review board home"><span class="brand-mark" aria-hidden="true">✳</span> Fieldnotes <span class="brand-divider">/</span> Review board</a>
+      <div class="masthead-meta">WORKSPACE <span class="meta-dot" aria-hidden="true"></span> SEPTEMBER 2026</div>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <div class="eyebrow"><span class="eyebrow-line"></span> DECISION WORKSPACE <span class="issue">№ 014</span></div>
+        <div class="intro-grid">
+          <div>
+            <h1 id="page-title">Good ideas deserve<br><em>a closer look.</em></h1>
+            <p class="intro-copy">A focused space to work through what matters. Open each proposal, complete its three review checks, and keep the team moving.</p>
+          </div>
+          <div class="progress-card" aria-live="polite" aria-atomic="true">
+            <span class="progress-label">REVIEW PROGRESS</span>
+            <div class="progress-value"><strong id="progress-count">0</strong><span>/ 3</span></div>
+            <div class="progress-track" role="progressbar" aria-label="Proposals reviewed" aria-valuemin="0" aria-valuemax="3" aria-valuenow="0"><span id="progress-fill"></span></div>
+            <p id="progress-description">Three proposals await your review.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="board" aria-labelledby="board-title">
+        <div class="board-topline"><div><div class="section-kicker">THE SHORTLIST</div><h2 id="board-title">Proposals on the table</h2></div><div class="board-count">03 ITEMS <span aria-hidden="true">↘</span></div></div>
+        <div class="toolbar" role="group" aria-label="Filter proposals">
+          <button class="filter is-active" type="button" data-filter="all" aria-pressed="true">All <span>03</span></button>
+          <button class="filter" type="button" data-filter="pending" aria-pressed="false">To review <span id="pending-count">03</span></button>
+          <button class="filter" type="button" data-filter="reviewed" aria-pressed="false">Reviewed <span id="reviewed-count">00</span></button>
+        </div>
+        <div class="proposal-list" id="proposal-list"></div>
+        <p class="empty-state" id="empty-state" hidden>No proposals here yet. Try another filter.</p>
+      </section>
+    </main>
+    <footer class="footer"><span>FIELDNOTES / REVIEW BOARD</span><span>A little clarity goes a long way.</span></footer>
+  </div>
+
+  <dialog id="review-dialog" aria-labelledby="dialog-title" aria-describedby="dialog-summary">
+    <div class="dialog-inner">
+      <div class="dialog-head"><span class="dialog-kicker">PROPOSAL REVIEW <span id="dialog-number"></span></span><button type="button" class="icon-button" id="close-dialog" aria-label="Close review dialog">×</button></div>
+      <h2 id="dialog-title"></h2>
+      <p id="dialog-summary"></p>
+      <div class="dialog-rule"></div>
+      <form id="review-form">
+        <fieldset><legend>Before you mark this reviewed</legend><p class="check-instruction">Confirm all three points below.</p><div id="checklist"></div></fieldset>
+        <div class="dialog-actions"><button type="button" class="text-button" id="cancel-dialog">Back to proposals</button><button type="submit" class="submit-button" id="mark-reviewed" disabled>Mark reviewed <span aria-hidden="true">↗</span></button></div>
+      </form>
+    </div>
+  </dialog>
+</body>
+</html>

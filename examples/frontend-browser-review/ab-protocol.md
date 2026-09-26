@@ -69,5 +69,6 @@ gain, simplify or remove the procedure.
 
 ## Current state
 
-Protocol specified. No baseline run, paired result, or causal estimate exists
-yet. The existing local Aporic replay is process evidence only.
+One [paired pilot](ab-pilot/README.md) is complete. Its two accepted artifacts
+and blind review are preserved, but one pair cannot establish a causal average
+effect. The older local Aporic replay remains process evidence only.

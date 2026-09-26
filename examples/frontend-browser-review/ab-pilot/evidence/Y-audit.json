@@ -1,0 +1,387 @@
+{
+  "arm": "Y",
+  "views": [
+    {
+      "size": "1440x900",
+      "initial": {
+        "titles": [
+          "Quiet confidence",
+          "Open by nature",
+          "Made of moments"
+        ],
+        "progress": "0",
+        "layout": {
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          },
+          "scrollWidth": 1440,
+          "clientWidth": 1440,
+          "overflow": [],
+          "dialog": null
+        },
+        "aria": "- main:\n  - region \"Ideas worth a closer look.\":\n    - text: PROJECT 08 / DESIGN REVIEW\n    - heading \"Ideas worth a closer look.\" [level=1]:\n      - text: Ideas worth\n      - emphasis: a closer look.\n    - paragraph: Three directions for the next chapter. Take a moment with each one, then mark what you\u2019ve reviewed.\n    - text: YOUR PROGRESS\n    - strong: \"0\"\n    - text: / 3\n    - progressbar \"Proposals reviewed\"\n    - paragraph: A fresh perspective starts here.\n  - region \"On the table\":\n    - text: 01 / THE SHORTLIST\n    - heading \"On the table\" [level=2]\n    - paragraph: Explore the proposals, one idea at a time.\n    - group \"Filter proposals\":\n      - button \"All 03\" [pressed]\n      - button \"To review 03\"\n      - button \"Reviewed 00\"\n    - article:\n      - text: IDENTITY SYSTEM To review\n      - heading \"Quiet confidence\" [level=3]\n      - paragraph: Clear typography and considered space create a brand that speaks softly, yet stays with you.\n      - button \"Review Quiet confidence\": Explore proposal\n    - article:\n      - text: DIGITAL EXPERIENCE To review\n      - heading \"Open by nature\" [level=3]\n      - paragraph: A lively, modular experience designed to make discovery feel effortless and inviting.\n      - button \"Review Open by nature\": Explore proposal\n    - article:\n      - text: CAMPAIGN CONCEPT To review\n      - heading \"Made of moments\" [level=3]\n      - paragraph: A human-centered campaign built from small encounters and stories worth sharing.\n      - button \"Review Made of moments\": Explore proposal"
+      },
+      "dialogs": [
+        {
+          "index": 0,
+          "title": "Quiet confidence",
+          "snapshot": "- dialog \"Quiet confidence\":\n  - text: DIRECTION 01\n  - button \"Close review dialog\": \u00d7\n  - heading \"Quiet confidence\" [level=2]\n  - paragraph: Clear typography and considered space create a brand that speaks softly, yet stays with you.\n  - paragraph: BEFORE YOU MARK THIS REVIEWED\n  - checkbox \"Concept I understand the central idea.\"\n  - strong: Concept\n  - text: I understand the central idea.\n  - checkbox \"Execution I\u2019ve considered how it comes to life.\"\n  - strong: Execution\n  - text: I\u2019ve considered how it comes to life.\n  - checkbox \"Impact I\u2019ve thought about its potential effect.\"\n  - strong: Impact\n  - text: I\u2019ve thought about its potential effect.\n  - button \"Mark reviewed\" [disabled]\n  - paragraph: Complete all three checks to continue.",
+          "layout": {
+            "viewport": {
+              "width": 1440,
+              "height": 900
+            },
+            "scrollWidth": 1440,
+            "clientWidth": 1440,
+            "overflow": [],
+            "dialog": {
+              "left": 475,
+              "top": 143.03125,
+              "right": 965,
+              "bottom": 756.953125,
+              "width": 490,
+              "height": 613.921875
+            }
+          },
+          "disabled": [
+            true,
+            true,
+            true,
+            false
+          ],
+          "disabledAfterUncheck": true,
+          "restoredFocus": true
+        },
+        {
+          "index": 1,
+          "title": "Open by nature",
+          "snapshot": "- dialog \"Open by nature\":\n  - text: DIRECTION 02\n  - button \"Close review dialog\": \u00d7\n  - heading \"Open by nature\" [level=2]\n  - paragraph: A lively, modular experience designed to make discovery feel effortless and inviting.\n  - paragraph: BEFORE YOU MARK THIS REVIEWED\n  - checkbox \"Concept I understand the central idea.\"\n  - strong: Concept\n  - text: I understand the central idea.\n  - checkbox \"Execution I\u2019ve considered how it comes to life.\"\n  - strong: Execution\n  - text: I\u2019ve considered how it comes to life.\n  - checkbox \"Impact I\u2019ve thought about its potential effect.\"\n  - strong: Impact\n  - text: I\u2019ve thought about its potential effect.\n  - button \"Mark reviewed\" [disabled]\n  - paragraph: Complete all three checks to continue.",
+          "layout": {
+            "viewport": {
+              "width": 1440,
+              "height": 900
+            },
+            "scrollWidth": 1440,
+            "clientWidth": 1440,
+            "overflow": [],
+            "dialog": {
+              "left": 475,
+              "top": 143.03125,
+              "right": 965,
+              "bottom": 756.953125,
+              "width": 490,
+              "height": 613.921875
+            }
+          },
+          "disabled": [
+            true,
+            true,
+            true,
+            false
+          ],
+          "disabledAfterUncheck": true,
+          "restoredFocus": true
+        },
+        {
+          "index": 2,
+          "title": "Made of moments",
+          "snapshot": "- dialog \"Made of moments\":\n  - text: DIRECTION 03\n  - button \"Close review dialog\": \u00d7\n  - heading \"Made of moments\" [level=2]\n  - paragraph: A human-centered campaign built from small encounters and stories worth sharing.\n  - paragraph: BEFORE YOU MARK THIS REVIEWED\n  - checkbox \"Concept I understand the central idea.\"\n  - strong: Concept\n  - text: I understand the central idea.\n  - checkbox \"Execution I\u2019ve considered how it comes to life.\"\n  - strong: Execution\n  - text: I\u2019ve considered how it comes to life.\n  - checkbox \"Impact I\u2019ve thought about its potential effect.\"\n  - strong: Impact\n  - text: I\u2019ve thought about its potential effect.\n  - button \"Mark reviewed\" [disabled]\n  - paragraph: Complete all three checks to continue.",
+          "layout": {
+            "viewport": {
+              "width": 1440,
+              "height": 900
+            },
+            "scrollWidth": 1440,
+            "clientWidth": 1440,
+            "overflow": [],
+            "dialog": {
+              "left": 475,
+              "top": 143.03125,
+              "right": 965,
+              "bottom": 756.953125,
+              "width": 490,
+              "height": 613.921875
+            }
+          },
+          "disabled": [
+            true,
+            true,
+            true,
+            false
+          ],
+          "disabledAfterUncheck": true,
+          "restoredFocus": true
+        }
+      ],
+      "keyboard": [
+        {
+          "tag": "INPUT",
+          "text": "",
+          "type": "checkbox",
+          "insideDialog": true
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "type": "checkbox",
+          "insideDialog": true
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "type": "checkbox",
+          "insideDialog": true
+        },
+        {
+          "tag": "BODY",
+          "text": "\n  \n    \n      N.STUDIO NORTH\n      REVIEW WORKSPACE / 2026\n    \n\n    \n      \n         PROJECT 08 / DESIGN REVIEW\n        \n          \n            Ideas wortha closer look.\n            Three directions for the next chapter. Take a moment with each one, then mark what you\u2019ve reviewed.\n          \n          \n            YOUR PROGRESS0 / 3\n            \n            A fresh perspective starts here.\n          \n        \n      \n\n      \n        01 / THE SHORTLISTOn the tableExplore the proposals, one idea at a time.\n        \n          All 03\n          To review 03\n          Reviewed 00\n        \n        \n          \n            DIRECTION 01N\u00b0 01\n            IDENTITY SYSTEMTo reviewQuiet confidenceClear typography and considered space create a brand that speaks softly, yet stays with you.Explore proposal \u2197\n          \n          \n            DIRECTION 02N\u00b0 02\n            DIGITAL EXPERIENCETo reviewOpen by natureA lively, modular experience designed to make discovery feel effortless and inviting.Explore proposal \u2197\n          \n          \n            DIRECTION 03N\u00b0 03\n            CAMPAIGN CONCEPTTo reviewMade of momentsA human-centered campaign built from small encounters and stories worth sharing.Explore proposal \u2197\n          \n        \n        Nothing here yet. Choose another filter to keep exploring.\n      \n    \n    STUDIO NORTH / THOUGHTFUL BY DESIGNREVIEW BOARD \u00b7 2026\n  \n\n  \n    \n      DIRECTION 01\u00d7\n      Quiet confidenceClear typography and considered space create a brand that speaks softly, yet stays with you.\n      BEFORE YOU MARK THIS REVIEWED\n      \n        ConceptI understand the central idea.\n        ExecutionI\u2019ve considered how it comes to life.\n        ImpactI\u2019ve thought about its potential effect.\n      \n      Mark reviewed \u2197\n      Complete all three checks to continue.\n    \n  \n\n\n",
+          "type": null,
+          "insideDialog": false
+        },
+        {
+          "tag": "BUTTON",
+          "text": "\u00d7",
+          "type": "button",
+          "insideDialog": true
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "type": "checkbox",
+          "insideDialog": true
+        }
+      ],
+      "completed": {
+        "progress": "1",
+        "firstStatus": "Reviewed",
+        "focus": {
+          "tag": "BUTTON",
+          "text": "Explore proposal \u2197",
+          "aria": "Review Quiet confidence"
+        }
+      },
+      "filters": {
+        "All": [
+          "Quiet confidence",
+          "Open by nature",
+          "Made of moments"
+        ],
+        "To review": [
+          "Open by nature",
+          "Made of moments"
+        ],
+        "Reviewed": [
+          "Quiet confidence"
+        ]
+      },
+      "reviewedDialog": {
+        "snapshot": "- dialog \"Quiet confidence\":\n  - text: DIRECTION 01\n  - button \"Close review dialog\": \u00d7\n  - heading \"Quiet confidence\" [level=2]\n  - paragraph: Clear typography and considered space create a brand that speaks softly, yet stays with you.\n  - paragraph: BEFORE YOU MARK THIS REVIEWED\n  - checkbox \"Concept I understand the central idea.\" [checked] [disabled]\n  - strong: Concept\n  - text: I understand the central idea.\n  - checkbox \"Execution I\u2019ve considered how it comes to life.\" [checked] [disabled]\n  - strong: Execution\n  - text: I\u2019ve considered how it comes to life.\n  - checkbox \"Impact I\u2019ve thought about its potential effect.\" [checked] [disabled]\n  - strong: Impact\n  - text: I\u2019ve thought about its potential effect.\n  - paragraph: You have already reviewed this proposal.",
+        "markVisible": false,
+        "markHiddenAttribute": ""
+      },
+      "reducedMotion": {
+        "matches": true,
+        "transition": "1e-05s",
+        "animation": "1e-05s",
+        "scroll": "auto"
+      }
+    },
+    {
+      "size": "390x844",
+      "initial": {
+        "titles": [
+          "Quiet confidence",
+          "Open by nature",
+          "Made of moments"
+        ],
+        "progress": "0",
+        "layout": {
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "scrollWidth": 390,
+          "clientWidth": 390,
+          "overflow": [],
+          "dialog": null
+        },
+        "aria": "- main:\n  - region \"Ideas worth a closer look.\":\n    - text: PROJECT 08 / DESIGN REVIEW\n    - heading \"Ideas worth a closer look.\" [level=1]:\n      - text: Ideas worth\n      - emphasis: a closer look.\n    - paragraph: Three directions for the next chapter. Take a moment with each one, then mark what you\u2019ve reviewed.\n    - text: YOUR PROGRESS\n    - strong: \"0\"\n    - text: / 3\n    - progressbar \"Proposals reviewed\"\n    - paragraph: A fresh perspective starts here.\n  - region \"On the table\":\n    - text: 01 / THE SHORTLIST\n    - heading \"On the table\" [level=2]\n    - paragraph: Explore the proposals, one idea at a time.\n    - group \"Filter proposals\":\n      - button \"All 03\" [pressed]\n      - button \"To review 03\"\n      - button \"Reviewed 00\"\n    - article:\n      - text: IDENTITY SYSTEM To review\n      - heading \"Quiet confidence\" [level=3]\n      - paragraph: Clear typography and considered space create a brand that speaks softly, yet stays with you.\n      - button \"Review Quiet confidence\": Explore proposal\n    - article:\n      - text: DIGITAL EXPERIENCE To review\n      - heading \"Open by nature\" [level=3]\n      - paragraph: A lively, modular experience designed to make discovery feel effortless and inviting.\n      - button \"Review Open by nature\": Explore proposal\n    - article:\n      - text: CAMPAIGN CONCEPT To review\n      - heading \"Made of moments\" [level=3]\n      - paragraph: A human-centered campaign built from small encounters and stories worth sharing.\n      - button \"Review Made of moments\": Explore proposal"
+      },
+      "dialogs": [
+        {
+          "index": 0,
+          "title": "Quiet confidence",
+          "snapshot": "- dialog \"Quiet confidence\":\n  - text: DIRECTION 01\n  - button \"Close review dialog\": \u00d7\n  - heading \"Quiet confidence\" [level=2]\n  - paragraph: Clear typography and considered space create a brand that speaks softly, yet stays with you.\n  - paragraph: BEFORE YOU MARK THIS REVIEWED\n  - checkbox \"Concept I understand the central idea.\"\n  - strong: Concept\n  - text: I understand the central idea.\n  - checkbox \"Execution I\u2019ve considered how it comes to life.\"\n  - strong: Execution\n  - text: I\u2019ve considered how it comes to life.\n  - checkbox \"Impact I\u2019ve thought about its potential effect.\"\n  - strong: Impact\n  - text: I\u2019ve thought about its potential effect.\n  - button \"Mark reviewed\" [disabled]\n  - paragraph: Complete all three checks to continue.",
+          "layout": {
+            "viewport": {
+              "width": 390,
+              "height": 844
+            },
+            "scrollWidth": 390,
+            "clientWidth": 390,
+            "overflow": [],
+            "dialog": {
+              "left": 19,
+              "top": 124.1875,
+              "right": 371,
+              "bottom": 719.8125,
+              "width": 352,
+              "height": 595.625
+            }
+          },
+          "disabled": [
+            true,
+            true,
+            true,
+            false
+          ],
+          "disabledAfterUncheck": true,
+          "restoredFocus": true
+        },
+        {
+          "index": 1,
+          "title": "Open by nature",
+          "snapshot": "- dialog \"Open by nature\":\n  - text: DIRECTION 02\n  - button \"Close review dialog\": \u00d7\n  - heading \"Open by nature\" [level=2]\n  - paragraph: A lively, modular experience designed to make discovery feel effortless and inviting.\n  - paragraph: BEFORE YOU MARK THIS REVIEWED\n  - checkbox \"Concept I understand the central idea.\"\n  - strong: Concept\n  - text: I understand the central idea.\n  - checkbox \"Execution I\u2019ve considered how it comes to life.\"\n  - strong: Execution\n  - text: I\u2019ve considered how it comes to life.\n  - checkbox \"Impact I\u2019ve thought about its potential effect.\"\n  - strong: Impact\n  - text: I\u2019ve thought about its potential effect.\n  - button \"Mark reviewed\" [disabled]\n  - paragraph: Complete all three checks to continue.",
+          "layout": {
+            "viewport": {
+              "width": 390,
+              "height": 844
+            },
+            "scrollWidth": 390,
+            "clientWidth": 390,
+            "overflow": [],
+            "dialog": {
+              "left": 19,
+              "top": 124.1875,
+              "right": 371,
+              "bottom": 719.8125,
+              "width": 352,
+              "height": 595.625
+            }
+          },
+          "disabled": [
+            true,
+            true,
+            true,
+            false
+          ],
+          "disabledAfterUncheck": true,
+          "restoredFocus": true
+        },
+        {
+          "index": 2,
+          "title": "Made of moments",
+          "snapshot": "- dialog \"Made of moments\":\n  - text: DIRECTION 03\n  - button \"Close review dialog\": \u00d7\n  - heading \"Made of moments\" [level=2]\n  - paragraph: A human-centered campaign built from small encounters and stories worth sharing.\n  - paragraph: BEFORE YOU MARK THIS REVIEWED\n  - checkbox \"Concept I understand the central idea.\"\n  - strong: Concept\n  - text: I understand the central idea.\n  - checkbox \"Execution I\u2019ve considered how it comes to life.\"\n  - strong: Execution\n  - text: I\u2019ve considered how it comes to life.\n  - checkbox \"Impact I\u2019ve thought about its potential effect.\"\n  - strong: Impact\n  - text: I\u2019ve thought about its potential effect.\n  - button \"Mark reviewed\" [disabled]\n  - paragraph: Complete all three checks to continue.",
+          "layout": {
+            "viewport": {
+              "width": 390,
+              "height": 844
+            },
+            "scrollWidth": 390,
+            "clientWidth": 390,
+            "overflow": [],
+            "dialog": {
+              "left": 19,
+              "top": 124.1875,
+              "right": 371,
+              "bottom": 719.8125,
+              "width": 352,
+              "height": 595.625
+            }
+          },
+          "disabled": [
+            true,
+            true,
+            true,
+            false
+          ],
+          "disabledAfterUncheck": true,
+          "restoredFocus": true
+        }
+      ],
+      "keyboard": [
+        {
+          "tag": "INPUT",
+          "text": "",
+          "type": "checkbox",
+          "insideDialog": true
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "type": "checkbox",
+          "insideDialog": true
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "type": "checkbox",
+          "insideDialog": true
+        },
+        {
+          "tag": "BODY",
+          "text": "\n  \n    \n      N.STUDIO NORTH\n      REVIEW WORKSPACE / 2026\n    \n\n    \n      \n         PROJECT 08 / DESIGN REVIEW\n        \n          \n            Ideas wortha closer look.\n            Three directions for the next chapter. Take a moment with each one, then mark what you\u2019ve reviewed.\n          \n          \n            YOUR PROGRESS0 / 3\n            \n            A fresh perspective starts here.\n          \n        \n      \n\n      \n        01 / THE SHORTLISTOn the tableExplore the proposals, one idea at a time.\n        \n          All 03\n          To review 03\n          Reviewed 00\n        \n        \n          \n            DIRECTION 01N\u00b0 01\n            IDENTITY SYSTEMTo reviewQuiet confidenceClear typography and considered space create a brand that speaks softly, yet stays with you.Explore proposal \u2197\n          \n          \n            DIRECTION 02N\u00b0 02\n            DIGITAL EXPERIENCETo reviewOpen by natureA lively, modular experience designed to make discovery feel effortless and inviting.Explore proposal \u2197\n          \n          \n            DIRECTION 03N\u00b0 03\n            CAMPAIGN CONCEPTTo reviewMade of momentsA human-centered campaign built from small encounters and stories worth sharing.Explore proposal \u2197\n          \n        \n        Nothing here yet. Choose another filter to keep exploring.\n      \n    \n    STUDIO NORTH / THOUGHTFUL BY DESIGNREVIEW BOARD \u00b7 2026\n  \n\n  \n    \n      DIRECTION 01\u00d7\n      Quiet confidenceClear typography and considered space create a brand that speaks softly, yet stays with you.\n      BEFORE YOU MARK THIS REVIEWED\n      \n        ConceptI understand the central idea.\n        ExecutionI\u2019ve considered how it comes to life.\n        ImpactI\u2019ve thought about its potential effect.\n      \n      Mark reviewed \u2197\n      Complete all three checks to continue.\n    \n  \n\n\n",
+          "type": null,
+          "insideDialog": false
+        },
+        {
+          "tag": "BUTTON",
+          "text": "\u00d7",
+          "type": "button",
+          "insideDialog": true
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "type": "checkbox",
+          "insideDialog": true
+        }
+      ],
+      "completed": {
+        "progress": "1",
+        "firstStatus": "Reviewed",
+        "focus": {
+          "tag": "BUTTON",
+          "text": "Explore proposal \u2197",
+          "aria": "Review Quiet confidence"
+        }
+      },
+      "filters": {
+        "All": [
+          "Quiet confidence",
+          "Open by nature",
+          "Made of moments"
+        ],
+        "To review": [
+          "Open by nature",
+          "Made of moments"
+        ],
+        "Reviewed": [
+          "Quiet confidence"
+        ]
+      },
+      "reviewedDialog": {
+        "snapshot": "- dialog \"Quiet confidence\":\n  - text: DIRECTION 01\n  - button \"Close review dialog\": \u00d7\n  - heading \"Quiet confidence\" [level=2]\n  - paragraph: Clear typography and considered space create a brand that speaks softly, yet stays with you.\n  - paragraph: BEFORE YOU MARK THIS REVIEWED\n  - checkbox \"Concept I understand the central idea.\" [checked] [disabled]\n  - strong: Concept\n  - text: I understand the central idea.\n  - checkbox \"Execution I\u2019ve considered how it comes to life.\" [checked] [disabled]\n  - strong: Execution\n  - text: I\u2019ve considered how it comes to life.\n  - checkbox \"Impact I\u2019ve thought about its potential effect.\" [checked] [disabled]\n  - strong: Impact\n  - text: I\u2019ve thought about its potential effect.\n  - paragraph: You have already reviewed this proposal.",
+        "markVisible": false,
+        "markHiddenAttribute": ""
+      },
+      "reducedMotion": {
+        "matches": true,
+        "transition": "1e-05s",
+        "animation": "1e-05s",
+        "scroll": "auto"
+      }
+    }
+  ],
+  "errors": [],
+  "failed": [],
+  "requests": [
+    "http://127.0.0.1:8782/",
+    "http://127.0.0.1:8782/styles.css",
+    "http://127.0.0.1:8782/app.js",
+    "http://127.0.0.1:8782/",
+    "http://127.0.0.1:8782/styles.css",
+    "http://127.0.0.1:8782/app.js"
+  ]
+}

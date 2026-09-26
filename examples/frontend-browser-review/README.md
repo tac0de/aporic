@@ -7,6 +7,9 @@ task, file evidence, and review status.
 
 This example is not an A/B test of Aporic. The [paired evaluation protocol](ab-protocol.md)
 specifies the baseline and Aporic runs needed to measure its contribution.
+A [first paired pilot](ab-pilot/README.md) now contains two independent
+implementations and a blinded review; the original page below remains the
+single-arm example.
 
 ## Run the page
 

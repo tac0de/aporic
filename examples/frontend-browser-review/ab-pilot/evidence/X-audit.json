@@ -1,0 +1,387 @@
+{
+  "arm": "X",
+  "views": [
+    {
+      "size": "1440x900",
+      "initial": {
+        "titles": [
+          "A quieter start",
+          "Signals, not noise",
+          "Room to reflect"
+        ],
+        "progress": "0",
+        "layout": {
+          "viewport": {
+            "width": 1440,
+            "height": 900
+          },
+          "scrollWidth": 1440,
+          "clientWidth": 1440,
+          "overflow": [],
+          "dialog": null
+        },
+        "aria": "- main:\n  - region \"Good ideas deserve a closer look.\":\n    - text: DECISION WORKSPACE \u2116 014\n    - heading \"Good ideas deserve a closer look.\" [level=1]:\n      - text: Good ideas deserve\n      - emphasis: a closer look.\n    - paragraph: A focused space to work through what matters. Open each proposal, complete its three review checks, and keep the team moving.\n    - text: REVIEW PROGRESS\n    - strong: \"0\"\n    - text: / 3\n    - progressbar \"Proposals reviewed\"\n    - paragraph: 3 proposals await your review.\n  - region \"Proposals on the table\":\n    - text: THE SHORTLIST\n    - heading \"Proposals on the table\" [level=2]\n    - text: 03 ITEMS\n    - group \"Filter proposals\":\n      - button \"All 03\" [pressed]\n      - button \"To review 03\"\n      - button \"Reviewed 00\"\n    - article:\n      - text: PROPOSAL / 01 To review\n      - heading \"A quieter start\" [level=3]\n      - paragraph: Give new members a calmer first week with a guided path to the essentials.\n      - button \"Review A quieter start\": Review proposal\n    - article:\n      - text: PROPOSAL / 02 To review\n      - heading \"Signals, not noise\" [level=3]\n      - paragraph: Bring the most useful project updates into one thoughtful weekly digest.\n      - button \"Review Signals, not noise\": Review proposal\n    - article:\n      - text: PROPOSAL / 03 To review\n      - heading \"Room to reflect\" [level=3]\n      - paragraph: Make space for short retrospectives that turn everyday observations into better work.\n      - button \"Review Room to reflect\": Review proposal"
+      },
+      "dialogs": [
+        {
+          "index": 0,
+          "title": "A quieter start",
+          "snapshot": "- dialog \"A quieter start\":\n  - text: PROPOSAL REVIEW / 01\n  - button \"Close review dialog\": \u00d7\n  - heading \"A quieter start\" [level=2]\n  - paragraph: Give new members a calmer first week with a guided path to the essentials.\n  - group \"Before you mark this reviewed\":\n    - text: Before you mark this reviewed\n    - paragraph: Confirm all three points below.\n    - checkbox \"Purpose and audience are clear\"\n    - text: Purpose and audience are clear\n    - checkbox \"First-week steps feel achievable\"\n    - text: First-week steps feel achievable\n    - checkbox \"Success can be measured\"\n    - text: Success can be measured\n  - button \"Back to proposals\"\n  - button \"Mark reviewed\" [disabled]",
+          "layout": {
+            "viewport": {
+              "width": 1440,
+              "height": 900
+            },
+            "scrollWidth": 1440,
+            "clientWidth": 1440,
+            "overflow": [],
+            "dialog": {
+              "left": 435,
+              "top": 169.328125,
+              "right": 1005,
+              "bottom": 730.65625,
+              "width": 570,
+              "height": 561.328125
+            }
+          },
+          "disabled": [
+            true,
+            true,
+            true,
+            false
+          ],
+          "disabledAfterUncheck": true,
+          "restoredFocus": true
+        },
+        {
+          "index": 1,
+          "title": "Signals, not noise",
+          "snapshot": "- dialog \"Signals, not noise\":\n  - text: PROPOSAL REVIEW / 02\n  - button \"Close review dialog\": \u00d7\n  - heading \"Signals, not noise\" [level=2]\n  - paragraph: Bring the most useful project updates into one thoughtful weekly digest.\n  - group \"Before you mark this reviewed\":\n    - text: Before you mark this reviewed\n    - paragraph: Confirm all three points below.\n    - checkbox \"The update has a clear owner\"\n    - text: The update has a clear owner\n    - checkbox \"The signal is useful to readers\"\n    - text: The signal is useful to readers\n    - checkbox \"The delivery rhythm is realistic\"\n    - text: The delivery rhythm is realistic\n  - button \"Back to proposals\"\n  - button \"Mark reviewed\" [disabled]",
+          "layout": {
+            "viewport": {
+              "width": 1440,
+              "height": 900
+            },
+            "scrollWidth": 1440,
+            "clientWidth": 1440,
+            "overflow": [],
+            "dialog": {
+              "left": 435,
+              "top": 181.703125,
+              "right": 1005,
+              "bottom": 718.28125,
+              "width": 570,
+              "height": 536.578125
+            }
+          },
+          "disabled": [
+            true,
+            true,
+            true,
+            false
+          ],
+          "disabledAfterUncheck": true,
+          "restoredFocus": true
+        },
+        {
+          "index": 2,
+          "title": "Room to reflect",
+          "snapshot": "- dialog \"Room to reflect\":\n  - text: PROPOSAL REVIEW / 03\n  - button \"Close review dialog\": \u00d7\n  - heading \"Room to reflect\" [level=2]\n  - paragraph: Make space for short retrospectives that turn everyday observations into better work.\n  - group \"Before you mark this reviewed\":\n    - text: Before you mark this reviewed\n    - paragraph: Confirm all three points below.\n    - checkbox \"The reflection prompt is specific\"\n    - text: The reflection prompt is specific\n    - checkbox \"Participation feels accessible\"\n    - text: Participation feels accessible\n    - checkbox \"Follow-up actions have a home\"\n    - text: Follow-up actions have a home\n  - button \"Back to proposals\"\n  - button \"Mark reviewed\" [disabled]",
+          "layout": {
+            "viewport": {
+              "width": 1440,
+              "height": 900
+            },
+            "scrollWidth": 1440,
+            "clientWidth": 1440,
+            "overflow": [],
+            "dialog": {
+              "left": 435,
+              "top": 169.328125,
+              "right": 1005,
+              "bottom": 730.65625,
+              "width": 570,
+              "height": 561.328125
+            }
+          },
+          "disabled": [
+            true,
+            true,
+            true,
+            false
+          ],
+          "disabledAfterUncheck": true,
+          "restoredFocus": true
+        }
+      ],
+      "keyboard": [
+        {
+          "tag": "INPUT",
+          "text": "",
+          "type": "checkbox",
+          "insideDialog": true
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "type": "checkbox",
+          "insideDialog": true
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "type": "checkbox",
+          "insideDialog": true
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Back to proposals",
+          "type": "button",
+          "insideDialog": true
+        },
+        {
+          "tag": "BODY",
+          "text": "\n  \n    \n      \u2733 Fieldnotes / Review board\n      WORKSPACE  SEPTEMBER 2026\n    \n\n    \n      \n         DECISION WORKSPACE \u2116 014\n        \n          \n            Good ideas deservea closer look.\n            A focused space to work through what matters. Open each proposal, complete its three review checks, and keep the team moving.\n          \n          \n            REVIEW PROGRESS\n            0/ 3\n            \n            3 proposals await your review.\n          \n        \n      \n\n      \n        THE SHORTLISTProposals on the table03 ITEMS \u2198\n        \n          All 03\n          To review 03\n          Reviewed 00\n        \n        PROPOSAL / 01To reviewA quieter startGive new members a calmer first week with a guided path to the essentials.Review proposal \u2197PROPOSAL / 02To reviewSignals, not noiseBring the most useful project updates into one thoughtful weekly digest.Review proposal \u2197PROPOSAL / 03To reviewRoom to reflectMake space for short retrospectives that turn everyday observations into better work.Review proposal \u2197\n        No proposals here yet. Try another filter.\n      \n    \n    FIELDNOTES / REVIEW BOARDA little clarity goes a long way.\n  \n\n  \n    \n      PROPOSAL REVIEW / 01\u00d7\n      A quieter start\n      Give new members a calmer first week with a guided path to the essentials.\n      \n      \n        Before you mark this reviewedConfirm all three points below.Purpose and audience are clearFirst-week steps feel achievableSuccess can be measured\n        Back to proposalsMark reviewed \u2197\n      \n    \n  \n\n\n",
+          "type": null,
+          "insideDialog": false
+        },
+        {
+          "tag": "BUTTON",
+          "text": "\u00d7",
+          "type": "button",
+          "insideDialog": true
+        }
+      ],
+      "completed": {
+        "progress": "1",
+        "firstStatus": "Reviewed",
+        "focus": {
+          "tag": "BUTTON",
+          "text": "All 03",
+          "aria": null
+        }
+      },
+      "filters": {
+        "All": [
+          "A quieter start",
+          "Signals, not noise",
+          "Room to reflect"
+        ],
+        "To review": [
+          "Signals, not noise",
+          "Room to reflect"
+        ],
+        "Reviewed": [
+          "A quieter start"
+        ]
+      },
+      "reviewedDialog": {
+        "snapshot": "- dialog \"A quieter start\":\n  - text: PROPOSAL REVIEW / 01\n  - button \"Close review dialog\": \u00d7\n  - heading \"A quieter start\" [level=2]\n  - paragraph: Give new members a calmer first week with a guided path to the essentials.\n  - group \"Before you mark this reviewed\":\n    - text: Before you mark this reviewed\n    - paragraph: Confirm all three points below.\n    - checkbox \"Purpose and audience are clear\" [checked] [disabled]\n    - text: Purpose and audience are clear\n    - checkbox \"First-week steps feel achievable\" [checked] [disabled]\n    - text: First-week steps feel achievable\n    - checkbox \"Success can be measured\" [checked] [disabled]\n    - text: Success can be measured\n  - button \"Back to proposals\"\n  - button \"Mark reviewed\" [disabled]",
+        "markVisible": true,
+        "markHiddenAttribute": ""
+      },
+      "reducedMotion": {
+        "matches": true,
+        "transition": "1e-05s",
+        "animation": "1e-05s",
+        "scroll": "auto"
+      }
+    },
+    {
+      "size": "390x844",
+      "initial": {
+        "titles": [
+          "A quieter start",
+          "Signals, not noise",
+          "Room to reflect"
+        ],
+        "progress": "0",
+        "layout": {
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "scrollWidth": 390,
+          "clientWidth": 390,
+          "overflow": [],
+          "dialog": null
+        },
+        "aria": "- main:\n  - region \"Good ideas deserve a closer look.\":\n    - text: DECISION WORKSPACE \u2116 014\n    - heading \"Good ideas deserve a closer look.\" [level=1]:\n      - text: Good ideas deserve\n      - emphasis: a closer look.\n    - paragraph: A focused space to work through what matters. Open each proposal, complete its three review checks, and keep the team moving.\n    - text: REVIEW PROGRESS\n    - strong: \"0\"\n    - text: / 3\n    - progressbar \"Proposals reviewed\"\n    - paragraph: 3 proposals await your review.\n  - region \"Proposals on the table\":\n    - text: THE SHORTLIST\n    - heading \"Proposals on the table\" [level=2]\n    - text: 03 ITEMS\n    - group \"Filter proposals\":\n      - button \"All 03\" [pressed]\n      - button \"To review 03\"\n      - button \"Reviewed 00\"\n    - article:\n      - text: PROPOSAL / 01 To review\n      - heading \"A quieter start\" [level=3]\n      - paragraph: Give new members a calmer first week with a guided path to the essentials.\n      - button \"Review A quieter start\": Review proposal\n    - article:\n      - text: PROPOSAL / 02 To review\n      - heading \"Signals, not noise\" [level=3]\n      - paragraph: Bring the most useful project updates into one thoughtful weekly digest.\n      - button \"Review Signals, not noise\": Review proposal\n    - article:\n      - text: PROPOSAL / 03 To review\n      - heading \"Room to reflect\" [level=3]\n      - paragraph: Make space for short retrospectives that turn everyday observations into better work.\n      - button \"Review Room to reflect\": Review proposal"
+      },
+      "dialogs": [
+        {
+          "index": 0,
+          "title": "A quieter start",
+          "snapshot": "- dialog \"A quieter start\":\n  - text: PROPOSAL REVIEW / 01\n  - button \"Close review dialog\": \u00d7\n  - heading \"A quieter start\" [level=2]\n  - paragraph: Give new members a calmer first week with a guided path to the essentials.\n  - group \"Before you mark this reviewed\":\n    - text: Before you mark this reviewed\n    - paragraph: Confirm all three points below.\n    - checkbox \"Purpose and audience are clear\"\n    - text: Purpose and audience are clear\n    - checkbox \"First-week steps feel achievable\"\n    - text: First-week steps feel achievable\n    - checkbox \"Success can be measured\"\n    - text: Success can be measured\n  - button \"Back to proposals\"\n  - button \"Mark reviewed\" [disabled]",
+          "layout": {
+            "viewport": {
+              "width": 390,
+              "height": 844
+            },
+            "scrollWidth": 390,
+            "clientWidth": 390,
+            "overflow": [],
+            "dialog": {
+              "left": 19,
+              "top": 132.109375,
+              "right": 371,
+              "bottom": 711.875,
+              "width": 352,
+              "height": 579.765625
+            }
+          },
+          "disabled": [
+            true,
+            true,
+            true,
+            false
+          ],
+          "disabledAfterUncheck": true,
+          "restoredFocus": true
+        },
+        {
+          "index": 1,
+          "title": "Signals, not noise",
+          "snapshot": "- dialog \"Signals, not noise\":\n  - text: PROPOSAL REVIEW / 02\n  - button \"Close review dialog\": \u00d7\n  - heading \"Signals, not noise\" [level=2]\n  - paragraph: Bring the most useful project updates into one thoughtful weekly digest.\n  - group \"Before you mark this reviewed\":\n    - text: Before you mark this reviewed\n    - paragraph: Confirm all three points below.\n    - checkbox \"The update has a clear owner\"\n    - text: The update has a clear owner\n    - checkbox \"The signal is useful to readers\"\n    - text: The signal is useful to readers\n    - checkbox \"The delivery rhythm is realistic\"\n    - text: The delivery rhythm is realistic\n  - button \"Back to proposals\"\n  - button \"Mark reviewed\" [disabled]",
+          "layout": {
+            "viewport": {
+              "width": 390,
+              "height": 844
+            },
+            "scrollWidth": 390,
+            "clientWidth": 390,
+            "overflow": [],
+            "dialog": {
+              "left": 19,
+              "top": 132.109375,
+              "right": 371,
+              "bottom": 711.875,
+              "width": 352,
+              "height": 579.765625
+            }
+          },
+          "disabled": [
+            true,
+            true,
+            true,
+            false
+          ],
+          "disabledAfterUncheck": true,
+          "restoredFocus": true
+        },
+        {
+          "index": 2,
+          "title": "Room to reflect",
+          "snapshot": "- dialog \"Room to reflect\":\n  - text: PROPOSAL REVIEW / 03\n  - button \"Close review dialog\": \u00d7\n  - heading \"Room to reflect\" [level=2]\n  - paragraph: Make space for short retrospectives that turn everyday observations into better work.\n  - group \"Before you mark this reviewed\":\n    - text: Before you mark this reviewed\n    - paragraph: Confirm all three points below.\n    - checkbox \"The reflection prompt is specific\"\n    - text: The reflection prompt is specific\n    - checkbox \"Participation feels accessible\"\n    - text: Participation feels accessible\n    - checkbox \"Follow-up actions have a home\"\n    - text: Follow-up actions have a home\n  - button \"Back to proposals\"\n  - button \"Mark reviewed\" [disabled]",
+          "layout": {
+            "viewport": {
+              "width": 390,
+              "height": 844
+            },
+            "scrollWidth": 390,
+            "clientWidth": 390,
+            "overflow": [],
+            "dialog": {
+              "left": 19,
+              "top": 132.109375,
+              "right": 371,
+              "bottom": 711.875,
+              "width": 352,
+              "height": 579.765625
+            }
+          },
+          "disabled": [
+            true,
+            true,
+            true,
+            false
+          ],
+          "disabledAfterUncheck": true,
+          "restoredFocus": true
+        }
+      ],
+      "keyboard": [
+        {
+          "tag": "INPUT",
+          "text": "",
+          "type": "checkbox",
+          "insideDialog": true
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "type": "checkbox",
+          "insideDialog": true
+        },
+        {
+          "tag": "INPUT",
+          "text": "",
+          "type": "checkbox",
+          "insideDialog": true
+        },
+        {
+          "tag": "BUTTON",
+          "text": "Back to proposals",
+          "type": "button",
+          "insideDialog": true
+        },
+        {
+          "tag": "BODY",
+          "text": "\n  \n    \n      \u2733 Fieldnotes / Review board\n      WORKSPACE  SEPTEMBER 2026\n    \n\n    \n      \n         DECISION WORKSPACE \u2116 014\n        \n          \n            Good ideas deservea closer look.\n            A focused space to work through what matters. Open each proposal, complete its three review checks, and keep the team moving.\n          \n          \n            REVIEW PROGRESS\n            0/ 3\n            \n            3 proposals await your review.\n          \n        \n      \n\n      \n        THE SHORTLISTProposals on the table03 ITEMS \u2198\n        \n          All 03\n          To review 03\n          Reviewed 00\n        \n        PROPOSAL / 01To reviewA quieter startGive new members a calmer first week with a guided path to the essentials.Review proposal \u2197PROPOSAL / 02To reviewSignals, not noiseBring the most useful project updates into one thoughtful weekly digest.Review proposal \u2197PROPOSAL / 03To reviewRoom to reflectMake space for short retrospectives that turn everyday observations into better work.Review proposal \u2197\n        No proposals here yet. Try another filter.\n      \n    \n    FIELDNOTES / REVIEW BOARDA little clarity goes a long way.\n  \n\n  \n    \n      PROPOSAL REVIEW / 01\u00d7\n      A quieter start\n      Give new members a calmer first week with a guided path to the essentials.\n      \n      \n        Before you mark this reviewedConfirm all three points below.Purpose and audience are clearFirst-week steps feel achievableSuccess can be measured\n        Back to proposalsMark reviewed \u2197\n      \n    \n  \n\n\n",
+          "type": null,
+          "insideDialog": false
+        },
+        {
+          "tag": "BUTTON",
+          "text": "\u00d7",
+          "type": "button",
+          "insideDialog": true
+        }
+      ],
+      "completed": {
+        "progress": "1",
+        "firstStatus": "Reviewed",
+        "focus": {
+          "tag": "BUTTON",
+          "text": "All 03",
+          "aria": null
+        }
+      },
+      "filters": {
+        "All": [
+          "A quieter start",
+          "Signals, not noise",
+          "Room to reflect"
+        ],
+        "To review": [
+          "Signals, not noise",
+          "Room to reflect"
+        ],
+        "Reviewed": [
+          "A quieter start"
+        ]
+      },
+      "reviewedDialog": {
+        "snapshot": "- dialog \"A quieter start\":\n  - text: PROPOSAL REVIEW / 01\n  - button \"Close review dialog\": \u00d7\n  - heading \"A quieter start\" [level=2]\n  - paragraph: Give new members a calmer first week with a guided path to the essentials.\n  - group \"Before you mark this reviewed\":\n    - text: Before you mark this reviewed\n    - paragraph: Confirm all three points below.\n    - checkbox \"Purpose and audience are clear\" [checked] [disabled]\n    - text: Purpose and audience are clear\n    - checkbox \"First-week steps feel achievable\" [checked] [disabled]\n    - text: First-week steps feel achievable\n    - checkbox \"Success can be measured\" [checked] [disabled]\n    - text: Success can be measured\n  - button \"Back to proposals\"\n  - button \"Mark reviewed\" [disabled]",
+        "markVisible": true,
+        "markHiddenAttribute": ""
+      },
+      "reducedMotion": {
+        "matches": true,
+        "transition": "1e-05s",
+        "animation": "1e-05s",
+        "scroll": "auto"
+      }
+    }
+  ],
+  "errors": [],
+  "failed": [],
+  "requests": [
+    "http://127.0.0.1:8781/",
+    "http://127.0.0.1:8781/styles.css",
+    "http://127.0.0.1:8781/app.js",
+    "http://127.0.0.1:8781/",
+    "http://127.0.0.1:8781/styles.css",
+    "http://127.0.0.1:8781/app.js"
+  ]
+}

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f5f0">
+  <link rel="icon" href="data:,">
+  <title>Review board · Studio North</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="page-shell">
+    <header class="site-header">
+      <a class="brand" href="index.html" aria-label="Studio North home"><span class="brand-mark" aria-hidden="true">N<span class="brand-dot">.</span></span><span>STUDIO NORTH</span></a>
+      <span class="header-label">REVIEW WORKSPACE <span class="header-number">/ 2026</span></span>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <div class="eyebrow"><span class="eyebrow-line"></span> PROJECT 08 <span class="eyebrow-separator">/</span> DESIGN REVIEW</div>
+        <div class="intro-grid">
+          <div>
+            <h1 id="page-title">Ideas worth<br><em>a closer look.</em></h1>
+            <p class="intro-copy">Three directions for the next chapter. Take a moment with each one, then mark what you’ve reviewed.</p>
+          </div>
+          <div class="progress-panel" aria-live="polite" aria-atomic="true">
+            <div class="progress-top"><span>YOUR PROGRESS</span><span class="progress-fraction"><strong id="completed-count">0</strong> / 3</span></div>
+            <div class="progress-track" role="progressbar" aria-label="Proposals reviewed" aria-valuemin="0" aria-valuemax="3" aria-valuenow="0"><span id="progress-fill"></span></div>
+            <p id="progress-message">A fresh perspective starts here.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="board" aria-labelledby="board-title">
+        <div class="board-header"><div><span class="section-index">01 / THE SHORTLIST</span><h2 id="board-title">On the table</h2></div><p>Explore the proposals, one idea at a time.</p></div>
+        <div class="filter-row" role="group" aria-label="Filter proposals">
+          <button class="filter is-active" type="button" data-filter="all" aria-pressed="true">All <span id="all-count">03</span></button>
+          <button class="filter" type="button" data-filter="todo" aria-pressed="false">To review <span id="todo-count">03</span></button>
+          <button class="filter" type="button" data-filter="reviewed" aria-pressed="false">Reviewed <span id="reviewed-count">00</span></button>
+        </div>
+        <div class="cards" id="cards">
+          <article class="proposal-card" data-id="01" data-status="todo">
+            <div class="card-visual visual-one" aria-hidden="true"><span class="visual-small">DIRECTION 01</span><span class="visual-art visual-art-one"><i></i><i></i><i></i></span><span class="visual-corner">N° 01</span></div>
+            <div class="card-body"><div class="card-meta"><span class="card-category">IDENTITY SYSTEM</span><span class="status"><span class="status-dot"></span>To review</span></div><h3>Quiet confidence</h3><p>Clear typography and considered space create a brand that speaks softly, yet stays with you.</p><button class="open-proposal" type="button" data-open="01" aria-label="Review Quiet confidence">Explore proposal <span aria-hidden="true">↗</span></button></div>
+          </article>
+          <article class="proposal-card" data-id="02" data-status="todo">
+            <div class="card-visual visual-two" aria-hidden="true"><span class="visual-small">DIRECTION 02</span><span class="visual-art visual-art-two"><i></i><i></i></span><span class="visual-corner">N° 02</span></div>
+            <div class="card-body"><div class="card-meta"><span class="card-category">DIGITAL EXPERIENCE</span><span class="status"><span class="status-dot"></span>To review</span></div><h3>Open by nature</h3><p>A lively, modular experience designed to make discovery feel effortless and inviting.</p><button class="open-proposal" type="button" data-open="02" aria-label="Review Open by nature">Explore proposal <span aria-hidden="true">↗</span></button></div>
+          </article>
+          <article class="proposal-card" data-id="03" data-status="todo">
+            <div class="card-visual visual-three" aria-hidden="true"><span class="visual-small">DIRECTION 03</span><span class="visual-art visual-art-three"><i></i><i></i><i></i></span><span class="visual-corner">N° 03</span></div>
+            <div class="card-body"><div class="card-meta"><span class="card-category">CAMPAIGN CONCEPT</span><span class="status"><span class="status-dot"></span>To review</span></div><h3>Made of moments</h3><p>A human-centered campaign built from small encounters and stories worth sharing.</p><button class="open-proposal" type="button" data-open="03" aria-label="Review Made of moments">Explore proposal <span aria-hidden="true">↗</span></button></div>
+          </article>
+        </div>
+        <p class="empty-state" id="empty-state" hidden>Nothing here yet. Choose another filter to keep exploring.</p>
+      </section>
+    </main>
+    <footer class="site-footer"><span>STUDIO NORTH <span class="footer-muted">/ THOUGHTFUL BY DESIGN</span></span><span>REVIEW BOARD · 2026</span></footer>
+  </div>
+
+  <dialog id="review-dialog" aria-labelledby="dialog-title" aria-describedby="dialog-summary">
+    <div class="dialog-inner">
+      <div class="dialog-top"><span class="dialog-kicker" id="dialog-number">DIRECTION 01</span><button class="dialog-close" id="dialog-close" type="button" aria-label="Close review dialog">×</button></div>
+      <h2 id="dialog-title"></h2><p class="dialog-summary" id="dialog-summary"></p>
+      <div class="dialog-divider"></div><p class="checklist-label">BEFORE YOU MARK THIS REVIEWED</p>
+      <div class="checklist">
+        <label><input type="checkbox" data-check="concept"><span class="custom-check" aria-hidden="true"></span><span><strong>Concept</strong><small>I understand the central idea.</small></span></label>
+        <label><input type="checkbox" data-check="execution"><span class="custom-check" aria-hidden="true"></span><span><strong>Execution</strong><small>I’ve considered how it comes to life.</small></span></label>
+        <label><input type="checkbox" data-check="impact"><span class="custom-check" aria-hidden="true"></span><span><strong>Impact</strong><small>I’ve thought about its potential effect.</small></span></label>
+      </div>
+      <button id="mark-reviewed" class="complete-button" type="button" disabled>Mark reviewed <span aria-hidden="true">↗</span></button>
+      <p class="dialog-hint" id="dialog-hint">Complete all three checks to continue.</p>
+    </div>
+  </dialog>
+</body>
+</html>
