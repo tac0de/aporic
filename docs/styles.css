@@ -69,32 +69,45 @@ h1 em, h2 em { font-style: normal; color: var(--blue); }
 .availability { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; font: .62rem/1.5 var(--mono); color: var(--muted); letter-spacing: -.015em; margin: 2rem 0 0; }
 .availability-line { width: 1px; height: 1.8rem; background: var(--ink); margin-right: .85rem; }
 
-.hero-visual { position: relative; height: 39rem; width: calc(100% + .5rem); margin: 3rem -.25rem 0; isolation: isolate; transform: perspective(1000px) rotateX(var(--tilt-x, 0deg)) rotateY(var(--tilt-y, 0deg)); transition: transform .45s var(--ease); }
-.visual-orbit { position: absolute; width: 92%; aspect-ratio: 1; left: 0; top: 13%; border: 1px solid #c4c5c0; border-radius: 50%; }
-.visual-orbit::after { content: ""; position: absolute; inset: 14%; border: 1px solid #dddcd5; border-radius: 50%; }
-.visual-plate { position: absolute; width: 69%; height: 56%; right: 2%; top: 11%; background: #181919 url("assets/hero-engraving.jpg") center / cover; box-shadow: -3rem 6rem 0 -1.3rem #1c2024; overflow: hidden; }
-.visual-plate::after { content: ""; position: absolute; inset: -40%; background: linear-gradient(105deg, transparent 43%, rgba(255,255,255,.13) 50%, transparent 57%); transform: translateX(-100%); }
-.visual-scan { position: absolute; z-index: 2; top: 12%; right: 2%; width: 69%; height: 1px; background: rgba(231,243,166,.8); box-shadow: 0 0 1.6rem .17rem rgba(231,243,166,.55); opacity: 0; pointer-events: none; }
-.visual-note { position: absolute; z-index: 1; font: 600 .47rem/1.45 var(--mono); letter-spacing: .16em; color: var(--muted); }
-.note-top { top: 3%; right: 2%; }
-.note-side { display: none; }
-.ledger-flow { list-style: none; padding: 0; margin: 0; }
-.ledger-flow::before { content: ""; position: absolute; z-index: 2; width: 28%; height: 63%; left: 48%; top: 21%; border-left: 1px solid var(--blue); border-bottom: 1px solid var(--blue); border-radius: 0 0 0 50%; opacity: .55; }
-.ledger-card { position: absolute; z-index: 3; width: 49%; min-width: 0; padding: .75rem .7rem .55rem; background: var(--paper-light); box-shadow: 0 .65rem 2rem rgba(13,22,35,.13); border: 1px solid rgba(30,40,50,.05); }
-.ledger-card::after { content: ""; position: absolute; right: -5px; top: 48%; width: 9px; height: 9px; background: var(--blue); border-radius: 50%; }
-.ledger-heading { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid #cfd0cb; padding-bottom: .5rem; }
-.ledger-heading strong { font: 700 .8rem/1 var(--mono); letter-spacing: -.04em; }
-.ledger-heading span { color: #8b8e91; font: 600 .55rem var(--mono); }
-.ledger-card p { font: clamp(.67rem, 2.3vw, .85rem)/1.24 Georgia, serif; margin: .7rem 0 .85rem; }
-.ledger-path { display: block; border-top: 1px solid #d1d2cd; padding-top: .45rem; color: #989aa0; font: .47rem var(--mono); }
-.card-intent { top: 3%; left: 2%; }
-.card-handoff { top: 27%; left: 44%; }
-.card-evidence { top: 50%; left: 6%; }
-.card-verified { top: 72%; left: 48%; width: 48%; background: var(--lime); }
-.card-verified::after { background: var(--ink); }
-.provenance-seal { position: absolute; z-index: 2; bottom: 6%; left: 4%; width: 6rem; aspect-ratio: 1; border: 1px solid var(--ink); border-radius: 50%; display: grid; place-items: center; text-align: center; transform: rotate(-16deg); background: rgba(246,244,238,.8); }
-.provenance-seal span { font-size: 1.5rem; line-height: 1; }
-.provenance-seal small { position: absolute; inset: auto 0 .6rem; font: 600 .3rem/1.3 var(--mono); letter-spacing: .11em; }
+.hero-visual { min-width: 0; margin: 3rem 0 0; }
+.flow-frame { --flow-progress: .25; border: 1px solid #bfc5cc; background: #eceee9; box-shadow: .75rem .75rem 0 #d6dbe0; overflow: hidden; }
+.flow-topline { display: flex; justify-content: space-between; gap: 1rem; padding: .9rem 1rem; border-bottom: 1px solid #cbd0d1; color: var(--ink-soft); font: 700 .62rem/1.2 var(--mono); letter-spacing: .11em; }
+.flow-count { color: var(--blue); white-space: nowrap; }
+.flow-steps { display: none; list-style: none; margin: 0; padding: .75rem; gap: .45rem; }
+.flow-ready .flow-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.flow-steps button { width: 100%; min-height: 3.3rem; display: flex; align-items: center; gap: .55rem; border: 1px solid #c9cdcd; background: var(--paper-light); color: var(--ink); padding: .65rem .8rem; text-align: left; cursor: pointer; transition: background .25s var(--ease), color .25s var(--ease), transform .25s var(--ease); }
+.flow-steps button:hover { transform: translateY(-2px); }
+.flow-steps button[aria-pressed="true"] { background: var(--blue); color: white; border-color: var(--blue); }
+.flow-steps li:last-child button[aria-pressed="true"] { background: var(--lime); color: var(--ink); border-color: #c5d781; }
+.flow-steps small { font: 700 .62rem/1 var(--mono); opacity: .7; }
+.flow-steps span { font-size: .85rem; font-weight: 600; }
+.flow-progress { height: 2px; background: #cbd0d1; }
+.flow-progress span { display: block; width: 100%; height: 100%; background: var(--blue); transform: scaleX(var(--flow-progress)); transform-origin: left; transition: transform .55s var(--ease); }
+.flow-scene { position: relative; isolation: isolate; min-height: 20rem; padding: 1rem; overflow: hidden; }
+.flow-ready .flow-scene { height: 22rem; }
+.flow-orbit { position: absolute; width: 18rem; height: 18rem; right: -5rem; top: 1rem; border: 1px solid #b7bec0; border-radius: 50%; pointer-events: none; }
+.flow-orbit::after { content: ""; position: absolute; inset: 14%; border: 1px solid #c9ceca; border-radius: 50%; }
+.flow-plate { position: absolute; width: 56%; height: 88%; right: -2%; top: 6%; background: #181919 url("assets/hero-engraving.jpg") center / cover; overflow: hidden; pointer-events: none; }
+.flow-plate::after { content: ""; position: absolute; inset: -40%; background: linear-gradient(105deg, transparent 43%, rgba(255,255,255,.13) 50%, transparent 57%); transform: translateX(-100%); }
+.flow-scan { position: absolute; z-index: 1; top: 8%; right: 0; width: 56%; height: 1px; background: rgba(231,243,166,.8); box-shadow: 0 0 1.6rem .17rem rgba(231,243,166,.55); opacity: 0; pointer-events: none; }
+.flow-card-stack { position: relative; display: grid; gap: 1rem; z-index: 2; }
+.flow-ready .flow-card-stack { height: 100%; }
+.flow-card { min-height: 19rem; display: flex; flex-direction: column; width: 100%; padding: 1.2rem; background: var(--paper-light); box-shadow: 0 .85rem 2.4rem rgba(13,22,35,.17); border: 1px solid rgba(30,40,50,.08); }
+.flow-card-verified { background: var(--lime); }
+.flow-ready .flow-card { position: absolute; inset: 0; opacity: 0; transform: translateY(1.25rem) rotate(1deg); pointer-events: none; transition: opacity .48s var(--ease), transform .55s var(--ease); }
+.flow-ready .flow-card.is-active { opacity: 1; transform: translateY(0) rotate(0); pointer-events: auto; }
+.flow-card-heading { display: flex; justify-content: space-between; gap: .5rem; padding-bottom: .8rem; border-bottom: 1px solid #cfd0cb; color: var(--ink-soft); font: 700 .61rem/1.2 var(--mono); letter-spacing: .07em; }
+.flow-card h2 { font-size: clamp(1.35rem, 5.2vw, 1.8rem); line-height: 1.03; letter-spacing: -.055em; margin: 1.2rem 0 .75rem; }
+.flow-card > p { max-width: 24rem; color: var(--ink-soft); font: 1rem/1.42 Georgia, serif; margin: 0 0 1.2rem; }
+.flow-card-persist { display: flex; flex-direction: column; gap: .4rem; border-top: 1px solid #cfd0cb; padding-top: .75rem; margin-top: auto; }
+.flow-card-persist span { color: var(--muted); font: 700 .62rem/1.2 var(--mono); letter-spacing: .08em; }
+.flow-card-persist strong { font-size: .95rem; font-weight: 600; }
+.flow-controls { display: none; justify-content: space-between; gap: .75rem; padding: .75rem; border-top: 1px solid #cbd0d1; }
+.flow-ready .flow-controls { display: flex; }
+.flow-controls button { min-height: 2.9rem; border: 1px solid var(--ink); background: transparent; color: var(--ink); padding: .65rem .9rem; font-size: .82rem; font-weight: 600; cursor: pointer; }
+.flow-controls .flow-next { margin-left: auto; background: var(--ink); color: white; }
+.flow-controls button:disabled { opacity: .4; cursor: default; }
+.flow-controls button:not(:disabled):hover { background: var(--blue); border-color: var(--blue); color: white; }
 
 .signal-band { overflow: hidden; background: var(--blue); color: white; padding: .8rem 0; border-block: 1px solid var(--blue-deep); }
 .signal-band-track { display: flex; width: max-content; white-space: nowrap; }
@@ -160,26 +173,13 @@ h1 em, h2 em { font-style: normal; color: var(--blue); }
   .hero-actions { display: flex; flex-wrap: wrap; gap: .85rem; }
   .button { min-height: 4.2rem; min-width: 14rem; }
   .availability { font-size: .72rem; }
-  .hero-visual { width: 100%; height: 43rem; margin: 3rem 0 0; }
-  .visual-plate { width: 58%; height: 64%; right: 4%; top: 12%; box-shadow: -9rem 6rem 0 -5rem #1c2024, 1.4rem 11rem 0 -6rem #d6d8d1; }
-  .visual-scan { right: 4%; width: 58%; }
-  .visual-orbit { width: 74%; left: 7%; }
-  .visual-note { font-size: .59rem; }
-  .note-top { top: 5%; }
-  .ledger-flow::before { left: 43%; top: 25%; height: 55%; }
-  .ledger-card { width: 31%; min-width: 10.5rem; padding: 1.1rem 1.1rem .8rem; }
-  .ledger-heading { padding-bottom: .7rem; }
-  .ledger-heading strong { font-size: 1.02rem; }
-  .ledger-heading span { font-size: .67rem; }
-  .ledger-card p { font-size: .8rem; margin: 1rem 0 1.25rem; }
-  .ledger-path { font-size: .57rem; padding-top: .6rem; }
-  .card-intent { top: 2%; left: 12%; }
-  .card-handoff { top: 28%; left: 39%; }
-  .card-evidence { top: 52%; left: 29%; }
-  .card-verified { top: 71%; left: 63%; width: 28%; min-width: 10rem; }
-  .provenance-seal { width: clamp(7rem, 10vw, 10rem); bottom: 10%; left: 11%; }
-  .provenance-seal span { font-size: 2rem; }
-  .provenance-seal small { font-size: .39rem; bottom: .95rem; }
+  .hero-visual { margin: 3rem 0 0; }
+  .flow-ready .flow-steps { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .flow-scene { padding: 2rem; }
+  .flow-ready .flow-scene { height: 24rem; }
+  .flow-card { width: min(72%, 28rem); min-height: 19rem; padding: 1.6rem; }
+  .flow-plate { width: 58%; }
+  .flow-orbit { width: 23rem; height: 23rem; right: 8%; top: 0; }
   .pillar { grid-template-columns: 3.5rem 1fr; gap: 1rem; }
   .pillar h3 { font-size: clamp(1.75rem, 2.2vw, 2.6rem); margin-bottom: 1.4rem; }
   .pillar p { font-size: .95rem; }
@@ -218,11 +218,7 @@ h1 em, h2 em { font-style: normal; color: var(--blue); }
   .hero { display: grid; grid-template-columns: minmax(0, .98fr) minmax(0, 1.02fr); align-items: center; min-height: min(54rem, calc(100svh - 5.6rem)); padding-top: 3.3rem; padding-bottom: 4rem; }
   .hero-copy { align-self: stretch; padding-right: 1rem; }
   h1 { font-size: clamp(4.15rem, 6.7vw, 8.3rem); }
-  .hero-visual { height: min(47rem, 47vw); min-height: 36rem; align-self: center; margin: 0; }
-  .note-side { display: block; top: 51%; right: -1%; }
-  .ledger-card { min-width: 12rem; }
-  .ledger-card p { font-size: clamp(.77rem, 1vw, 1rem); }
-  .card-verified { min-width: 11rem; }
+  .hero-visual { align-self: center; margin: 0; }
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -241,19 +237,13 @@ h1 em, h2 em { font-style: normal; color: var(--blue); }
   .motion-ready .hero-lede { animation-delay: .4s; }
   .motion-ready .hero-actions { animation-delay: .53s; }
   .motion-ready .availability { animation-delay: .66s; }
-  .motion-ready .ledger-card { opacity: 0; }
-  .motion-ready .hero-visual.has-entered .ledger-card { animation: card-arrive .9s var(--ease) both; }
-  .motion-ready .card-intent { animation-delay: .35s; }
-  .motion-ready .card-handoff { animation-delay: .55s; }
-  .motion-ready .card-evidence { animation-delay: .75s; }
-  .motion-ready .card-verified { animation-delay: .95s; }
-  .motion-ready .visual-orbit { animation: orbit-drift 26s linear infinite paused; }
-  .motion-ready .visual-plate::after { animation: plate-glint 8s ease-in-out infinite paused; }
-  .motion-ready .visual-scan { animation: signal-scan 7s ease-in-out infinite 1.4s paused; }
+  .motion-ready .flow-orbit { animation: orbit-drift 26s linear infinite paused; }
+  .motion-ready .flow-plate::after { animation: plate-glint 8s ease-in-out infinite paused; }
+  .motion-ready .flow-scan { animation: signal-scan 7s ease-in-out infinite 1.4s paused; }
   .motion-ready .signal-band-track { animation: signal-ticker 25s linear infinite paused; }
-  .motion-ready .hero-visual.is-playing .visual-orbit,
-  .motion-ready .hero-visual.is-playing .visual-plate::after,
-  .motion-ready .hero-visual.is-playing .visual-scan,
+  .motion-ready .hero-visual.is-playing .flow-orbit,
+  .motion-ready .hero-visual.is-playing .flow-plate::after,
+  .motion-ready .hero-visual.is-playing .flow-scan,
   .motion-ready .signal-band.is-playing .signal-band-track { animation-play-state: running; }
   .motion-ready [data-reveal] { opacity: 0; translate: 0 2rem; transition: opacity .75s var(--ease), translate .75s var(--ease); }
   .motion-ready [data-reveal].is-visible { opacity: 1; translate: 0 0; }
@@ -263,7 +253,6 @@ h1 em, h2 em { font-style: normal; color: var(--blue); }
 
 @keyframes title-rise { from { transform: translateY(105%); } to { transform: translateY(0); } }
 @keyframes fade-rise { from { opacity: 0; transform: translateY(1.5rem); } to { opacity: 1; transform: translateY(0); } }
-@keyframes card-arrive { from { opacity: 0; transform: translateY(2rem) rotate(-3deg); } to { opacity: 1; transform: translateY(0) rotate(0); } }
 @keyframes orbit-drift { to { transform: rotate(360deg); } }
 @keyframes plate-glint { 0%, 20%, 65%, 100% { transform: translateX(-100%); } 45% { transform: translateX(100%); } }
 @keyframes signal-scan { 0%, 18%, 85%, 100% { opacity: 0; transform: translateY(0); } 28% { opacity: .7; } 75% { opacity: .7; transform: translateY(22rem); } }
@@ -273,6 +262,5 @@ h1 em, h2 em { font-style: normal; color: var(--blue); }
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
   .motion-ready [data-reveal] { opacity: 1; translate: none; }
-  .motion-ready .ledger-card { opacity: 1; }
-  .visual-scan { display: none; }
+  .flow-scan { display: none; }
 }

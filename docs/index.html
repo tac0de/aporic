@@ -35,41 +35,56 @@
           <h1 id="hero-title" aria-label="Your agents move. Context stays."><span class="title-line"><span>Your agents</span></span><span class="title-line"><span>move.</span></span><span class="title-line"><span><em>Context stays.</em></span></span></h1>
           <p class="hero-lede">Local project memory, task handoffs, and evidence-backed completion for coding agents.</p>
           <div class="hero-actions">
-            <a class="button button-primary" href="#how-it-works">Explore the system <span aria-hidden="true">→</span></a>
+            <a class="button button-primary" href="#flow">Explore the flow <span aria-hidden="true">→</span></a>
             <a class="button button-outline" href="https://github.com/tac0de/aporic">View on GitHub <span aria-hidden="true">↗</span></a>
           </div>
           <p class="availability"><span class="availability-line" aria-hidden="true"></span> Codex adapter available · Other adapters planned · v0.x</p>
         </div>
 
-        <div class="hero-visual" aria-label="Illustration of a project intent becoming a handoff and then evidence">
-          <div class="visual-orbit" aria-hidden="true"></div>
-          <div class="visual-plate" aria-hidden="true"></div>
-          <div class="visual-scan" aria-hidden="true"></div>
-          <div class="visual-note note-top" aria-hidden="true">CONTEXT<br />TRAVELS<br />FURTHER.</div>
-          <div class="visual-note note-side" aria-hidden="true">SAME<br />WORK.<br />A LONGER<br />MEMORY.</div>
-          <ol class="ledger-flow">
-            <li class="ledger-card card-intent">
-              <div class="ledger-heading"><strong>INTENT</strong><span>01</span></div>
-              <p>Capture goals,<br />constraints, and<br />relevant context.</p>
-              <span class="ledger-path">/project/intent</span>
-            </li>
-            <li class="ledger-card card-handoff">
-              <div class="ledger-heading"><strong>HANDOFF</strong><span>02</span></div>
-              <p>Carry forward what<br />the next session<br />needs to know.</p>
-              <span class="ledger-path">/session/next</span>
-            </li>
-            <li class="ledger-card card-evidence">
-              <div class="ledger-heading"><strong>EVIDENCE</strong><span>03</span></div>
-              <p>Connect outcomes<br />to their sources.</p>
-              <span class="ledger-path">/work/proof</span>
-            </li>
-            <li class="ledger-card card-verified">
-              <div class="ledger-heading"><strong>VERIFIED</strong><span>04</span></div>
-              <p>Describe only what<br />the evidence proves.</p>
-              <span class="ledger-path">/claim/status</span>
-            </li>
-          </ol>
-          <div class="provenance-seal" aria-hidden="true"><span>◈</span><small>EVIDENCE BUILDS TRUST<br />LOCAL FIRST</small></div>
+        <div id="flow" class="hero-visual" role="region" tabindex="-1" aria-label="Explore Aporic's continuity flow">
+          <div class="flow-frame">
+            <div class="flow-topline"><span>THE CONTINUITY LOOP</span><span class="flow-count">01 / 04</span></div>
+            <ol class="flow-steps" aria-label="Choose a stage">
+              <li><button type="button" data-flow-to="0" aria-controls="flow-card-1" aria-pressed="true"><small>01</small><span>Intent</span></button></li>
+              <li><button type="button" data-flow-to="1" aria-controls="flow-card-2" aria-pressed="false"><small>02</small><span>Handoff</span></button></li>
+              <li><button type="button" data-flow-to="2" aria-controls="flow-card-3" aria-pressed="false"><small>03</small><span>Evidence</span></button></li>
+              <li><button type="button" data-flow-to="3" aria-controls="flow-card-4" aria-pressed="false"><small>04</small><span>Verified</span></button></li>
+            </ol>
+            <div class="flow-progress" aria-hidden="true"><span></span></div>
+            <div class="flow-scene">
+              <div class="flow-orbit" aria-hidden="true"></div>
+              <div class="flow-plate" aria-hidden="true"></div>
+              <div class="flow-scan" aria-hidden="true"></div>
+              <div class="flow-card-stack">
+                <article id="flow-card-1" class="flow-card is-active" data-flow-panel="0">
+                  <div class="flow-card-heading"><span>01 / INTENT</span><span>CAPTURE</span></div>
+                  <h2>Start with what matters.</h2>
+                  <p>The goal, constraints, and current decision get a place to live beyond this session.</p>
+                  <div class="flow-card-persist"><span>WHAT PERSISTS</span><strong>A durable project brief</strong></div>
+                </article>
+                <article id="flow-card-2" class="flow-card" data-flow-panel="1">
+                  <div class="flow-card-heading"><span>02 / HANDOFF</span><span>CONTINUE</span></div>
+                  <h2>Leave the next move clear.</h2>
+                  <p>Unfinished work and the next concrete action travel to the following session.</p>
+                  <div class="flow-card-persist"><span>WHAT PERSISTS</span><strong>A bounded next step</strong></div>
+                </article>
+                <article id="flow-card-3" class="flow-card" data-flow-panel="2">
+                  <div class="flow-card-heading"><span>03 / EVIDENCE</span><span>CONNECT</span></div>
+                  <h2>Keep the source attached.</h2>
+                  <p>Tests, files, and observations stay linked to the outcomes they support.</p>
+                  <div class="flow-card-persist"><span>WHAT PERSISTS</span><strong>A traceable source</strong></div>
+                </article>
+                <article id="flow-card-4" class="flow-card flow-card-verified" data-flow-panel="3">
+                  <div class="flow-card-heading"><span>04 / VERIFIED</span><span>CALIBRATE</span></div>
+                  <h2>Say what is known.</h2>
+                  <p>Completion reflects the evidence. Anything untested remains explicitly unknown.</p>
+                  <div class="flow-card-persist"><span>WHAT PERSISTS</span><strong>An honest outcome</strong></div>
+                </article>
+              </div>
+            </div>
+            <div class="flow-controls"><button type="button" class="flow-back" disabled>← Back</button><button type="button" class="flow-next">Next step →</button></div>
+            <p class="flow-announcement visually-hidden" aria-live="polite"></p>
+          </div>
         </div>
       </section>
 
