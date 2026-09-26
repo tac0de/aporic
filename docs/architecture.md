@@ -36,9 +36,11 @@ host/local counts --> provenance gate --> token usage receipt --> efficiency rep
 Git snapshot + typed evidence --> public argument graph --> provisional decision
                                       \--> open aporia + staleness report
 
-human intent --> versioned government charter --> office appointment
-                                                \--> task-bound product cell
-                                                     \--> prototype evidence
+human intent --> versioned government charter --> workspace roster bootstrap
+                                                |     \--> advisory terms/history
+                                                \--> office appointment
+                                                      \--> task-bound product cell
+                                                           \--> prototype evidence
 
 independent Inspector appointment ------------------> assurance report
 ```
@@ -222,6 +224,21 @@ completion, the criterion's verified claim. This establishes a planned use and
 a verified task criterion, not that the memory caused the outcome. The MCP
 surface neither enforces recalled text nor changes host permissions.
 
+Schema v22 advances the government charter to version 2 with three offices:
+`product.experiment`, `memory.information`, and `execution.operations`. A
+workspace must explicitly bootstrap its initial advisory roster; schema
+migration and ordinary workspace opening never create people or active terms.
+The roster has stable person IDs and separately stable position IDs. A term
+binds those identities, preserving appointment, renewal, replacement,
+predecessor, handoff, and retirement history. Host model selection stays outside
+term records. The initial positions are Prime Minister; the three ministers;
+Design, Frontend, Backend, and Game Development leads; and an Independent
+Inspector. The Inspector is outside the three offices. Term records provide
+organizational continuity only: they neither dispatch an assignee nor invoke a
+model, approve a result, change the current human instruction, or grant host
+permissions. Existing session-scoped product-office appointments remain the
+mechanism for product cells. When bootstrapped, a session-scoped product minister must use the active named minister person ID, and product-cell Worker assignees must match active named product leads for their duties. Historical terms retain a snapshot of their position definition. The roster read exposes current incumbents separately from bounded person and term history.
+
 Task-scoped delegation decisions and host-run reports are append-only events.
 Worker parallelism and independent Inspector review are assessed separately;
 each skipped path has a stated reason. Later reports identify host agents and
@@ -239,10 +256,15 @@ assignee separation holds across revoked appointments for the same task.
 - `aporic_roles_list`, `aporic_role_appoint`, `aporic_role_revoke`, and
   `aporic_role_appointments`: inspect duty contracts and record advisory
   assignments with optional catalog capability references.
-- `aporic_government_get`, `aporic_office_appoint`, `aporic_office_revoke`,
+- `aporic_government_get`, `aporic_government_bootstrap`,
+  `aporic_government_person_register`, `aporic_government_term_appoint`,
+  `aporic_government_term_end`, and `aporic_government_roster`: inspect the
+  government charter and explicitly maintain a workspace-scoped advisory
+  roster and its term history.
+- `aporic_office_appoint`, `aporic_office_revoke`,
   `aporic_office_appointments`, `aporic_product_cell_create`, and
-  `aporic_product_cell_list`: inspect the government charter and record the
-  Product Experiment Ministry's accountable, multidisciplinary advisory cells.
+  `aporic_product_cell_list`: record the Product Experiment Ministry's
+  accountable, multidisciplinary advisory cells.
 - `aporic_memory_search` and `aporic_memory_get`: inspect deterministic,
   workspace-scoped memory without granting write or execution authority.
 - `aporic_record`: append one durable typed record.

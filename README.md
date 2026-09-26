@@ -36,8 +36,12 @@ Advisory roles:
 
 Advisory government composition:
 
-- `aporic_government_get`: inspect the versioned Aporic government and
-  Product Experiment Ministry charter;
+- `aporic_government_get`: inspect the versioned Aporic government charter;
+- `aporic_government_bootstrap`, `aporic_government_person_register`,
+  `aporic_government_term_appoint`, `aporic_government_term_end`, and
+  `aporic_government_roster`: explicitly initialize a workspace's advisory
+government roster, maintain stable people and position identities, and retain
+appointment, replacement, and retirement history;
 - `aporic_office_appoint`, `aporic_office_revoke`, and
   `aporic_office_appointments`: bind one active product minister to an existing
   session-scoped Steward appointment without granting authority;
@@ -509,6 +513,47 @@ The repository's [game development practice skill](.agents/skills/aporic-game-de
 guides playable prototypes, blockout and level iteration, game systems, and
 playtesting. It records design reasoning and observed behavior separately;
 it does not turn a design assessment into proof of player enjoyment.
+
+## v0.22 initial advisory government roster
+
+v0.22 advances the government charter to version 2 and makes a small,
+workspace-scoped initial roster available through explicit bootstrap. Bootstrap
+does not migrate or silently seed any existing workspace. It records advisory
+terms for the following stable people and positions:
+
+Run `aporic government bootstrap --workspace PATH` once after updating the
+local binary, then use `aporic government roster --workspace PATH` to inspect
+current incumbents and bounded history. Existing active session-scoped product
+minister appointments must be revoked before bootstrap.
+
+| Position | Person | Responsibility |
+| --- | --- | --- |
+| Prime Minister | 김민준 | coordinate the offices and synthesize their reports |
+| Product Experiment Minister | 이서연 | lead problem, hypothesis, prototype, and evidence work |
+| Memory and Information Minister | 박지훈 | steward durable context, sources, and retrieval quality |
+| Execution and Operations Minister | 최수진 | coordinate tasks, integrations, operational records, and recovery |
+| Design Lead | 정민지 | lead UX, visual, and motion design work in product cells |
+| Frontend Lead | 강도윤 | lead browser implementation, accessibility, and rendered review |
+| Backend Lead | 조현우 | lead service contracts, data, and operational reliability work |
+| Game Development Lead | 윤지우 | lead game systems, levels, playable builds, and playtesting |
+| Independent Inspector | 한예진 | independently inspect evidence and completion claims |
+
+The charter has three offices: Product Experiment Ministry,
+Memory and Information Ministry, and Execution and Operations Ministry.
+The Inspector remains independent of those offices. A person ID identifies the
+individual across terms; a position ID identifies the office or specialist
+seat. The host's model selection remains outside this roster and never changes
+either identity.
+
+Each appointment has a recorded lifecycle: appointment creates an active
+term; renewal or replacement creates a later term that cites its predecessor
+and requires a handoff note; retirement ends the active term without
+erasing it. The roster returns current incumbents separately from bounded
+history. After bootstrap, product-office and product-cell assignments must
+match the named minister and product leads. These are advisory
+organizational records only. They never dispatch an agent, invoke a model,
+grant a host permission, approve a result, or change the authority of the
+current human instruction.
 
 ## Offline evaluation
 

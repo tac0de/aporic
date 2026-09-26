@@ -72,6 +72,10 @@ manual evaluation.
 - Coordination is advisory: task contracts, dependencies, write scopes, leases,
   cancellations, and criterion proofs are recorded, but Aporic does not launch
   workers or grant host authority.
+- Government composition is advisory: workspace-scoped people, positions, and
+  appointment terms preserve organizational continuity, but never dispatch an
+  agent, invoke a model, approve work, or grant authority. The current human
+  instruction remains the authority source.
 - Hermes orchestration is an Aporic-native deterministic envelope, not an
   external agent framework. Steward- and Worker-style roles can submit only
   bounded advisory reports under a fixed `propose` ceiling; Aporic makes no
@@ -177,6 +181,19 @@ neither feature grants provider authority or makes catalog entries executable.
 v0.15 adds only zero-effect advisory orchestration and deterministic shadow
 evaluation; provider invocation, scheduling, and recommendation execution remain
 deferred.
+
+v0.22 introduces the first explicit advisory government roster. A workspace may
+bootstrap the version-2 charter with three offices: Product Experiment, Memory
+and Information, and Execution and Operations. It begins with a Prime Minister,
+three ministers, four product-specialist leads, and an independent Inspector.
+People retain stable IDs across terms, positions retain separate stable IDs, and
+the host's model selection remains outside roster records. Appointments,
+renewals, replacements, handoffs, and retirements are preserved as history so
+later work can identify the responsible position at the time. Each term keeps
+the position definition used at appointment. Once bootstrapped, product
+ministry appointments and product-cell members must match active named
+incumbents. Bootstrap is an explicit action; opening or migrating a workspace
+never seeds personnel.
 
 ## Current evidence
 

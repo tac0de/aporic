@@ -45,14 +45,15 @@ use crate::{
         ExperimentOutcome, ExperimentPortfolio, ExperimentSummary, ExperimentVariant,
         ExperimentVariantAddRequest, ExportEvent, ExportSession, GitSnapshot, GitSnapshotAudit,
         GitSnapshotDraft, GitSnapshotGetRequest, GitSnapshotListRequest, GovernmentAudit,
-        GovernmentWorkspaceRequest, Handoff, HookHealthReport, HubStats, InfluenceClass,
-        MemoryClass, MemoryEdge, MemoryExposure, MemoryGetRequest, MemoryItem, MemoryLifecycle,
-        MemoryProjectionAudit, MemorySearchRequest, MemorySearchResult, OfficeAppointment,
-        OfficeAppointmentCreateRequest, OfficeAppointmentOutcome, OfficeAppointmentRevokeRequest,
-        OpenOutcome, OpenRequest, OrchestrationAudit, OrchestrationOutcome, OrchestrationRun,
-        OrchestrationRunCreateRequest, OrchestrationRunGetRequest, OrchestrationRunListRequest,
-        OrchestrationRunStatus, OrchestrationRunSummary, OrchestrationRunView, OriginChannel,
-        PredictedTaskOutcome, ProductCell, ProductCellCreateRequest, ProductCellMember,
+        GovernmentPerson, GovernmentTerm, GovernmentWorkspaceRequest, Handoff, HookHealthReport,
+        HubStats, InfluenceClass, MemoryClass, MemoryEdge, MemoryExposure, MemoryGetRequest,
+        MemoryItem, MemoryLifecycle, MemoryProjectionAudit, MemorySearchRequest,
+        MemorySearchResult, OfficeAppointment, OfficeAppointmentCreateRequest,
+        OfficeAppointmentOutcome, OfficeAppointmentRevokeRequest, OpenOutcome, OpenRequest,
+        OrchestrationAudit, OrchestrationOutcome, OrchestrationRun, OrchestrationRunCreateRequest,
+        OrchestrationRunGetRequest, OrchestrationRunListRequest, OrchestrationRunStatus,
+        OrchestrationRunSummary, OrchestrationRunView, OriginChannel, PredictedTaskOutcome,
+        ProductCell, ProductCellCreateRequest, ProductCellDuty, ProductCellMember,
         ProductCellOutcome, ProjectExport, RecallRequest, ReceiptArtifact, ReconcileOutcome,
         ReconcileRequest, RecordKind, RecordOutcome, RecordRequest, ResumeBrief, ResumeCandidate,
         ResumeRequest, ResumeStatus, RoleAppointment, RoleAppointmentAudit,
@@ -73,6 +74,7 @@ use crate::{
 
 const SCHEMA: &str = include_str!("../../../migrations/0001_initial.sql");
 mod delegation;
+mod government_roster;
 mod improvements;
 mod memory_use;
 const MIGRATION_2: &str = include_str!("../../../migrations/0002_continuity_hardening.sql");
@@ -95,7 +97,8 @@ const MIGRATION_18: &str = include_str!("../../../migrations/0018_external_resea
 const MIGRATION_19: &str = include_str!("../../../migrations/0019_accountability.sql");
 const MIGRATION_20: &str = include_str!("../../../migrations/0020_improvements.sql");
 const MIGRATION_21: &str = include_str!("../../../migrations/0021_task_memory_use.sql");
-const SCHEMA_VERSION: u32 = 21;
+const MIGRATION_22: &str = include_str!("../../../migrations/0022_government_roster.sql");
+const SCHEMA_VERSION: u32 = 22;
 const MIGRATIONS: &[(u32, &str)] = &[
     (2, MIGRATION_2),
     (3, MIGRATION_3),
@@ -117,6 +120,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (19, MIGRATION_19),
     (20, MIGRATION_20),
     (21, MIGRATION_21),
+    (22, MIGRATION_22),
 ];
 
 #[derive(Debug, Error)]
@@ -739,6 +743,11 @@ impl Store {
         require_text("idempotency_key", &request.idempotency_key)?;
         let office = crate::government::office(&request.office_id, request.office_version)
             .ok_or_else(|| Error::Invalid("unknown office or office version".to_owned()))?;
+        if office.office_id != crate::government::PRODUCT_EXPERIMENT_OFFICE_ID {
+            return Err(Error::Invalid(
+                "session-scoped office appointments support the product ministry; use government terms for cabinet positions".to_owned(),
+            ));
+        }
         let now = unix_millis()?;
         let mut connection = self.connection()?;
         let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
@@ -765,6 +774,20 @@ impl Store {
         {
             return Err(Error::Conflict(
                 "office head requires an active matching session-scoped role appointment"
+                    .to_owned(),
+            ));
+        }
+        if government_roster::roster_initialized(&transaction, &project_id)?
+            && government_roster::active_person_for_position(
+                &transaction,
+                &project_id,
+                "product.experiment.minister",
+            )?
+            .as_deref()
+                != Some(role.assignee_id.as_str())
+        {
+            return Err(Error::Conflict(
+                "product minister role assignee must match the active named cabinet term"
                     .to_owned(),
             ));
         }
@@ -998,6 +1021,36 @@ impl Store {
                         .to_owned(),
                 ));
             }
+            if government_roster::roster_initialized(&transaction, &project_id)? {
+                let lead = government_roster::active_product_lead(
+                    &transaction,
+                    &project_id,
+                    &role.assignee_id,
+                )?;
+                let expected = match &member.duty {
+                    ProductCellDuty::InteractionDesign
+                    | ProductCellDuty::VisualDesign
+                    | ProductCellDuty::MotionDesign => Some("product.design.lead"),
+                    ProductCellDuty::FrontendEngineering => Some("product.frontend.lead"),
+                    ProductCellDuty::BackendEngineering | ProductCellDuty::TechnicalFeasibility => {
+                        Some("product.backend.lead")
+                    }
+                    ProductCellDuty::GameDevelopment | ProductCellDuty::LevelDesign => {
+                        Some("product.game.lead")
+                    }
+                    ProductCellDuty::ProductPlanning
+                    | ProductCellDuty::PrototypeDelivery
+                    | ProductCellDuty::UserResearch => None,
+                };
+                if lead.is_none()
+                    || expected.is_some_and(|position| lead.as_deref() != Some(position))
+                {
+                    return Err(Error::Conflict(
+                        "product cell member must match an active named product lead for the duty"
+                            .to_owned(),
+                    ));
+                }
+            }
             assignees.insert(role.assignee_id.clone());
             resolved_members.push(ProductCellMember {
                 role_appointment_id: role.appointment_id,
@@ -1078,6 +1131,7 @@ impl Store {
 
     pub fn audit_government(&self) -> Result<GovernmentAudit> {
         let connection = self.connection()?;
+        let (person_count, term_count, roster_invalid) = self.audit_government_roster()?;
         let office_ids = connection
             .prepare("SELECT office_appointment_id FROM office_appointments ORDER BY sequence")?
             .query_map([], |row| row.get::<_, String>(0))?
@@ -1086,10 +1140,11 @@ impl Store {
             .prepare("SELECT cell_id FROM product_cells ORDER BY sequence")?
             .query_map([], |row| row.get::<_, String>(0))?
             .collect::<std::result::Result<Vec<_>, _>>()?;
-        let invalid_count = office_ids
-            .iter()
-            .filter(|id| load_office_appointment(&connection, id).is_err())
-            .count() as u64
+        let invalid_count = roster_invalid
+            + office_ids
+                .iter()
+                .filter(|id| load_office_appointment(&connection, id).is_err())
+                .count() as u64
             + cell_ids
                 .iter()
                 .filter(|id| load_product_cell(&connection, id).is_err())
@@ -1097,6 +1152,8 @@ impl Store {
         Ok(GovernmentAudit {
             office_appointment_count: office_ids.len() as u64,
             product_cell_count: cell_ids.len() as u64,
+            person_count,
+            term_count,
             invalid_count,
             consistent: invalid_count == 0,
         })
@@ -6003,6 +6060,28 @@ impl Store {
                 .map(|id| load_product_cell(&connection, id))
                 .collect::<Result<Vec<_>>>()?
         };
+        let government_people = {
+            let mut statement = connection.prepare(
+                "SELECT person_id FROM government_people WHERE project_id = ?1 ORDER BY sequence ASC",
+            )?;
+            let ids = statement
+                .query_map([&project_id], |row| row.get::<_, String>(0))?
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            ids.iter()
+                .map(|id| government_roster::load_person(&connection, id))
+                .collect::<Result<Vec<GovernmentPerson>>>()?
+        };
+        let government_terms = {
+            let mut statement = connection.prepare(
+                "SELECT term_id FROM government_terms WHERE project_id = ?1 ORDER BY sequence ASC",
+            )?;
+            let ids = statement
+                .query_map([&project_id], |row| row.get::<_, String>(0))?
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            ids.iter()
+                .map(|id| government_roster::load_term(&connection, id))
+                .collect::<Result<Vec<GovernmentTerm>>>()?
+        };
         let accountability_cases = {
             let mut statement = connection.prepare(
                 "SELECT case_id FROM accountability_cases WHERE project_id = ?1
@@ -6046,6 +6125,10 @@ impl Store {
                  ) OR stream_id IN (
                      SELECT cell_id FROM product_cells WHERE project_id = ?1
                  ) OR stream_id IN (
+                     SELECT person_id FROM government_people WHERE project_id = ?1
+                 ) OR stream_id IN (
+                     SELECT term_id FROM government_terms WHERE project_id = ?1
+                 ) OR stream_id IN (
                      SELECT case_id FROM accountability_cases WHERE project_id = ?1
                  )
                  ORDER BY sequence ASC",
@@ -6080,7 +6163,7 @@ impl Store {
         };
 
         Ok(ProjectExport {
-            format_version: 17,
+            format_version: 18,
             exported_at_unix_ms: unix_millis()?,
             project_id,
             workspace,
@@ -6115,6 +6198,8 @@ impl Store {
             role_appointments,
             office_appointments,
             product_cells,
+            government_people,
+            government_terms,
             accountability_cases,
             improvement_requests,
             prototype_briefs,

@@ -24,26 +24,28 @@ use crate::{
         ExperimentDecisionRequest, ExperimentGetRequest, ExperimentListRequest,
         ExperimentMeasurementAddRequest, ExperimentOutcome, ExperimentPortfolio, ExperimentSummary,
         ExperimentVariantAddRequest, GitObserveRequest, GitSnapshot, GitSnapshotAudit,
-        GitSnapshotGetRequest, GitSnapshotListRequest, GovernmentAudit, GovernmentDefinition,
-        GovernmentWorkspaceRequest, HookHealthReport, HubStats, ImprovementListRequest,
-        ImprovementOutcome, ImprovementRequest, ImprovementSubmitRequest, MemoryGetRequest,
-        MemoryItem, MemoryProjectionAudit, MemorySearchRequest, MemorySearchResult, ModelRoute,
-        ModelRouteRequest, OfficeAppointment, OfficeAppointmentCreateRequest,
-        OfficeAppointmentOutcome, OfficeAppointmentRevokeRequest, OpenOutcome, OpenRequest,
-        OrchestrationAudit, OrchestrationOutcome, OrchestrationRunCreateRequest,
-        OrchestrationRunGetRequest, OrchestrationRunListRequest, OrchestrationRunSummary,
-        OrchestrationRunView, ProductCell, ProductCellCreateRequest, ProductCellOutcome,
-        ProjectExport, PrototypeBriefCreateRequest, PrototypeBriefOutcome, PrototypeGetRequest,
-        PrototypeReviewOutcome, PrototypeReviewRequest, PrototypeStatus, RecallRequest,
-        ReconcileOutcome, ReconcileRequest, RecordOutcome, RecordRequest, ResumeBrief,
-        ResumeRequest, RoleAppointment, RoleAppointmentAudit, RoleAppointmentCreateRequest,
-        RoleAppointmentListRequest, RoleAppointmentOutcome, RoleAppointmentRevokeRequest,
-        RuntimeEvent, RuntimeObservation, RuntimeProjectionAudit, RuntimeTraceGetRequest,
-        RuntimeTraceListRequest, RuntimeWorkspaceRequest, SecureCapabilityAudit,
-        SecurityArtifactImport, SecurityAssessment, SecurityAssessmentGetRequest,
-        SecurityAssessmentListRequest, SecurityAssessmentOutcome, SecurityCoverage,
-        SecurityImportRequest, ShadowEvaluationRequest, TaskCancelRequest, TaskClaimRequest,
-        TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskMemoryUse,
+        GitSnapshotGetRequest, GitSnapshotListRequest, GovernmentAudit, GovernmentBootstrapRequest,
+        GovernmentDefinition, GovernmentPersonOutcome, GovernmentPersonRegisterRequest,
+        GovernmentRoster, GovernmentRosterOutcome, GovernmentTermAppointRequest,
+        GovernmentTermEndRequest, GovernmentTermOutcome, GovernmentWorkspaceRequest,
+        HookHealthReport, HubStats, ImprovementListRequest, ImprovementOutcome, ImprovementRequest,
+        ImprovementSubmitRequest, MemoryGetRequest, MemoryItem, MemoryProjectionAudit,
+        MemorySearchRequest, MemorySearchResult, ModelRoute, ModelRouteRequest, OfficeAppointment,
+        OfficeAppointmentCreateRequest, OfficeAppointmentOutcome, OfficeAppointmentRevokeRequest,
+        OpenOutcome, OpenRequest, OrchestrationAudit, OrchestrationOutcome,
+        OrchestrationRunCreateRequest, OrchestrationRunGetRequest, OrchestrationRunListRequest,
+        OrchestrationRunSummary, OrchestrationRunView, ProductCell, ProductCellCreateRequest,
+        ProductCellOutcome, ProjectExport, PrototypeBriefCreateRequest, PrototypeBriefOutcome,
+        PrototypeGetRequest, PrototypeReviewOutcome, PrototypeReviewRequest, PrototypeStatus,
+        RecallRequest, ReconcileOutcome, ReconcileRequest, RecordOutcome, RecordRequest,
+        ResumeBrief, ResumeRequest, RoleAppointment, RoleAppointmentAudit,
+        RoleAppointmentCreateRequest, RoleAppointmentListRequest, RoleAppointmentOutcome,
+        RoleAppointmentRevokeRequest, RuntimeEvent, RuntimeObservation, RuntimeProjectionAudit,
+        RuntimeTraceGetRequest, RuntimeTraceListRequest, RuntimeWorkspaceRequest,
+        SecureCapabilityAudit, SecurityArtifactImport, SecurityAssessment,
+        SecurityAssessmentGetRequest, SecurityAssessmentListRequest, SecurityAssessmentOutcome,
+        SecurityCoverage, SecurityImportRequest, ShadowEvaluationRequest, TaskCancelRequest,
+        TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskMemoryUse,
         TaskMemoryUseListRequest, TaskMemoryUseOutcome, TaskMemoryUseRequest, TaskOutcome,
         TaskWorkPacket, TaskWorkPacketRequest, TokenEfficiencyReport, TokenEfficiencyReportRequest,
         TokenUsageAudit, TokenUsageListRequest, TokenUsageOutcome, TokenUsageReceipt,
@@ -121,6 +123,41 @@ impl Hub {
 
     pub fn government_definition(&self) -> GovernmentDefinition {
         crate::government::definition()
+    }
+
+    pub fn bootstrap_government(
+        &self,
+        request: &GovernmentBootstrapRequest,
+    ) -> Result<GovernmentRosterOutcome> {
+        self.store.bootstrap_government(request)
+    }
+
+    pub fn register_government_person(
+        &self,
+        request: &GovernmentPersonRegisterRequest,
+    ) -> Result<GovernmentPersonOutcome> {
+        self.store.register_government_person(request)
+    }
+
+    pub fn appoint_government_term(
+        &self,
+        request: &GovernmentTermAppointRequest,
+    ) -> Result<GovernmentTermOutcome> {
+        self.store.appoint_government_term(request)
+    }
+
+    pub fn end_government_term(
+        &self,
+        request: &GovernmentTermEndRequest,
+    ) -> Result<GovernmentTermOutcome> {
+        self.store.end_government_term(request)
+    }
+
+    pub fn government_roster(
+        &self,
+        request: &GovernmentWorkspaceRequest,
+    ) -> Result<GovernmentRoster> {
+        self.store.government_roster(request)
     }
 
     pub fn create_office_appointment(

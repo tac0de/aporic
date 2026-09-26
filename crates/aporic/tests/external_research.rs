@@ -48,7 +48,7 @@ fn search(workspace: &str, query: &str) -> ResearchSearchRequest {
 #[test]
 fn revisions_are_append_only_and_only_current_content_is_retrieved() {
     let (area, workspace, store, hub) = setup();
-    assert_eq!(hub.stats().unwrap().schema_version, 21);
+    assert_eq!(hub.stats().unwrap().schema_version, 22);
     let first = store
         .ingest_research_document(&workspace, &document("A memory poisoning report"))
         .unwrap();
@@ -96,7 +96,7 @@ fn revisions_are_append_only_and_only_current_content_is_retrieved() {
         .unwrap();
     assert_eq!(count, 2);
     let export = hub.export_project(&workspace).unwrap();
-    assert_eq!(export.format_version, 17);
+    assert_eq!(export.format_version, 18);
     assert_eq!(export.research_revisions.len(), 2);
     assert_eq!(
         export

@@ -290,8 +290,111 @@ pub struct GovernmentDefinition {
     pub authority_source: String,
     pub executive_role_id: String,
     pub offices: Vec<OfficeDefinition>,
+    pub positions: Vec<GovernmentPositionDefinition>,
     pub advisory: bool,
     pub grants_authority: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GovernmentPositionDefinition {
+    pub position_id: String,
+    pub version: u32,
+    pub title: String,
+    pub office_id: Option<String>,
+    pub reports_to: Option<String>,
+    pub independent: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct GovernmentBootstrapRequest {
+    pub session_id: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct GovernmentPersonRegisterRequest {
+    pub session_id: String,
+    pub full_name: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct GovernmentTermAppointRequest {
+    pub session_id: String,
+    pub person_id: String,
+    pub position_id: String,
+    pub handoff_note: Option<String>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct GovernmentTermEndRequest {
+    pub session_id: String,
+    pub term_id: String,
+    pub reason: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GovernmentPerson {
+    pub person_id: String,
+    pub full_name: String,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GovernmentTerm {
+    pub term_id: String,
+    pub person_id: String,
+    pub position_id: String,
+    pub position: GovernmentPositionDefinition,
+    pub predecessor_term_id: Option<String>,
+    pub handoff_note: Option<String>,
+    pub started_at_unix_ms: i64,
+    pub ended_at_unix_ms: Option<i64>,
+    pub end_reason: Option<String>,
+    pub term_sha256: String,
+    pub advisory: bool,
+    pub grants_authority: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GovernmentRoster {
+    pub current: Vec<GovernmentIncumbent>,
+    pub people: Vec<GovernmentPerson>,
+    pub terms: Vec<GovernmentTerm>,
+    pub positions: Vec<GovernmentPositionDefinition>,
+    pub initialized: bool,
+    pub advisory: bool,
+    pub grants_authority: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GovernmentIncumbent {
+    pub person: GovernmentPerson,
+    pub term: GovernmentTerm,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GovernmentRosterOutcome {
+    pub roster: GovernmentRoster,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GovernmentPersonOutcome {
+    pub person: GovernmentPerson,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct GovernmentTermOutcome {
+    pub term: GovernmentTerm,
+    pub duplicate: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -364,6 +467,7 @@ pub enum ProductCellDuty {
     InteractionDesign,
     VisualDesign,
     MotionDesign,
+    FrontendEngineering,
     BackendEngineering,
     GameDevelopment,
     LevelDesign,
@@ -379,6 +483,7 @@ impl ProductCellDuty {
             Self::InteractionDesign => "interaction_design",
             Self::VisualDesign => "visual_design",
             Self::MotionDesign => "motion_design",
+            Self::FrontendEngineering => "frontend_engineering",
             Self::BackendEngineering => "backend_engineering",
             Self::GameDevelopment => "game_development",
             Self::LevelDesign => "level_design",
@@ -543,6 +648,8 @@ pub struct AccountabilityAudit {
 pub struct GovernmentAudit {
     pub office_appointment_count: u64,
     pub product_cell_count: u64,
+    pub person_count: u64,
+    pub term_count: u64,
     pub invalid_count: u64,
     pub consistent: bool,
 }
@@ -3243,6 +3350,8 @@ pub struct ProjectExport {
     pub role_appointments: Vec<RoleAppointment>,
     pub office_appointments: Vec<OfficeAppointment>,
     pub product_cells: Vec<ProductCell>,
+    pub government_people: Vec<GovernmentPerson>,
+    pub government_terms: Vec<GovernmentTerm>,
     pub accountability_cases: Vec<AccountabilityCase>,
     #[serde(default)]
     pub improvement_requests: Vec<ImprovementRequest>,

@@ -57,7 +57,12 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_git_observe",
             "aporic_git_snapshot_get",
             "aporic_git_snapshot_list",
+            "aporic_government_bootstrap",
             "aporic_government_get",
+            "aporic_government_person_register",
+            "aporic_government_roster",
+            "aporic_government_term_appoint",
+            "aporic_government_term_end",
             "aporic_hook_health",
             "aporic_improvement_list",
             "aporic_improvement_submit",
@@ -158,6 +163,28 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
         .as_str()
         .expect("open result has a session id")
         .to_owned();
+    let bootstrap = call_json(
+        &client,
+        "aporic_government_bootstrap",
+        json!({"session_id": session_id, "idempotency_key": "mcp-government-bootstrap"}),
+    )
+    .await?;
+    assert_eq!(bootstrap["ok"], true);
+    assert_eq!(
+        bootstrap["result"]["roster"]["people"]
+            .as_array()
+            .unwrap()
+            .len(),
+        9
+    );
+    let roster = call_json(
+        &client,
+        "aporic_government_roster",
+        json!({"workspace": workspace}),
+    )
+    .await?;
+    assert_eq!(roster["result"]["initialized"], true);
+    assert_eq!(roster["result"]["terms"].as_array().unwrap().len(), 9);
     let accountability = call_json(
         &client,
         "aporic_accountability_list",

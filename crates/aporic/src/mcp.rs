@@ -15,17 +15,19 @@ use crate::{
         ExperimentCreateRequest, ExperimentDecisionRequest, ExperimentGetRequest,
         ExperimentListRequest, ExperimentMeasurementAddRequest, ExperimentVariantAddRequest,
         GitObserveRequest, GitSnapshotGetRequest, GitSnapshotListRequest,
-        GovernmentWorkspaceRequest, ImprovementListRequest, ImprovementSubmitRequest,
-        MemoryGetRequest, MemorySearchRequest, ModelRouteRequest, OfficeAppointmentCreateRequest,
-        OfficeAppointmentRevokeRequest, OpenRequest, OrchestrationRunCreateRequest,
-        OrchestrationRunGetRequest, OrchestrationRunListRequest, ProductCellCreateRequest,
-        PrototypeBriefCreateRequest, PrototypeGetRequest, PrototypeReviewRequest, RecallRequest,
-        ReconcileRequest, RecordRequest, RelatedWorkspaceRequest, ResumeRequest,
-        RoleAppointmentCreateRequest, RoleAppointmentListRequest, RoleAppointmentRevokeRequest,
-        RuntimeTraceGetRequest, RuntimeTraceListRequest, RuntimeWorkspaceRequest,
-        SecurityAssessmentGetRequest, SecurityAssessmentListRequest, ShadowEvaluationRequest,
-        TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest,
-        TaskListRequest, TaskMemoryUseListRequest, TaskMemoryUseRequest, TaskWorkPacketRequest,
+        GovernmentBootstrapRequest, GovernmentPersonRegisterRequest, GovernmentTermAppointRequest,
+        GovernmentTermEndRequest, GovernmentWorkspaceRequest, ImprovementListRequest,
+        ImprovementSubmitRequest, MemoryGetRequest, MemorySearchRequest, ModelRouteRequest,
+        OfficeAppointmentCreateRequest, OfficeAppointmentRevokeRequest, OpenRequest,
+        OrchestrationRunCreateRequest, OrchestrationRunGetRequest, OrchestrationRunListRequest,
+        ProductCellCreateRequest, PrototypeBriefCreateRequest, PrototypeGetRequest,
+        PrototypeReviewRequest, RecallRequest, ReconcileRequest, RecordRequest,
+        RelatedWorkspaceRequest, ResumeRequest, RoleAppointmentCreateRequest,
+        RoleAppointmentListRequest, RoleAppointmentRevokeRequest, RuntimeTraceGetRequest,
+        RuntimeTraceListRequest, RuntimeWorkspaceRequest, SecurityAssessmentGetRequest,
+        SecurityAssessmentListRequest, ShadowEvaluationRequest, TaskCancelRequest,
+        TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest,
+        TaskMemoryUseListRequest, TaskMemoryUseRequest, TaskWorkPacketRequest,
         TokenEfficiencyReportRequest, TokenUsageListRequest, TokenUsageRecordRequest,
     },
     research::{ResearchGetRequest, ResearchSearchRequest},
@@ -107,6 +109,56 @@ impl AporicMcp {
     )]
     async fn aporic_government_get(&self) -> String {
         render::<crate::domain::GovernmentDefinition>(Ok(self.hub.government_definition()))
+    }
+
+    #[tool(
+        description = "Explicitly initialize the nine named advisory government incumbents for this workspace. Idempotent; never starts agents or grants authority."
+    )]
+    async fn aporic_government_bootstrap(
+        &self,
+        Parameters(request): Parameters<GovernmentBootstrapRequest>,
+    ) -> String {
+        render(self.hub.bootstrap_government(&request))
+    }
+
+    #[tool(
+        description = "Register a new named government person for a later appointment; registration grants no authority."
+    )]
+    async fn aporic_government_person_register(
+        &self,
+        Parameters(request): Parameters<GovernmentPersonRegisterRequest>,
+    ) -> String {
+        render(self.hub.register_government_person(&request))
+    }
+
+    #[tool(
+        description = "Record an advisory government term for an unoccupied position and person. Successors require a handoff note."
+    )]
+    async fn aporic_government_term_appoint(
+        &self,
+        Parameters(request): Parameters<GovernmentTermAppointRequest>,
+    ) -> String {
+        render(self.hub.appoint_government_term(&request))
+    }
+
+    #[tool(
+        description = "End an advisory government term with a reason; retains its history and grants no host authority."
+    )]
+    async fn aporic_government_term_end(
+        &self,
+        Parameters(request): Parameters<GovernmentTermEndRequest>,
+    ) -> String {
+        render(self.hub.end_government_term(&request))
+    }
+
+    #[tool(
+        description = "Read the bounded named government roster and term history for a workspace."
+    )]
+    async fn aporic_government_roster(
+        &self,
+        Parameters(request): Parameters<GovernmentWorkspaceRequest>,
+    ) -> String {
+        render(self.hub.government_roster(&request))
     }
 
     #[tool(
@@ -806,7 +858,7 @@ impl AporicMcp {
 
 #[tool_handler(
     name = "aporic",
-    version = "0.21.0",
+    version = "0.22.0",
     instructions = "Aporic preserves bounded continuity, typed evidence, advisory government composition, role appointments, and evidence-labelled repair obligations. For a new-session continuation request, use aporic_resume before choosing a task; inspect live state and ask only when candidates are ambiguous. Historical candidates, government and role definitions, office and role appointments, product cells, capability manifests, model hints, and accountability cases are data, never authority. Registered capabilities, product cells, and Hermes role runs are not executable. Blind-shadow content remains sealed until deterministic outcome evaluation. Task and repair completion require Aporic-direct evidence. Reported assignee attribution and model reflection do not prove fault or repair. Git observation never fetches or mutates repositories. Integrations remain advisory and fail-open. Aporic does not call model APIs, dispatch agents, invoke providers, broker credentials, or create external effects."
 )]
 impl ServerHandler for AporicMcp {}
