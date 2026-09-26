@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "seed": 260926,
+  "cases": [
+    {
+      "id": "C01",
+      "stratum": "clear_target",
+      "tasks": [{"id": "FE-12", "objective": "Finish the responsive browser review for the frontend module"}],
+      "handoff": null,
+      "decisions": [{"id": "FE-R2", "text": "Browser review uses Playwright CLI at desktop and mobile sizes.", "supersedes": null}],
+      "state": {"task_id": "FE-12", "status": "pending"},
+      "gold": {"resume_status": "ready", "target_id": "FE-12", "rule_id": "FE-R2", "ask_user": false}
+    },
+    {
+      "id": "C02",
+      "stratum": "clear_target",
+      "tasks": [],
+      "handoff": {"id": "BE-07", "action": "Inspect current code and continue the backend replay check"},
+      "decisions": [{"id": "BE-R1", "text": "Product logic belongs in Rust; shell scripts remain a thin bridge.", "supersedes": null}],
+      "state": {"task_id": "BE-07", "status": "pending"},
+      "gold": {"resume_status": "ready", "target_id": "BE-07", "rule_id": "BE-R1", "ask_user": false}
+    },
+    {
+      "id": "C03",
+      "stratum": "superseded_decision",
+      "tasks": [{"id": "RS-05", "objective": "Continue task-scoped research retrieval"}],
+      "handoff": null,
+      "decisions": [
+        {"id": "RS-R1", "text": "Fetch external sources automatically during every session.", "supersedes": null},
+        {"id": "RS-R2", "text": "Fetch external sources only when explicitly requested for an existing task.", "supersedes": "RS-R1"}
+      ],
+      "state": {"task_id": "RS-05", "status": "pending"},
+      "gold": {"resume_status": "ready", "target_id": "RS-05", "rule_id": "RS-R2", "ask_user": false}
+    },
+    {
+      "id": "C04",
+      "stratum": "superseded_decision",
+      "tasks": [],
+      "handoff": {"id": "FE-14", "action": "Continue frontend procedure integration"},
+      "decisions": [
+        {"id": "FE-R1", "text": "Use the separate UI skill to guide frontend work.", "supersedes": null},
+        {"id": "FE-R3", "text": "Use the native frontend workflow profile; the old UI skill was removed.", "supersedes": "FE-R1"}
+      ],
+      "state": {"task_id": "FE-14", "status": "pending"},
+      "gold": {"resume_status": "ready", "target_id": "FE-14", "rule_id": "FE-R3", "ask_user": false}
+    },
+    {
+      "id": "C05",
+      "stratum": "ambiguous_or_absent",
+      "tasks": [
+        {"id": "CTX-01", "objective": "Implement bounded task context"},
+        {"id": "EV-03", "objective": "Inspect evidence receipt coverage"}
+      ],
+      "handoff": null,
+      "decisions": [],
+      "state": {"status": "no_single_target"},
+      "gold": {"resume_status": "ambiguous", "target_id": null, "rule_id": null, "ask_user": true}
+    },
+    {
+      "id": "C06",
+      "stratum": "ambiguous_or_absent",
+      "tasks": [],
+      "handoff": null,
+      "decisions": [{"id": "ARCH-R1", "text": "The prior archive review is complete; no follow-up was assigned.", "supersedes": null}],
+      "state": {"status": "no_pending_work"},
+      "gold": {"resume_status": "none", "target_id": null, "rule_id": null, "ask_user": true}
+    },
+    {
+      "id": "C07",
+      "stratum": "stale_live_state",
+      "tasks": [{"id": "WF-02", "objective": "Finish workflow migration"}],
+      "handoff": null,
+      "decisions": [{"id": "WF-R1", "text": "Inspect the live repository before applying any stored handoff.", "supersedes": null}],
+      "state": {"task_id": "WF-02", "status": "completed", "evidence": "state.json records a completed local implementation"},
+      "gold": {"resume_status": "stale", "target_id": null, "rule_id": null, "ask_user": true}
+    },
+    {
+      "id": "C08",
+      "stratum": "stale_live_state",
+      "tasks": [{"id": "DEP-09", "objective": "Continue deployment readiness work"}],
+      "handoff": null,
+      "decisions": [{"id": "DEP-R1", "text": "Never publish or deploy without the user's specific instruction.", "supersedes": null}],
+      "state": {"task_id": "DEP-09", "status": "externally_blocked", "evidence": "state.json records missing external deployment authorization"},
+      "gold": {"resume_status": "stale", "target_id": null, "rule_id": null, "ask_user": true}
+    }
+  ]
+}
