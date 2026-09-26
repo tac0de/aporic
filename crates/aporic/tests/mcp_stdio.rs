@@ -87,6 +87,7 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_reconcile",
             "aporic_record",
             "aporic_related_workspaces",
+            "aporic_research_fetch",
             "aporic_research_get",
             "aporic_research_search",
             "aporic_resume",
@@ -108,6 +109,8 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_task_list",
             "aporic_task_memory_apply",
             "aporic_task_memory_list",
+            "aporic_task_research_attach",
+            "aporic_task_research_list",
             "aporic_task_work_packet",
             "aporic_token_efficiency_report",
             "aporic_token_usage_list",
@@ -226,10 +229,55 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
         found["result"]["items"][0]["influence_class"],
         "untrusted_external_content"
     );
-
+    let rejected_fetch = call_json(
+        &client,
+        "aporic_research_fetch",
+        json!({
+            "workspace": workspace,
+            "task_id": "missing-task",
+            "source": "github",
+            "query": "retrieval"
+        }),
+    )
+    .await?;
+    assert_eq!(rejected_fetch["ok"], false);
     let resumed = call_json(&client, "aporic_resume", json!({ "workspace": workspace })).await?;
     assert_eq!(resumed["result"]["status"], "ready");
     assert_eq!(resumed["result"]["selected"]["source"], "open_session");
+    let research_task = call_json(
+        &client,
+        "aporic_task_create",
+        json!({
+            "session_id": session_id,
+            "objective": "Review research",
+            "acceptance_criteria": ["Cite one source"],
+            "idempotency_key": "mcp-research-task"
+        }),
+    )
+    .await?;
+    let research_task_id = research_task["result"]["task"]["task_id"].as_str().unwrap();
+    let attached = call_json(
+        &client,
+        "aporic_task_research_attach",
+        json!({
+            "workspace": workspace,
+            "task_id": research_task_id,
+            "revision_id": stored.revision_id,
+            "relevance_note": "Retrieval failure report",
+            "idempotency_key": "mcp-research-attach"
+        }),
+    )
+    .await?;
+    assert_eq!(attached["ok"], true);
+    let linked = call_json(
+        &client,
+        "aporic_task_research_list",
+        json!({"workspace": workspace, "task_id": research_task_id}),
+    )
+    .await?;
+    assert_eq!(linked["result"].as_array().unwrap().len(), 1);
+    assert_eq!(linked["result"][0]["provenance"], "aporic_api");
+
     let roles = call_json(&client, "aporic_roles_list", json!({})).await?;
     assert_eq!(roles["result"].as_array().unwrap().len(), 4);
     let government = call_json(&client, "aporic_government_get", json!({})).await?;

@@ -247,7 +247,8 @@ fn upgrades_schema_19_to_20() {
     let connection = rusqlite::Connection::open(&database).unwrap();
     connection
         .execute_batch(
-            "DROP TABLE prompt_trials;
+            "DROP TABLE task_research_items;
+            DROP TABLE prompt_trials;
             DROP TABLE task_brief_receipts;
             DROP TABLE government_terms;
             DROP TABLE government_roster_state;
@@ -260,5 +261,5 @@ fn upgrades_schema_19_to_20() {
         .unwrap();
     drop(connection);
     let hub = Hub::open(&database).unwrap();
-    assert_eq!(hub.stats().unwrap().schema_version, 24);
+    assert_eq!(hub.stats().unwrap().schema_version, 25);
 }

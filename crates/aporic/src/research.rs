@@ -49,6 +49,18 @@ pub struct ResearchGetRequest {
     pub document_id: String,
 }
 
+/// A host-initiated, bounded refresh of one official research source for an
+/// existing task. This is deliberately a request/response operation: it never
+/// schedules background collection.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ResearchFetchRequest {
+    pub workspace: String,
+    pub task_id: String,
+    pub source: String,
+    pub query: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct ResearchItem {
     pub document_id: String,
@@ -89,6 +101,13 @@ pub struct SyncOutcome {
     pub fetched: usize,
     pub changed: usize,
     pub unchanged: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct ResearchFetchOutcome {
+    pub task_id: String,
+    pub sync: SyncOutcome,
+    pub results: ResearchSearchResult,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -402,7 +421,10 @@ pub fn sync(store: &Store, workspace: &str, source: &str, query: &str) -> Result
     }
     let client = Client::builder()
         .timeout(std::time::Duration::from_secs(20))
-        .user_agent("Aporic/0.18 (+https://github.com/tac0de/aporic)")
+        .user_agent(format!(
+            "Aporic/{} (+https://github.com/tac0de/aporic)",
+            env!("CARGO_PKG_VERSION")
+        ))
         .build()
         .map_err(|error| Error::Invalid(format!("HTTP client: {error}")))?;
     let documents = match source {

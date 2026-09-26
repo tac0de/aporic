@@ -78,6 +78,7 @@ mod government_roster;
 mod improvements;
 mod memory_use;
 mod prompt_trial;
+mod research_link;
 mod task_brief;
 const MIGRATION_2: &str = include_str!("../../../migrations/0002_continuity_hardening.sql");
 const MIGRATION_3: &str = include_str!("../../../migrations/0003_coordination.sql");
@@ -102,7 +103,8 @@ const MIGRATION_21: &str = include_str!("../../../migrations/0021_task_memory_us
 const MIGRATION_22: &str = include_str!("../../../migrations/0022_government_roster.sql");
 const MIGRATION_23: &str = include_str!("../../../migrations/0023_task_briefs.sql");
 const MIGRATION_24: &str = include_str!("../../../migrations/0024_prompt_trials.sql");
-const SCHEMA_VERSION: u32 = 24;
+const MIGRATION_25: &str = include_str!("../../../migrations/0025_task_research.sql");
+const SCHEMA_VERSION: u32 = 25;
 const MIGRATIONS: &[(u32, &str)] = &[
     (2, MIGRATION_2),
     (3, MIGRATION_3),
@@ -127,6 +129,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (22, MIGRATION_22),
     (23, MIGRATION_23),
     (24, MIGRATION_24),
+    (25, MIGRATION_25),
 ];
 
 #[derive(Debug, Error)]
@@ -6169,7 +6172,7 @@ impl Store {
         };
 
         Ok(ProjectExport {
-            format_version: 20,
+            format_version: 21,
             exported_at_unix_ms: unix_millis()?,
             project_id,
             workspace,
@@ -6213,6 +6216,7 @@ impl Store {
             prototype_briefs,
             prototype_reviews,
             research_revisions: self.research_revisions(raw_workspace)?,
+            task_research_items: self.export_task_research(raw_workspace)?,
             events,
         })
     }

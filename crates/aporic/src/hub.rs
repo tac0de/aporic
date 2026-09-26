@@ -48,8 +48,9 @@ use crate::{
         SecurityCoverage, SecurityImportRequest, ShadowEvaluationRequest, TaskBriefOutcome,
         TaskBriefRequest, TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest,
         TaskCreateRequest, TaskListRequest, TaskMemoryUse, TaskMemoryUseListRequest,
-        TaskMemoryUseOutcome, TaskMemoryUseRequest, TaskOutcome, TaskWorkPacket,
-        TaskWorkPacketRequest, TokenEfficiencyReport, TokenEfficiencyReportRequest,
+        TaskMemoryUseOutcome, TaskMemoryUseRequest, TaskOutcome, TaskResearchAttachRequest,
+        TaskResearchAudit, TaskResearchItem, TaskResearchListRequest, TaskResearchOutcome,
+        TaskWorkPacket, TaskWorkPacketRequest, TokenEfficiencyReport, TokenEfficiencyReportRequest,
         TokenUsageAudit, TokenUsageListRequest, TokenUsageOutcome, TokenUsageReceipt,
         TokenUsageRecordRequest, WorkComplexity, WorkKind,
     },
@@ -251,6 +252,35 @@ impl Hub {
         self.store.research_get(request)
     }
 
+    pub fn research_fetch_task(
+        &self,
+        request: &crate::research::ResearchFetchRequest,
+    ) -> Result<crate::research::ResearchFetchOutcome> {
+        self.store
+            .research_task(&request.workspace, &request.task_id)?;
+        let sync = crate::research::sync(
+            &self.store,
+            &request.workspace,
+            &request.source,
+            &request.query,
+        )?;
+        let results = self
+            .store
+            .research_search(&crate::research::ResearchSearchRequest {
+                workspace: request.workspace.clone(),
+                query: request.query.clone(),
+                cell_id: None,
+                source: Some(request.source.clone()),
+                limit: Some(20),
+                max_bytes: Some(16_384),
+            })?;
+        Ok(crate::research::ResearchFetchOutcome {
+            task_id: request.task_id.clone(),
+            sync,
+            results,
+        })
+    }
+
     pub fn research_sync(
         &self,
         workspace: &str,
@@ -258,6 +288,24 @@ impl Hub {
         query: &str,
     ) -> Result<crate::research::SyncOutcome> {
         crate::research::sync(&self.store, workspace, source, query)
+    }
+
+    pub fn attach_task_research(
+        &self,
+        request: &TaskResearchAttachRequest,
+    ) -> Result<TaskResearchOutcome> {
+        self.store.attach_task_research(request)
+    }
+
+    pub fn list_task_research(
+        &self,
+        request: &TaskResearchListRequest,
+    ) -> Result<Vec<TaskResearchItem>> {
+        self.store.list_task_research(request)
+    }
+
+    pub fn audit_task_research(&self) -> Result<TaskResearchAudit> {
+        self.store.audit_task_research()
     }
 
     pub fn audit_research(&self) -> Result<crate::research::ResearchAudit> {

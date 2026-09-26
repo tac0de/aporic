@@ -98,6 +98,10 @@ manual evaluation.
   source-labelled FTS5 corpus. Explicit CLI sync retains immutable revisions;
   agent retrieval is bounded and read-only. External text remains untrusted
   and cannot establish verified product outcomes.
+- v0.25 lets a host explicitly fetch bounded official-source material for an
+  existing task, then attach selected revisions as citations. Bounded Reddit
+  and LinkedIn observations can be attached as host-reported source data;
+  Aporic does not claim direct API access or independent verification.
 - Context selection is deterministic, byte-bounded, and auditable through a
   policy digest and per-item reason codes.
 - The optional Codex hook reads lifecycle events without calling a model API or

@@ -702,6 +702,28 @@ document. The external index is separate from Aporic's durable memory index.
 `aporic doctor` checks revision hashes and current pointers. `aporic export`
 includes the revision history. There are no embeddings or model API calls.
 
+## v0.25 task-scoped research
+
+`aporic_research_fetch` takes an existing `workspace` and `task_id`, plus a
+`source` (`github` or `stackoverflow`) and query. The host calls it when the
+task needs current outside evidence. It validates the task before making one
+bounded official API request, then returns sync counts and matches from the
+workspace corpus for the same source and query. Those matches may include
+earlier imports. It does not schedule itself or decide when research is needed.
+
+`aporic_task_research_attach` links a selected immutable `revision_id` to the
+task with an idempotency key and a short `relevance_note`. A later sync cannot
+change that citation. `aporic_task_research_list` returns links with URL,
+content hash, observed time, and provenance.
+
+For Reddit and LinkedIn, the host may instead attach a URL, title, and at most
+1,500 bytes of excerpt through `host_observation`. These are marked
+`host_reported`: Aporic does not fetch, authenticate, or independently verify
+them. Use host-owned access only when available and permitted. There is no
+Reddit or LinkedIn API adapter. All external text remains untrusted task data.
+Schema v25 adds append-only task research items; project export format v21 and
+`aporic doctor` include them.
+
 ## v0.19 accountability and repair
 
 Aporic records material mistakes as evidence-labelled, task-bound advisory

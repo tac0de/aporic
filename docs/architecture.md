@@ -197,6 +197,16 @@ An optional product cell supplies query context. Search results carry source
 URLs, fetch times, hashes, and an untrusted-content notice. The corpus never
 enters verified claims or authorization state.
 
+Schema v25 adds append-only task research items. Each item is scoped to a task
+and workspace, with an idempotent event, relevance note, source URL, digest,
+and provenance. Official-API items bind an immutable v18 revision; host-reported
+Reddit or LinkedIn observations store only a bounded excerpt and make no claim
+of API retrieval or independent verification. MCP exposes explicit task-scoped
+fetch, attach, and list operations. Fetch validates the task before the
+network call and remains host initiated; it never runs in the background.
+Doctor checks revision and task bindings and item digests. Export format v21
+includes the items. The records never enter verified claims or host policy.
+
 Schema v19 adds task-bound accountability cases as advisory repair obligations.
 The opening record is digest-bound and source evidence retains its grade; any
 assignee attribution remains reported. Plan revisions preserve model-authored

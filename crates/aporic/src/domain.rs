@@ -3175,6 +3175,64 @@ pub struct TaskBriefOutcome {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TaskResearchAttachRequest {
+    pub workspace: String,
+    pub task_id: String,
+    pub revision_id: Option<String>,
+    pub host_observation: Option<HostResearchObservation>,
+    pub relevance_note: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct HostResearchObservation {
+    pub source: String,
+    pub source_url: String,
+    pub title: String,
+    pub excerpt: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TaskResearchListRequest {
+    pub workspace: String,
+    pub task_id: String,
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskResearchItem {
+    pub item_id: String,
+    pub task_id: String,
+    pub revision_id: Option<String>,
+    pub source: String,
+    pub source_url: String,
+    pub title: String,
+    pub excerpt: String,
+    pub content_sha256: String,
+    pub provenance: String,
+    pub relevance_note: String,
+    pub observed_at_unix_ms: i64,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskResearchOutcome {
+    pub item: TaskResearchItem,
+    pub duplicate: bool,
+    pub authority_notice: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskResearchAudit {
+    pub consistent: bool,
+    pub item_count: usize,
+    pub mismatches: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum PromptCriterionRating {
     Met,
@@ -3478,5 +3536,7 @@ pub struct ProjectExport {
     #[serde(default)]
     pub prototype_reviews: Vec<PrototypeReview>,
     pub research_revisions: Vec<crate::research::ResearchRevision>,
+    #[serde(default)]
+    pub task_research_items: Vec<TaskResearchItem>,
     pub events: Vec<ExportEvent>,
 }

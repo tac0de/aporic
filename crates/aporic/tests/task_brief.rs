@@ -89,7 +89,7 @@ fn task_brief_is_versioned_bounded_idempotent_and_privacy_preserving() {
     assert!(hub.task_brief(&request).is_err());
 
     let restarted = Hub::open(&database).unwrap();
-    assert_eq!(restarted.stats().unwrap().schema_version, 24);
+    assert_eq!(restarted.stats().unwrap().schema_version, 25);
     let export = restarted
         .export_project(workspace.to_string_lossy().as_ref())
         .unwrap();

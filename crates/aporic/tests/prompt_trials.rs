@@ -159,7 +159,7 @@ fn compares_two_variants_without_promoting_reported_quality_to_causal_proof() {
     assert_eq!(alternative_summary.associated_verified_claims, 0);
 
     let restarted = Hub::open(&database).unwrap();
-    assert_eq!(restarted.stats().unwrap().schema_version, 24);
+    assert_eq!(restarted.stats().unwrap().schema_version, 25);
     assert_eq!(
         restarted
             .compare_prompt_trials(&comparison_request)
@@ -170,7 +170,7 @@ fn compares_two_variants_without_promoting_reported_quality_to_causal_proof() {
         .export_project(workspace.to_string_lossy().as_ref())
         .unwrap();
     assert_eq!(export.prompt_trials.len(), 2);
-    assert_eq!(export.format_version, 20);
+    assert_eq!(export.format_version, 21);
     let serialized = serde_json::to_string(&export).unwrap();
     assert!(!serialized.contains("RAW-SECRET-RESPONSE-CONTENT"));
 }
