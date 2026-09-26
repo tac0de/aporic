@@ -42,6 +42,7 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_deliberation_get",
             "aporic_deliberation_list",
             "aporic_deliberation_node_add",
+            "aporic_design_validate",
             "aporic_dissent_assess",
             "aporic_evidence_add",
             "aporic_experiment_create",
@@ -113,6 +114,26 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
     )
     .await?;
     assert_eq!(opened["ok"], true);
+    std::fs::write(
+        workspace.join("design.json"),
+        serde_json::to_vec(&json!({
+            "schema_version": 1,
+            "task_id": "stdio-design",
+            "objective": "Exercise design validation",
+            "target_user": "Contributor",
+            "references": [],
+            "selected_direction": null,
+            "artifacts": []
+        }))?,
+    )?;
+    let design = call_json(
+        &client,
+        "aporic_design_validate",
+        json!({"workspace": workspace, "manifest": "design.json"}),
+    )
+    .await?;
+    assert_eq!(design["ok"], true);
+    assert_eq!(design["result"]["design_artifacts_complete"], false);
     let related = call_json(
         &client,
         "aporic_related_workspaces",

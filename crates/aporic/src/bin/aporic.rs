@@ -11,6 +11,25 @@ async fn main() -> Result<(), Box<dyn Error>> {
         [command, flag, workspace] if command == "export" && flag == "--workspace" => {
             export(workspace)
         }
+        [
+            design,
+            validate,
+            workspace_flag,
+            workspace,
+            manifest_flag,
+            manifest,
+        ] if design == "design"
+            && validate == "validate"
+            && workspace_flag == "--workspace"
+            && manifest_flag == "--manifest" =>
+        {
+            let report = aporic::design::validate(&aporic::design::DesignValidateRequest {
+                workspace: workspace.clone(),
+                manifest: manifest.clone(),
+            })?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+            Ok(())
+        }
         [backup_command, flag, target] if backup_command == "backup" && flag == "--to" => {
             backup(target)
         }
@@ -133,7 +152,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         _ => {
             eprintln!(
-                "usage: aporic doctor | aporic backup --to PATH | aporic backup prune --dir DIR --keep COUNT | aporic restore --dry-run PATH | aporic restore --from BACKUP --to DATABASE | aporic security import-codex --request REQUEST.json | aporic research sync --workspace PATH --source github|stackoverflow --query TEXT | aporic export --workspace PATH | aporic trace export --workspace PATH | aporic git inspect --workspace PATH | aporic tokens report --workspace PATH | aporic deliberation show --workspace PATH --id ID | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic eval context | aporic eval memory | aporic eval runtime | aporic eval git | aporic eval tokens | aporic eval deliberation | aporic eval capabilities | aporic eval experiments | aporic eval security-import | aporic executions reconcile --stale-after SECONDS | aporic hook codex | aporic mcp serve --stdio"
+                "usage: aporic doctor | aporic design validate --workspace PATH --manifest RELATIVE_PATH | aporic backup --to PATH | aporic backup prune --dir DIR --keep COUNT | aporic restore --dry-run PATH | aporic restore --from BACKUP --to DATABASE | aporic security import-codex --request REQUEST.json | aporic research sync --workspace PATH --source github|stackoverflow --query TEXT | aporic export --workspace PATH | aporic trace export --workspace PATH | aporic git inspect --workspace PATH | aporic tokens report --workspace PATH | aporic deliberation show --workspace PATH --id ID | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic eval context | aporic eval memory | aporic eval runtime | aporic eval git | aporic eval tokens | aporic eval deliberation | aporic eval capabilities | aporic eval experiments | aporic eval security-import | aporic executions reconcile --stale-after SECONDS | aporic hook codex | aporic mcp serve --stdio"
             );
             std::process::exit(2);
         }

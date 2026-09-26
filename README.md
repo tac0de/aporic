@@ -76,6 +76,13 @@ Client feedback and prototype planning:
   explicit labels under supplied local roots. Empty roots disable discovery.
   Results are historical context and do not copy or merge code.
 
+Design delivery in v0.21 uses a versioned repository manifest to connect
+references, a selected concept, design tokens and component specifications,
+implementation, and browser review. `aporic_design_validate` and
+`aporic design validate --workspace PATH --manifest RELATIVE_PATH` check local
+files and hashes without judging or approving the design. See the
+[design delivery workflow](docs/design-delivery.md).
+
 The playtest report is a JSON file in the task workspace with nonempty
 `target_user`, `observed_behavior`, and `session_date` fields and a positive
 `participant_count`. Register it with `aporic_evidence_add` as a workspace

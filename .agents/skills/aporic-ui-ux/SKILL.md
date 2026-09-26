@@ -15,6 +15,14 @@ When the visual direction is unclear, inspect a few relevant products or design 
 
 ## Build and inspect in a browser
 
+For a full design-to-implementation delivery, follow
+[design-delivery.md](../../../docs/design-delivery.md): keep a brief, reference
+notes, concept choices, tokens, components and states, responsive rules, asset
+inventory, implementation artifact, and browser review in a versioned design
+package. Run `aporic design validate` before presenting completion. The
+validator checks local integrity and completeness of declared categories;
+visually inspect the rendered result and report subjective judgment separately.
+
 Use `playwright-cli` for all browser interaction in this project; never use the Codex in-app browser. Read [browser-review.md](references/browser-review.md) for the command loop. Run the application locally, open the actual page, inspect accessibility snapshots and screenshots, exercise the main task, and capture at least desktop and narrow viewports. Inspect empty, loading, error, and completed states when those states exist. Look at the rendered result before deciding a design is finished; source code alone is insufficient evidence of visual quality.
 
 Use [visual-and-motion-review.md](references/visual-and-motion-review.md) to critique the result. Prioritize clear hierarchy, readable content, useful feedback, coherent spacing and alignment, restrained color, and consistency with the intended visual direction. Revise the interface after each consequential observation. For motion, inspect the transition in time, not only the static end frame. Motion should clarify cause, state, or spatial relationship. Check keyboard operation and reduced-motion behavior for interactive animation.
