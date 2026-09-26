@@ -56,6 +56,7 @@ separate run IDs. Strip arm labels from code and screenshots before blinded
 review where feasible. Record any unblinding. Compare paired differences,
 including failures and overhead; do not substitute procedure completion for
 task quality. Report each task's result and uncertainty, not just an average.
+Use the frozen [pilot rubric](pilot-rubric.md) for the first paired task.
 
 ## Decision rule
 
