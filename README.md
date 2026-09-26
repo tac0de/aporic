@@ -65,6 +65,10 @@ Advisory coordination:
 - `aporic_task_complete`: complete only when every criterion exactly matches a
   verified mechanical claim;
 - `aporic_task_cancel`: cancel without implying completion.
+- `aporic_workflow_plan`, `aporic_workflow_advance`, and
+  `aporic_workflow_status`: record iterative planning and evidence-backed
+  advisory stage transitions, with explicit unresolved material inputs. See
+  the [workflow gates](docs/workflow-gates.md).
 
 Client feedback and prototype planning:
 

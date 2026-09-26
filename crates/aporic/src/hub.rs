@@ -52,7 +52,8 @@ use crate::{
         TaskResearchAudit, TaskResearchItem, TaskResearchListRequest, TaskResearchOutcome,
         TaskWorkPacket, TaskWorkPacketRequest, TokenEfficiencyReport, TokenEfficiencyReportRequest,
         TokenUsageAudit, TokenUsageListRequest, TokenUsageOutcome, TokenUsageReceipt,
-        TokenUsageRecordRequest, WorkComplexity, WorkKind,
+        TokenUsageRecordRequest, WorkComplexity, WorkKind, WorkflowAdvanceRequest, WorkflowOutcome,
+        WorkflowPlanRequest, WorkflowStatus, WorkflowStatusRequest,
     },
     kernel,
     store::{Result, Store},
@@ -769,6 +770,18 @@ impl Hub {
 
     pub fn create_task(&self, request: &TaskCreateRequest) -> Result<TaskOutcome> {
         self.store.create_task(request)
+    }
+
+    pub fn plan_workflow(&self, request: &WorkflowPlanRequest) -> Result<WorkflowOutcome> {
+        self.store.plan_workflow(request)
+    }
+
+    pub fn advance_workflow(&self, request: &WorkflowAdvanceRequest) -> Result<WorkflowOutcome> {
+        self.store.advance_workflow(request)
+    }
+
+    pub fn workflow_status(&self, request: &WorkflowStatusRequest) -> Result<WorkflowStatus> {
+        self.store.workflow_status(request)
     }
 
     pub fn task_work_packet(&self, request: &TaskWorkPacketRequest) -> Result<TaskWorkPacket> {

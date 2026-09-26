@@ -2920,6 +2920,100 @@ pub struct TaskCreateRequest {
     pub idempotency_key: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum WorkflowStage {
+    Intake,
+    Planning,
+    Design,
+    Implementation,
+    Verification,
+    Completed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct WorkflowPlanRequest {
+    pub task_id: String,
+    pub objective: String,
+    pub target_user: String,
+    pub constraints: String,
+    pub success_measure: String,
+    #[serde(default)]
+    pub material_unknowns: Vec<String>,
+    #[serde(default)]
+    pub unknown_resolutions: Vec<WorkflowUnknownResolution>,
+    pub scope_change_evidence_id: Option<String>,
+    pub requires_user_decision: bool,
+    pub material_change: bool,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct WorkflowUnknownResolution {
+    pub unknown: String,
+    pub evidence_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkflowPlan {
+    pub revision_id: String,
+    pub created_at_unix_ms: i64,
+    pub objective: String,
+    pub target_user: String,
+    pub constraints: String,
+    pub success_measure: String,
+    pub material_unknowns: Vec<String>,
+    pub unknown_resolutions: Vec<WorkflowUnknownResolution>,
+    pub scope_change_evidence_id: Option<String>,
+    pub requires_user_decision: bool,
+    pub material_change: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct WorkflowAdvanceRequest {
+    pub task_id: String,
+    pub expected_stage: WorkflowStage,
+    #[serde(default)]
+    pub artifact_evidence_ids: Vec<String>,
+    pub user_decision_evidence_id: Option<String>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct WorkflowStatusRequest {
+    pub workspace: String,
+    pub task_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkflowTransition {
+    pub stage: WorkflowStage,
+    pub artifact_evidence_ids: Vec<String>,
+    pub user_decision_evidence_id: Option<String>,
+    pub delegation_decision_id: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkflowStatus {
+    pub task_id: String,
+    pub stage: WorkflowStage,
+    pub plan: Option<WorkflowPlan>,
+    pub transitions: Vec<WorkflowTransition>,
+    pub missing_for_next_stage: Vec<String>,
+    pub advisory: bool,
+    pub executable: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WorkflowOutcome {
+    pub status: WorkflowStatus,
+    pub duplicate: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TaskListRequest {

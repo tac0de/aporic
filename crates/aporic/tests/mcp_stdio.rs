@@ -116,7 +116,10 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_token_usage_list",
             "aporic_token_usage_record",
             "aporic_trace_get",
-            "aporic_trace_list"
+            "aporic_trace_list",
+            "aporic_workflow_advance",
+            "aporic_workflow_plan",
+            "aporic_workflow_status"
         ]
     );
 
@@ -316,6 +319,38 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
     )
     .await?;
     let task_id = task["result"]["task"]["task_id"].as_str().unwrap();
+    let workflow = call_json(
+        &client,
+        "aporic_workflow_status",
+        json!({"workspace": workspace, "task_id": task_id}),
+    )
+    .await?;
+    assert_eq!(
+        workflow["result"]["missing_for_next_stage"][0],
+        "workflow_plan_missing"
+    );
+    let planned = call_json(
+        &client,
+        "aporic_workflow_plan",
+        json!({
+            "task_id": task_id, "objective": "Review observation", "target_user": "maintainer",
+            "constraints": "local", "success_measure": "observation reviewed",
+            "material_unknowns": ["selection pending"], "requires_user_decision": true,
+            "material_change": true, "idempotency_key": "mcp-workflow-plan"
+        }),
+    )
+    .await?;
+    assert_eq!(planned["ok"], true);
+    let rejected = call_json(
+        &client,
+        "aporic_workflow_advance",
+        json!({
+            "task_id": task_id, "expected_stage": "intake",
+            "idempotency_key": "mcp-workflow-early"
+        }),
+    )
+    .await?;
+    assert_eq!(rejected["ok"], false);
     let decision = call_json(
         &client,
         "aporic_delegation_assess",

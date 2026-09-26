@@ -80,6 +80,7 @@ mod memory_use;
 mod prompt_trial;
 mod research_link;
 mod task_brief;
+mod workflow;
 const MIGRATION_2: &str = include_str!("../../../migrations/0002_continuity_hardening.sql");
 const MIGRATION_3: &str = include_str!("../../../migrations/0003_coordination.sql");
 const MIGRATION_4: &str = include_str!("../../../migrations/0004_epistemic_gate.sql");

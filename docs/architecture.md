@@ -315,6 +315,9 @@ format v20 includes trials without raw response text.
   `aporic_task_complete`, and `aporic_task_cancel`: maintain advisory task
   contracts, dependency gates, non-overlapping write leases, and
   criterion-by-criterion verified proofs.
+- `aporic_workflow_plan`, `aporic_workflow_advance`, and
+  `aporic_workflow_status`: preserve iterative task planning revisions and
+  reject unsupported advisory stage transitions; see `docs/workflow-gates.md`.
 - `aporic_task_memory_apply` and `aporic_task_memory_list`: connect an active
   memory to a task criterion during planning, then inspect its current lifecycle
   and the criterion's completion proof.

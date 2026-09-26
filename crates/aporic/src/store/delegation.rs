@@ -350,3 +350,7 @@ fn read_status(connection: &Connection, task_id: &str) -> Result<DelegationStatu
     status.advisory_gaps.extend(execution_gaps);
     Ok(status)
 }
+
+pub(super) fn status_for_task(connection: &Connection, task_id: &str) -> Result<DelegationStatus> {
+    read_status(connection, task_id)
+}

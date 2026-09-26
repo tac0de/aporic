@@ -53,6 +53,13 @@ Historical Git commits and tags are context, not current design authority.
 - Decisions are provisional directions supported by their recorded context,
   not timeless answers. Preserve meaningful revisions and counterarguments.
 - Before material changes, state the intended scope and acceptance checks.
+- For substantive implementation with an Aporic task, record a
+  `aporic_workflow_plan` and inspect `aporic_workflow_status` before claiming
+  planning or design is complete. Keep material missing inputs explicit, attach
+  evidence when resolving them, and advance stages only after the stated
+  prerequisites exist. Aporic stage transitions are advisory and never narrow
+  host tool permissions. Do not describe a reported user choice or reported
+  subagent run as independently attested.
 - When a task depends on current external facts, ecosystem practice, or user
   reports, make a bounded research decision during the task. For GitHub issues
   or Stack Overflow questions, call `aporic_research_fetch` explicitly for an

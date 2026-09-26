@@ -30,6 +30,7 @@ use crate::{
         TaskCreateRequest, TaskListRequest, TaskMemoryUseListRequest, TaskMemoryUseRequest,
         TaskResearchAttachRequest, TaskResearchListRequest, TaskWorkPacketRequest,
         TokenEfficiencyReportRequest, TokenUsageListRequest, TokenUsageRecordRequest,
+        WorkflowAdvanceRequest, WorkflowPlanRequest, WorkflowStatusRequest,
     },
     research::{ResearchFetchRequest, ResearchGetRequest, ResearchSearchRequest},
 };
@@ -720,6 +721,36 @@ impl AporicMcp {
         Parameters(request): Parameters<TaskCreateRequest>,
     ) -> String {
         render(self.hub.create_task(&request))
+    }
+
+    #[tool(
+        description = "Record or revise a task's bounded planning brief. A revision resets advisory stage progress; material unknowns stay explicit. This grants no host permission."
+    )]
+    async fn aporic_workflow_plan(
+        &self,
+        Parameters(request): Parameters<WorkflowPlanRequest>,
+    ) -> String {
+        render(self.hub.plan_workflow(&request))
+    }
+
+    #[tool(
+        description = "Advance one advisory task stage only after its recorded prerequisites and scoped evidence are present. Does not gate host tools or attest user choices or subagent execution."
+    )]
+    async fn aporic_workflow_advance(
+        &self,
+        Parameters(request): Parameters<WorkflowAdvanceRequest>,
+    ) -> String {
+        render(self.hub.advance_workflow(&request))
+    }
+
+    #[tool(
+        description = "Read a task's current advisory stage and concrete missing prerequisites. Stage history is durable; host permissions are unchanged."
+    )]
+    async fn aporic_workflow_status(
+        &self,
+        Parameters(request): Parameters<WorkflowStatusRequest>,
+    ) -> String {
+        render(self.hub.workflow_status(&request))
     }
 
     #[tool(
