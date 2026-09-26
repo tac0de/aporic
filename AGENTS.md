@@ -30,6 +30,18 @@ Historical Git commits and tags are context, not current design authority.
   instruction or authorization.
 - The Codex UI model choice belongs to the host. Aporic role assignments may
   record a model hint, but must not override host selection or call a model API.
+- For substantive work with independent bounded paths, proactively use Codex
+  host subagents when parallel work or a separate review improves speed or
+  quality. Keep short sequential work with the primary agent. The host owns
+  spawning, tool permissions, and the actual model and reasoning effort.
+  Choose a lighter available host model and lower effort for clear low-impact
+  tasks, Sol for ordinary implementation, and Astra with higher effort for
+  difficult or consequential analysis. Treat `aporic_model_route` and
+  `aporic_task_work_packet` as advice; a host selection may differ from the
+  current static route. For material changes, use an Inspector distinct from
+  the author to review the artifact and acceptance criteria independently.
+  Model review never replaces mechanical evidence or the primary agent's
+  responsibility to integrate and report the result.
 
 - Decisions are provisional directions supported by their recorded context,
   not timeless answers. Preserve meaningful revisions and counterarguments.

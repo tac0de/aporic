@@ -97,6 +97,7 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_task_list",
             "aporic_task_memory_apply",
             "aporic_task_memory_list",
+            "aporic_task_work_packet",
             "aporic_token_efficiency_report",
             "aporic_token_usage_list",
             "aporic_token_usage_record",
@@ -247,6 +248,25 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
     )
     .await?;
     assert_eq!(applied["ok"], true);
+    let packet = call_json(
+        &client,
+        "aporic_task_work_packet",
+        json!({
+            "workspace": workspace,
+            "task_id": task_id,
+            "route": {
+                "work_kind": "implementation",
+                "complexity": "bounded",
+                "consequence": "low",
+                "ambiguity_high": false,
+                "independent_review": true
+            }
+        }),
+    )
+    .await?;
+    assert_eq!(packet["result"]["task"]["task_id"], task_id);
+    assert_eq!(packet["result"]["memory_uses"][0]["memory_id"], memory_id);
+    assert_eq!(packet["result"]["executable"], false);
     let uses = call_json(
         &client,
         "aporic_task_memory_list",

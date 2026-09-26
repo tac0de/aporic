@@ -64,9 +64,10 @@ use crate::{
         SecurityAssessmentGetRequest, SecurityAssessmentListRequest, SecurityAssessmentOutcome,
         SecurityCoverage, ShadowDisposition, ShadowEvaluation, ShadowEvaluationRequest,
         TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest,
-        TaskListRequest, TaskOutcome, TaskStatus, TokenCountSource, TokenEfficiencyReport,
-        TokenEfficiencyReportRequest, TokenUsageAudit, TokenUsageListRequest, TokenUsageOutcome,
-        TokenUsageReceipt, TokenUsageRecordRequest, UsageOutcome, workspace_file_claim,
+        TaskListRequest, TaskOutcome, TaskStatus, TaskWorkPacketRequest, TokenCountSource,
+        TokenEfficiencyReport, TokenEfficiencyReportRequest, TokenUsageAudit,
+        TokenUsageListRequest, TokenUsageOutcome, TokenUsageReceipt, TokenUsageRecordRequest,
+        UsageOutcome, workspace_file_claim,
     },
 };
 
@@ -2397,6 +2398,29 @@ impl Store {
             return Ok(Vec::new());
         };
         list_project_tasks(&connection, &project_id, i64::from(limit))
+    }
+
+    pub fn task_work_packet_source(
+        &self,
+        request: &TaskWorkPacketRequest,
+    ) -> Result<(CoordinatedTask, Vec<crate::domain::TaskMemoryUse>)> {
+        require_text("task_id", &request.task_id)?;
+        let workspace = canonical_workspace(&request.workspace)?;
+        let connection = self.connection()?;
+        let task = load_task(&connection, &request.task_id)?
+            .ok_or_else(|| Error::NotFound(format!("task {}", request.task_id)))?;
+        let project_id = connection
+            .query_row(
+                "SELECT project_id FROM projects WHERE workspace = ?1",
+                [&workspace],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()?;
+        if project_id.as_deref() != Some(task.project_id.as_str()) {
+            return Err(Error::NotFound(format!("task {}", request.task_id)));
+        }
+        let memory_uses = memory_use::list_uses(&connection, &task.task_id)?;
+        Ok((task, memory_uses))
     }
 
     pub fn claim_task(&self, request: &TaskClaimRequest) -> Result<TaskOutcome> {

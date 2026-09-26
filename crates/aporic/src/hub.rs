@@ -42,9 +42,9 @@ use crate::{
         SecurityCoverage, SecurityImportRequest, ShadowEvaluationRequest, TaskCancelRequest,
         TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskMemoryUse,
         TaskMemoryUseListRequest, TaskMemoryUseOutcome, TaskMemoryUseRequest, TaskOutcome,
-        TokenEfficiencyReport, TokenEfficiencyReportRequest, TokenUsageAudit,
-        TokenUsageListRequest, TokenUsageOutcome, TokenUsageReceipt, TokenUsageRecordRequest,
-        WorkComplexity, WorkKind,
+        TaskWorkPacket, TaskWorkPacketRequest, TokenEfficiencyReport, TokenEfficiencyReportRequest,
+        TokenUsageAudit, TokenUsageListRequest, TokenUsageOutcome, TokenUsageReceipt,
+        TokenUsageRecordRequest, WorkComplexity, WorkKind,
     },
     kernel,
     store::{Result, Store},
@@ -679,6 +679,20 @@ impl Hub {
 
     pub fn create_task(&self, request: &TaskCreateRequest) -> Result<TaskOutcome> {
         self.store.create_task(request)
+    }
+
+    pub fn task_work_packet(&self, request: &TaskWorkPacketRequest) -> Result<TaskWorkPacket> {
+        let (task, memory_uses) = self.store.task_work_packet_source(request)?;
+        let route = self.route_model(&request.route);
+        let reviewer_reasoning_effort = route.verifier_model.as_ref().map(|_| "high".to_owned());
+        Ok(TaskWorkPacket {
+            task,
+            route,
+            memory_uses,
+            reviewer_reasoning_effort,
+            advisory: true,
+            executable: false,
+        })
     }
 
     pub fn apply_task_memory(

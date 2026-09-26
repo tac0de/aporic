@@ -1,9 +1,11 @@
 use aporic::{
     Hub,
     domain::{
-        ClaimRequest, ClaimStatus, CriterionProof, EvidenceKind, EvidenceRequest, MemoryLifecycle,
-        OpenRequest, RecordKind, RecordRequest, TaskClaimRequest, TaskCompleteRequest,
-        TaskCreateRequest, TaskMemoryUseListRequest, TaskMemoryUseRequest, workspace_file_claim,
+        ClaimRequest, ClaimStatus, Consequence, CriterionProof, EvidenceKind, EvidenceRequest,
+        MemoryLifecycle, ModelRouteRequest, OpenRequest, RecordKind, RecordRequest,
+        TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskMemoryUseListRequest,
+        TaskMemoryUseRequest, TaskWorkPacketRequest, WorkComplexity, WorkKind,
+        workspace_file_claim,
     },
 };
 use sha2::{Digest, Sha256};
@@ -114,6 +116,32 @@ fn planned_memory_is_linked_to_verified_task_criterion_across_restart() {
         workspace: workspace.clone(),
         task_id: task_id.clone(),
     };
+    let packet_request = TaskWorkPacketRequest {
+        workspace: workspace.clone(),
+        task_id: task_id.clone(),
+        route: ModelRouteRequest {
+            work_kind: WorkKind::Implementation,
+            complexity: WorkComplexity::Bounded,
+            consequence: Consequence::Low,
+            ambiguity_high: false,
+            independent_review: true,
+        },
+    };
+    let packet = hub.task_work_packet(&packet_request).unwrap();
+    assert_eq!(packet.task.task_id, task_id);
+    assert_eq!(packet.memory_uses.len(), 1);
+    assert_eq!(packet.route.model, "gpt-5.6-terra");
+    assert_eq!(packet.route.verifier_model.as_deref(), Some("gpt-6-astra"));
+    assert_eq!(packet.reviewer_reasoning_effort.as_deref(), Some("high"));
+    assert!(packet.advisory);
+    assert!(!packet.executable);
+    assert!(
+        hub.task_work_packet(&TaskWorkPacketRequest {
+            workspace: other_workspace.to_string_lossy().into_owned(),
+            ..packet_request
+        })
+        .is_err()
+    );
     assert_eq!(
         hub.list_task_memory_uses(&list_request).unwrap()[0].criterion_verified_claim_id,
         None

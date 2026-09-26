@@ -3016,6 +3016,24 @@ pub struct TaskOutcome {
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
+pub struct TaskWorkPacketRequest {
+    pub workspace: String,
+    pub task_id: String,
+    pub route: ModelRouteRequest,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaskWorkPacket {
+    pub task: CoordinatedTask,
+    pub route: ModelRoute,
+    pub memory_uses: Vec<TaskMemoryUse>,
+    pub reviewer_reasoning_effort: Option<String>,
+    pub advisory: bool,
+    pub executable: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct TaskMemoryUseRequest {
     pub task_id: String,
     pub memory_id: String,

@@ -24,7 +24,7 @@ use crate::{
         RuntimeTraceGetRequest, RuntimeTraceListRequest, RuntimeWorkspaceRequest,
         SecurityAssessmentGetRequest, SecurityAssessmentListRequest, ShadowEvaluationRequest,
         TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest,
-        TaskListRequest, TaskMemoryUseListRequest, TaskMemoryUseRequest,
+        TaskListRequest, TaskMemoryUseListRequest, TaskMemoryUseRequest, TaskWorkPacketRequest,
         TokenEfficiencyReportRequest, TokenUsageListRequest, TokenUsageRecordRequest,
     },
     research::{ResearchGetRequest, ResearchSearchRequest},
@@ -636,6 +636,16 @@ impl AporicMcp {
         Parameters(request): Parameters<TaskCreateRequest>,
     ) -> String {
         render(self.hub.create_task(&request))
+    }
+
+    #[tool(
+        description = "Build a read-only Codex work packet from one workspace task, planned memory uses, and an advisory worker/reviewer model route. This neither dispatches agents nor grants permissions."
+    )]
+    async fn aporic_task_work_packet(
+        &self,
+        Parameters(request): Parameters<TaskWorkPacketRequest>,
+    ) -> String {
+        render(self.hub.task_work_packet(&request))
     }
 
     #[tool(

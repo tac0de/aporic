@@ -255,6 +255,9 @@ surface neither enforces recalled text nor changes host permissions.
 - `aporic_task_memory_apply` and `aporic_task_memory_list`: connect an active
   memory to a task criterion during planning, then inspect its current lifecycle
   and the criterion's completion proof.
+- `aporic_task_work_packet`: combine one existing task, its planned memory uses,
+  and a typed advisory worker/reviewer model route for a Codex host to inspect
+  before delegation. The packet is read-only and never dispatches an agent.
 
 The task-memory workflow is: search or recall current workspace memory, create
 a task with a concrete acceptance criterion, link a relevant memory and intended
