@@ -142,7 +142,7 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
         .into_iter()
         .map(|tool| tool.name.to_string())
         .collect::<Vec<_>>();
-    assert_eq!(tool_names.len(), 48, "default MCP surface changed");
+    assert_eq!(tool_names.len(), 51, "default MCP surface changed");
     for required in [
         "aporic_open",
         "aporic_recall",
@@ -154,6 +154,9 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
         "aporic_task_create",
         "aporic_intake_create",
         "aporic_intake_get",
+        "aporic_rust_repair_open",
+        "aporic_rust_repair_learn",
+        "aporic_rust_repair_search",
         "aporic_task_work_packet",
         "aporic_workflow_plan",
         "aporic_workflow_advance",
@@ -611,7 +614,7 @@ async fn full_mcp_profile_is_explicit_and_reveals_optional_diagnostics()
         .into_iter()
         .map(|tool| tool.name.to_string())
         .collect::<Vec<_>>();
-    assert_eq!(names.len(), 62, "full MCP surface changed");
+    assert_eq!(names.len(), 65, "full MCP surface changed");
     assert!(names.iter().any(|name| name == "aporic_trace_list"));
     assert!(
         names

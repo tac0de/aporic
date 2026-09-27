@@ -20,6 +20,8 @@ use crate::{
         RecallRequest, ReconcileOutcome, ReconcileRequest, RecordOutcome, RecordRequest,
         ResumeBrief, ResumeRequest, RuntimeEvent, RuntimeObservation, RuntimeProjectionAudit,
         RuntimeTraceGetRequest, RuntimeTraceListRequest, RuntimeWorkspaceRequest,
+        RustRepairLearnOutcome, RustRepairLearnRequest, RustRepairOpenOutcome,
+        RustRepairOpenRequest, RustRepairSearchRequest, RustRepairSearchResult,
         SessionDelegationDecisionOutcome, SessionDelegationDecisionRequest,
         SessionDelegationReportOutcome, SessionDelegationReportRequest, SessionDelegationStatus,
         SessionDelegationStatusRequest, TaskBriefOutcome, TaskBriefRequest, TaskCancelRequest,
@@ -432,6 +434,27 @@ impl Hub {
 
     pub fn get_intake(&self, request: &IntakeGetRequest) -> Result<Intake> {
         self.store.get_intake(request)
+    }
+
+    pub fn open_rust_repair(
+        &self,
+        request: &RustRepairOpenRequest,
+    ) -> Result<RustRepairOpenOutcome> {
+        self.store.open_rust_repair(request)
+    }
+
+    pub fn learn_rust_repair(
+        &self,
+        request: &RustRepairLearnRequest,
+    ) -> Result<RustRepairLearnOutcome> {
+        self.store.learn_rust_repair(request)
+    }
+
+    pub fn search_rust_repairs(
+        &self,
+        request: &RustRepairSearchRequest,
+    ) -> Result<RustRepairSearchResult> {
+        self.store.search_rust_repairs(request)
     }
 
     pub fn plan_workflow(&self, request: &WorkflowPlanRequest) -> Result<WorkflowOutcome> {

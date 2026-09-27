@@ -197,6 +197,25 @@ status nor MCP server instructions can dispatch a host agent or override host
 permissions. The host adapter must explicitly call its own collaboration tool
 and report what actually ran.
 
+Schema v30 adds a bounded Rust repair pilot. An append-only case event links
+one active same-project task to a direct reproduction file and a direct file
+containing a matching rustc JSON error code. A local runner receipt for the
+named `rustc` command must match the diagnostic stderr hash, source path, and
+nonzero exit. The runner records a bounded source hash in its start event;
+that hash must match the reproduction evidence captured before the run. The
+file is rechecked at intake. The rustc version and edition are reported inputs. An optional
+external-source evidence item records a reference
+without promoting its contents to authority. A lesson event can be added once,
+after the repair task completes with a criterion proof backed by a successful
+post-intake `cargo test` receipt from the local runner. Exact diagnostic code,
+reported compiler version, edition, and project scope bound retrieval. The
+proposed rule, applicability, and counterexample remain reported advice; the
+receipt proves only that the specific command passed for the recorded workspace
+state. The pre-execution snapshot does not rule out concurrent file mutation
+during compilation, authenticate the host toolchain, or prove test adequacy.
+Aporic does not create patches, run commands through MCP, or grant host
+permissions through this workflow.
+
 Schema v23 adds append-only task-brief assembly receipts. A built-in, versioned
 template combines a task objective and exact acceptance criteria with a bounded
 selection from the existing context policy. The MCP response includes the

@@ -1178,6 +1178,16 @@ pub struct ExecutionOutcome {
 pub struct ExecutionStart {
     pub spec: CommandSpec,
     pub run: ExecutionRun,
+    #[serde(default)]
+    pub rustc_input_snapshot: Option<RustcInputSnapshot>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RustcInputSnapshot {
+    pub run_id: String,
+    pub workspace_relative_path: String,
+    pub sha256: String,
+    pub captured_at_unix_ms: i64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -1537,6 +1547,87 @@ pub struct Intake {
 pub struct IntakeOutcome {
     pub intake: Intake,
     pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RustRepairOpenRequest {
+    pub session_id: String,
+    pub task_id: String,
+    pub diagnostic_code: String,
+    pub rustc_version: String,
+    pub edition: String,
+    pub diagnostic_evidence_id: String,
+    pub reproduction_evidence_id: String,
+    pub reproduction_run_id: String,
+    #[serde(default)]
+    pub reference_evidence_id: Option<String>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RustRepairLearnRequest {
+    pub case_id: String,
+    pub rule: String,
+    pub applicability: String,
+    pub counterexample: String,
+    pub test_run_id: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RustRepairSearchRequest {
+    pub workspace: String,
+    pub diagnostic_code: String,
+    pub rustc_version: String,
+    pub edition: String,
+    #[serde(default)]
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RustRepairCase {
+    pub case_id: String,
+    pub task_id: String,
+    pub diagnostic_code: String,
+    pub rustc_version: String,
+    pub edition: String,
+    pub diagnostic_evidence_id: String,
+    pub reproduction_evidence_id: String,
+    pub reproduction_run_id: String,
+    pub reference_evidence_id: Option<String>,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RustRepairLesson {
+    pub case: RustRepairCase,
+    pub rule: String,
+    pub applicability: String,
+    pub counterexample: String,
+    pub test_run_id: String,
+    pub learned_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RustRepairOpenOutcome {
+    pub case: RustRepairCase,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RustRepairLearnOutcome {
+    pub lesson: RustRepairLesson,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RustRepairSearchResult {
+    pub lessons: Vec<RustRepairLesson>,
+    pub advisory: bool,
+    pub notice: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
@@ -2276,6 +2367,8 @@ pub struct ProjectExport {
     pub claims: Vec<EpistemicClaim>,
     pub command_specs: Vec<CommandSpec>,
     pub execution_runs: Vec<ExecutionRun>,
+    #[serde(default)]
+    pub rustc_input_snapshots: Vec<RustcInputSnapshot>,
     pub execution_receipts: Vec<ExecutionReceipt>,
     pub receipt_artifacts: Vec<ReceiptArtifact>,
     pub memory_items: Vec<MemoryItem>,
@@ -2286,6 +2379,12 @@ pub struct ProjectExport {
     pub git_snapshots: Vec<GitSnapshot>,
     pub token_usage_receipts: Vec<TokenUsageReceipt>,
     pub accountability_cases: Vec<AccountabilityCase>,
+    #[serde(default)]
+    pub intakes: Vec<Intake>,
+    #[serde(default)]
+    pub rust_repair_cases: Vec<RustRepairCase>,
+    #[serde(default)]
+    pub rust_repair_lessons: Vec<RustRepairLesson>,
     pub research_revisions: Vec<crate::research::ResearchRevision>,
     #[serde(default)]
     pub task_research_items: Vec<TaskResearchItem>,

@@ -216,7 +216,7 @@ fn planned_memory_is_linked_to_verified_task_criterion_across_restart() {
     );
     assert_eq!(uses[0].memory_lifecycle_state, MemoryLifecycle::Active);
     assert!(uses[0].advisory);
-    assert_eq!(restarted.stats().unwrap().schema_version, 29);
+    assert_eq!(restarted.stats().unwrap().schema_version, 30);
     restarted
         .record(&RecordRequest {
             session_id: session,

@@ -53,6 +53,7 @@ mod initiative;
 mod intake;
 mod memory_use;
 mod research_link;
+mod rust_repair;
 mod task_brief;
 mod workflow;
 const MIGRATION_2: &str = include_str!("../../../migrations/0002_continuity_hardening.sql");
@@ -83,7 +84,8 @@ const MIGRATION_26: &str = include_str!("../../../migrations/0026_claim_subject.
 const MIGRATION_27: &str = include_str!("../../../migrations/0027_session_delegation.sql");
 const MIGRATION_28: &str = include_str!("../../../migrations/0028_initiatives.sql");
 const MIGRATION_29: &str = include_str!("../../../migrations/0029_intakes.sql");
-const SCHEMA_VERSION: u32 = 29;
+const MIGRATION_30: &str = include_str!("../../../migrations/0030_rust_repair.sql");
+const SCHEMA_VERSION: u32 = 30;
 const MIGRATIONS: &[(u32, &str)] = &[
     (2, MIGRATION_2),
     (3, MIGRATION_3),
@@ -113,6 +115,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (27, MIGRATION_27),
     (28, MIGRATION_28),
     (29, MIGRATION_29),
+    (30, MIGRATION_30),
 ];
 
 #[derive(Debug, Error)]
@@ -1226,7 +1229,13 @@ impl Store {
                 run.started_at_unix_ms
             ],
         )?;
-        let outcome = ExecutionStart { spec, run };
+        let rustc_input_snapshot =
+            rust_repair::capture_rustc_input(&transaction, &spec, &run.run_id, now)?;
+        let outcome = ExecutionStart {
+            spec,
+            run,
+            rustc_input_snapshot,
+        };
         append_event(
             &transaction,
             &format!("execution-start:{}", outcome.run.run_id),
@@ -3269,6 +3278,7 @@ impl Store {
         let claims = load_project_claims(&connection, &project_id)?;
         let command_specs = load_project_specs(&connection, &project_id)?;
         let execution_runs = load_project_runs(&connection, &project_id, i64::MAX)?;
+        let rustc_input_snapshots = rust_repair::export_input_snapshots(&connection, &project_id)?;
         let execution_receipts = load_project_receipts(&connection, &project_id)?;
         let receipt_artifacts = load_project_receipt_artifacts(&connection, &project_id)?;
         let memory_items = {
@@ -3374,6 +3384,9 @@ impl Store {
                 .map(|id| load_accountability_case(&connection, id))
                 .collect::<Result<Vec<_>>>()?
         };
+        let intakes = intake::export_intakes(&connection, &project_id)?;
+        let (rust_repair_cases, rust_repair_lessons) =
+            rust_repair::export_rust_repairs(&connection, &project_id)?;
 
         let events = {
             let mut statement = connection.prepare(
@@ -3414,6 +3427,10 @@ impl Store {
                      SELECT term_id FROM government_terms WHERE project_id = ?1
                  ) OR stream_id IN (
                      SELECT case_id FROM accountability_cases WHERE project_id = ?1
+                 ) OR stream_id IN (
+                     SELECT intake_id FROM intakes WHERE project_id = ?1
+                 ) OR stream_id IN (
+                     SELECT case_id FROM rust_repair_cases WHERE project_id = ?1
                  )
                  ORDER BY sequence ASC",
             )?;
@@ -3447,7 +3464,7 @@ impl Store {
         };
 
         Ok(ProjectExport {
-            format_version: 23,
+            format_version: 24,
             exported_at_unix_ms: unix_millis()?,
             project_id,
             workspace,
@@ -3460,6 +3477,7 @@ impl Store {
             claims,
             command_specs,
             execution_runs,
+            rustc_input_snapshots,
             execution_receipts,
             receipt_artifacts,
             memory_items,
@@ -3470,6 +3488,9 @@ impl Store {
             git_snapshots,
             token_usage_receipts,
             accountability_cases,
+            intakes,
+            rust_repair_cases,
+            rust_repair_lessons,
             research_revisions: self.research_revisions(raw_workspace)?,
             task_research_items: self.export_task_research(raw_workspace)?,
             events,

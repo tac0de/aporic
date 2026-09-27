@@ -85,6 +85,20 @@ Accountability and repair (full-only):
 - `aporic_accountability_list`: inspect bounded open and repaired cases,
   evidence grades, and the outstanding repair count.
 
+Rust repair pilot (core):
+
+- `aporic_rust_repair_open`: link a matching rustc JSON diagnostic and direct
+  reproduction file to an active task in the same workspace. A local runner
+  `rustc` failure receipt must match the diagnostic stderr hash, source path,
+  and input hash captured by the runner before execution.
+  The compiler version and edition are recorded as reported context.
+- `aporic_rust_repair_learn`: save a conditional rule and counterexample only
+  when the task's verified completion proof is backed by a successful
+  post-intake local-runner `cargo test` receipt.
+- `aporic_rust_repair_search`: retrieve bounded lessons for the same workspace,
+  diagnostic code, compiler version, and edition. Lessons remain advisory;
+  a passing test does not establish a general Rust rule or prove causation.
+
 Epistemic gate:
 
 - `aporic_evidence_add`: classify provenance as direct, reported, or model-only;

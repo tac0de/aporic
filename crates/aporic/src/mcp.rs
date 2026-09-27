@@ -14,7 +14,8 @@ use crate::{
         InitiativeTaskLinkRequest, IntakeCreateRequest, IntakeGetRequest, MemoryGetRequest,
         MemorySearchRequest, ModelRouteRequest, OpenRequest, RecallRequest, ReconcileRequest,
         RecordRequest, RelatedWorkspaceRequest, ResumeRequest, RuntimeTraceGetRequest,
-        RuntimeTraceListRequest, RuntimeWorkspaceRequest, SessionDelegationDecisionRequest,
+        RuntimeTraceListRequest, RuntimeWorkspaceRequest, RustRepairLearnRequest,
+        RustRepairOpenRequest, RustRepairSearchRequest, SessionDelegationDecisionRequest,
         SessionDelegationReportRequest, SessionDelegationStatusRequest, TaskBriefRequest,
         TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest,
         TaskListRequest, TaskMemoryUseListRequest, TaskMemoryUseRequest, TaskResearchAttachRequest,
@@ -438,6 +439,36 @@ impl AporicMcp {
     )]
     async fn aporic_intake_get(&self, Parameters(request): Parameters<IntakeGetRequest>) -> String {
         render(self.hub.get_intake(&request))
+    }
+
+    #[tool(
+        description = "Open a Rust compiler repair example linked to an active same-project task, typed diagnostic evidence, and a reproduction file. Advisory only."
+    )]
+    async fn aporic_rust_repair_open(
+        &self,
+        Parameters(request): Parameters<RustRepairOpenRequest>,
+    ) -> String {
+        render(self.hub.open_rust_repair(&request))
+    }
+
+    #[tool(
+        description = "Record a conditional Rust repair lesson only after a completed task proof is backed by a successful post-intake cargo test runner receipt. The rule remains reported advice."
+    )]
+    async fn aporic_rust_repair_learn(
+        &self,
+        Parameters(request): Parameters<RustRepairLearnRequest>,
+    ) -> String {
+        render(self.hub.learn_rust_repair(&request))
+    }
+
+    #[tool(
+        description = "Find bounded same-project Rust repair lessons for an exact rustc diagnostic code, rustc version, and edition. Results are advisory examples."
+    )]
+    async fn aporic_rust_repair_search(
+        &self,
+        Parameters(request): Parameters<RustRepairSearchRequest>,
+    ) -> String {
+        render(self.hub.search_rust_repairs(&request))
     }
 
     #[tool(

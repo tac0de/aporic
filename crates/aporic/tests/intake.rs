@@ -85,6 +85,14 @@ fn intake_links_source_evidence_and_live_task_status_across_restart() {
     .unwrap();
     drop(hub);
     let hub = Hub::open(&database).unwrap();
+    let export = hub.export_project(&workspace).unwrap();
+    assert_eq!(export.intakes.len(), 1);
+    assert!(
+        export
+            .events
+            .iter()
+            .any(|event| event.kind == "intake_created")
+    );
     let read = hub
         .get_intake(&IntakeGetRequest {
             workspace: workspace.clone(),

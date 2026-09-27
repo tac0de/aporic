@@ -182,3 +182,20 @@ fn load_intake(connection: &rusqlite::Connection, id: &str) -> Result<Option<Int
     )
     .transpose()
 }
+
+pub(super) fn export_intakes(
+    connection: &rusqlite::Connection,
+    project_id: &str,
+) -> Result<Vec<Intake>> {
+    let mut stmt = connection.prepare(
+        "SELECT intake_id FROM intakes WHERE project_id = ?1 ORDER BY created_at_unix_ms, intake_id",
+    )?;
+    let ids = stmt
+        .query_map([project_id], |row| row.get::<_, String>(0))?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    ids.iter()
+        .map(|id| {
+            load_intake(connection, id)?.ok_or_else(|| Error::NotFound(format!("intake {id}")))
+        })
+        .collect()
+}
