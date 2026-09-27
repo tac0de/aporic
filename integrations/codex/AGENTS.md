@@ -61,9 +61,9 @@ For material changes, select a distinct Inspector or record a concrete skip
 reason. This is advisory and never limits host tools or task completion. Use
 Codex's host collaboration tools to spawn agents; Aporic never spawns them.
 Select an available host model and reasoning effort
-proportionate to the work. The current route table may recommend Terra for
-bounded work; the host may choose a lighter available model such as Luna for
-low-risk work and should record that difference as reported task progress.
+proportionate to the work. The current route table recommends Luna for bounded
+work; the host may choose a different available model when task risk warrants
+it and should record that difference as reported task progress.
 After spawning, use `aporic_delegation_report` to record the actual host agent
 ID, selected model and effort, and start. Report completion or failure after it
 occurs. These are reported observations, not host attestations. Record the
@@ -86,7 +86,8 @@ is unavailable, continue under host permissions and report the missing
 coordination record.
 
 For a substantive task with a workflow plan, select `procedure_profile`
-(`general` or `ui`) and `procedure_depth` (`light`, `standard`, or `high`).
+(`general` or `frontend`; `ui` remains a legacy profile) and
+`procedure_depth` (`light`, `standard`, or `high`).
 Existing plans with no profile remain legacy. Read `aporic_workflow_steps` and
 `aporic_workflow_status` before claiming a stage complete. An unresolved
 applicable step appears in `missing_for_next_stage` as
