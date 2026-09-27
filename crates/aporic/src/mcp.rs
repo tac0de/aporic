@@ -691,7 +691,7 @@ impl AporicMcp {
     }
 
     #[tool(
-        description = "Return an advisory Astra, Sol, or Terra model route from typed task signals. Routing never grants authority, and model output never counts as evidence."
+        description = "Return an advisory Astra, Sol, or Luna model route from typed task signals. Routing never grants authority, and model output never counts as evidence."
     )]
     async fn aporic_model_route(
         &self,

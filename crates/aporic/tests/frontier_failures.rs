@@ -106,6 +106,7 @@ fn deterministic_frontier_failure_suite() {
             statement: "The configuration was changed".to_owned(),
             material: true,
             evidence_ids: vec![reported.evidence_id],
+            subject_key: None,
             supersedes_claim_id: None,
             idempotency_key: "unsupported-verification".to_owned(),
         })
@@ -131,6 +132,7 @@ fn deterministic_frontier_failure_suite() {
             statement: direct_statement,
             material: true,
             evidence_ids: vec![direct.evidence_id],
+            subject_key: None,
             supersedes_claim_id: None,
             idempotency_key: "verified-effect".to_owned(),
         })

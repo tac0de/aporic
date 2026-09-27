@@ -32,18 +32,19 @@ saves.
 
 ## Current stage
 
-The product is in v1 stabilization after the secure-capability and
-prototype-portfolio stage. The product question is:
+The product is in v0.26 core hardening. Optional capability catalogs,
+government roles, research, and prototype workflows remain advisory layers.
+The current product question is:
 
-> Can one local MCP surface catalog many custom capabilities and compare diverse
-> prototypes against common evidence without turning plugin declarations,
-> security scans, or model preferences into execution authority?
+> Can a small local continuity and evidence core preserve current context,
+> reject unsupported completion, and detect projection corruption with less
+> owner effort than ordinary notes and checks?
 
 The first protocol slice is complete: an actual stdio MCP client can open a
 session, recall project context, record a durable item, close the session, and
-recover the same state after a process restart. Current work tests whether the
-hub can structurally reduce recurring frontier-model failures without requiring
-manual evaluation.
+recover the same state after a process restart. Structural tests establish
+specific state-transition properties; whether the core improves real agent
+outcomes and repays its recording/retrieval cost remains unproved.
 
 ## Constraints and decisions
 
@@ -84,7 +85,7 @@ manual evaluation.
   from normal reads, exports, and event payloads until their prediction is
   compared with the independently recorded outcome. A role report can never
   complete the task or become its proof.
-- Model routing is advisory and outside the kernel: Terra handles bounded work,
+- Model routing is advisory and outside the kernel: Luna handles bounded work,
   Sol is the default for complex implementation, and Astra handles frontier or
   high-consequence ambiguous work.
 - Recalled memory has an explicit origin and influence class. Model-authored

@@ -130,7 +130,7 @@ fn planned_memory_is_linked_to_verified_task_criterion_across_restart() {
     let packet = hub.task_work_packet(&packet_request).unwrap();
     assert_eq!(packet.task.task_id, task_id);
     assert_eq!(packet.memory_uses.len(), 1);
-    assert_eq!(packet.route.model, "gpt-5.6-terra");
+    assert_eq!(packet.route.model, "gpt-6-luna");
     assert_eq!(packet.route.verifier_model.as_deref(), Some("gpt-6-astra"));
     assert_eq!(packet.reviewer_reasoning_effort.as_deref(), Some("high"));
     assert!(packet.advisory);
@@ -187,6 +187,7 @@ fn planned_memory_is_linked_to_verified_task_criterion_across_restart() {
             statement: criterion.clone(),
             material: true,
             evidence_ids: vec![evidence_id],
+            subject_key: None,
             supersedes_claim_id: None,
             idempotency_key: "claim-proof".into(),
         })
@@ -215,7 +216,7 @@ fn planned_memory_is_linked_to_verified_task_criterion_across_restart() {
     );
     assert_eq!(uses[0].memory_lifecycle_state, MemoryLifecycle::Active);
     assert!(uses[0].advisory);
-    assert_eq!(restarted.stats().unwrap().schema_version, 25);
+    assert_eq!(restarted.stats().unwrap().schema_version, 26);
     restarted
         .record(&RecordRequest {
             session_id: session,

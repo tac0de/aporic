@@ -47,10 +47,29 @@ fn migrates_v6_model_text_into_untrusted_v7_memory() {
             [],
         )
         .unwrap();
+    connection
+        .execute(
+            "INSERT INTO records(record_id, session_id, kind, content, origin_channel,
+                influence_class, supersedes_record_id, created_at_unix_ms)
+             VALUES('r2', 's', 'decision', 'new decision', 'mcp_agent',
+                'historical_context', 'r', 2)",
+            [],
+        )
+        .unwrap();
+    connection
+        .execute_batch(
+            "INSERT INTO claims(claim_id, session_id, status, statement, material,
+                created_at_unix_ms)
+             VALUES('c', 's', 'unknown', 'old question', 1, 1);
+             INSERT INTO claims(claim_id, session_id, status, statement, material,
+                supersedes_claim_id, created_at_unix_ms)
+             VALUES('c2', 's', 'inferred', 'new answer', 1, 'c', 2);",
+        )
+        .unwrap();
     drop(connection);
 
     let hub = Hub::open(&database).unwrap();
-    assert_eq!(hub.stats().unwrap().schema_version, 25);
+    assert_eq!(hub.stats().unwrap().schema_version, 26);
     let item = hub
         .memory_get(&MemoryGetRequest {
             workspace: workspace.to_string_lossy().into_owned(),
@@ -59,6 +78,17 @@ fn migrates_v6_model_text_into_untrusted_v7_memory() {
         .unwrap();
     assert_eq!(item.influence_class, InfluenceClass::UntrustedContent);
     assert_eq!(item.memory_class, MemoryClass::Semantic);
+    let connection = rusqlite::Connection::open(&database).unwrap();
+    for memory_id in ["record:r", "claim:c"] {
+        let updated_at: i64 = connection
+            .query_row(
+                "SELECT updated_at_unix_ms FROM memory_items WHERE memory_id = ?1",
+                [memory_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(updated_at, 2);
+    }
     assert!(hub.audit_memory_projection().unwrap().consistent);
 }
 
@@ -76,6 +106,80 @@ fn fixture() -> (tempfile::TempDir, std::path::PathBuf, Hub, String) {
         .unwrap()
         .session_id;
     (area, workspace, hub, session)
+}
+
+#[test]
+fn projection_audit_detects_same_count_content_and_lifecycle_drift() {
+    let (area, _workspace, hub, session) = fixture();
+    let record = hub
+        .record(&RecordRequest {
+            session_id: session,
+            kind: RecordKind::Decision,
+            content: "Original decision".to_owned(),
+            evidence: None,
+            supersedes_record_id: None,
+            verifies_effect_id: None,
+            idempotency_key: "projection-audit-record".to_owned(),
+        })
+        .unwrap()
+        .record;
+    let connection = rusqlite::Connection::open(area.path().join("aporic.sqlite3")).unwrap();
+    assert!(hub.audit_memory_projection().unwrap().consistent);
+
+    // The FTS trigger keeps item and index counts (and their text) in sync.
+    connection
+        .execute(
+            "UPDATE memory_items SET content = 'Altered decision' WHERE memory_id = ?1",
+            [format!("record:{}", record.record_id)],
+        )
+        .unwrap();
+    let audit = hub.audit_memory_projection().unwrap();
+    assert_eq!(audit.expected_source_count, audit.item_count);
+    assert_eq!(audit.item_count, audit.fts_count);
+    assert!(!audit.source_consistent);
+    assert!(!audit.consistent);
+
+    connection
+        .execute(
+            "UPDATE memory_items SET content = 'Original decision',
+                                     lifecycle_state = 'superseded', valid_until_unix_ms = 42
+             WHERE memory_id = ?1",
+            [format!("record:{}", record.record_id)],
+        )
+        .unwrap();
+    let audit = hub.audit_memory_projection().unwrap();
+    assert_eq!(audit.expected_source_count, audit.item_count);
+    assert!(!audit.source_consistent);
+    assert!(!audit.consistent);
+}
+
+#[test]
+fn projection_audit_detects_same_count_fts_drift() {
+    let (area, _workspace, hub, session) = fixture();
+    let record = hub
+        .record(&RecordRequest {
+            session_id: session,
+            kind: RecordKind::Decision,
+            content: "Indexed decision".to_owned(),
+            evidence: None,
+            supersedes_record_id: None,
+            verifies_effect_id: None,
+            idempotency_key: "fts-audit-record".to_owned(),
+        })
+        .unwrap()
+        .record;
+    let connection = rusqlite::Connection::open(area.path().join("aporic.sqlite3")).unwrap();
+    connection
+        .execute(
+            "UPDATE memory_fts SET content = 'Other decision' WHERE memory_id = ?1",
+            [format!("record:{}", record.record_id)],
+        )
+        .unwrap();
+    let audit = hub.audit_memory_projection().unwrap();
+    assert_eq!(audit.expected_source_count, audit.item_count);
+    assert_eq!(audit.item_count, audit.fts_count);
+    assert!(audit.source_consistent);
+    assert!(!audit.consistent);
 }
 
 #[test]

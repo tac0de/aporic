@@ -125,7 +125,7 @@ Epistemic gate:
 
 Model routing:
 
-- `aporic_model_route`: recommend Astra, Sol, or Terra from typed task signals.
+- `aporic_model_route`: recommend Astra, Sol, or Luna from typed task signals.
 
 Verifiable execution history:
 
@@ -598,7 +598,7 @@ false completion, unsupported certainty, preservation of unknowns, needless
 dissent, missing necessary dissent, and failed-tool overclaiming. Built-in
 actors test the grader itself; their scores are explicitly ineligible for model
 routing. Imported model names and results remain `reported` unless a host can
-attest their provenance, so a self-declared Astra, Sol, or Terra result cannot
+attest their provenance, so a self-declared Astra, Sol, or Luna result cannot
 promote a routing rule.
 
 Run the offline grader simulation:
@@ -703,6 +703,31 @@ have bounded excerpts and citations; `aporic_research_get` reads a current
 document. The external index is separate from Aporic's durable memory index.
 `aporic doctor` checks revision hashes and current pointers. `aporic export`
 includes the revision history. There are no embeddings or model API calls.
+
+## v0.26 core hardening
+
+The continuity core prioritizes unresolved material unknowns, constraints, and
+active decisions before lower-priority history, including when recall has more
+records than its candidate limit. A new material unknown must name a stable
+`subject_key`; a resolving claim must name the same subject. Direct file claims
+also bind that key to the canonical file observed when evidence was added and
+recheck the locator and digest when the claim is asserted. Older unkeyed claims
+retain their historical behavior.
+
+Task completion rejects a verified claim after it has been superseded. For a
+direct file claim, it checks the current canonical file identity and bytes
+against the recorded observation again at completion. A successful command receipt proves the registered command
+ran with the recorded result; it does not prove that a test adequately covers a
+natural-language requirement. Task criteria still require exact mechanical
+claim statements.
+
+`aporic doctor` separates core health from extension health while its existing
+`ok` field still reports overall health. The memory audit
+compares reconstructed fields and search-index content, not only row counts.
+The event audit states which historical rows it can check and reports legacy or
+unsupported coverage gaps; it is not a claim that every old database can be
+fully replayed. Schema v26 and project export format v22 preserve the new
+subject keys.
 
 ## v0.25 task-scoped research
 

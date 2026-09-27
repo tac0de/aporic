@@ -13,7 +13,7 @@ use crate::{
         CapabilityManifest, CapabilityOutcome, CapabilityRegisterRequest, CapabilityReport,
         CapabilitySearchRequest, CapabilitySummary, ClaimOutcome, ClaimRequest, CloseOutcome,
         CloseRequest, CommandSpecOutcome, CommandSpecRequest, Consequence, ContextCapsule,
-        CoordinatedTask, DelegationDecisionOutcome, DelegationDecisionRequest,
+        CoordinatedTask, CoreEventAudit, DelegationDecisionOutcome, DelegationDecisionRequest,
         DelegationReportOutcome, DelegationReportRequest, DelegationStatus,
         DelegationStatusRequest, DeliberationAudit, DeliberationCreateRequest,
         DeliberationDecisionRequest, DeliberationGetRequest, DeliberationGraph,
@@ -320,6 +320,10 @@ impl Hub {
 
     pub fn audit_memory_projection(&self) -> Result<MemoryProjectionAudit> {
         self.store.audit_memory_projection()
+    }
+
+    pub fn audit_core_events(&self) -> Result<CoreEventAudit> {
+        self.store.audit_core_events()
     }
 
     pub(crate) fn record_memory_exposure(
@@ -725,7 +729,7 @@ impl Hub {
                 "frontier_or_high_consequence_ambiguity",
             )
         } else if bounded {
-            ("gpt-5.6-terra", "medium", "bounded_well_specified_work")
+            ("gpt-6-luna", "medium", "bounded_well_specified_work")
         } else {
             (
                 "gpt-6-sol",

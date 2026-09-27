@@ -158,6 +158,7 @@ fn long_horizon_frontier_workload_does_not_accumulate_known_failures() {
                 statement: proof_statement.clone(),
                 material: true,
                 evidence_ids: vec![evidence_id],
+                subject_key: None,
                 supersedes_claim_id: None,
                 idempotency_key: format!("verified-claim-long-task-{index}"),
             })

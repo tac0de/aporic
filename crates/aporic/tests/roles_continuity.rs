@@ -257,12 +257,15 @@ fn upgrades_existing_role_schema_without_recreating_appointments() {
              DROP TABLE product_cells;
              DROP TABLE office_appointments;
              ALTER TABLE orchestration_runs DROP COLUMN role_appointment_id;
+             DROP INDEX claims_subject_key;
+             ALTER TABLE claims DROP COLUMN subject_key;
+             ALTER TABLE evidence_artifacts DROP COLUMN canonical_locator;
              PRAGMA user_version = 15;",
         )
         .unwrap();
     drop(connection);
     let upgraded = Hub::open(database).unwrap();
-    assert_eq!(upgraded.stats().unwrap().schema_version, 25);
+    assert_eq!(upgraded.stats().unwrap().schema_version, 26);
     assert_eq!(
         upgraded
             .list_role_appointments(&RoleAppointmentListRequest {

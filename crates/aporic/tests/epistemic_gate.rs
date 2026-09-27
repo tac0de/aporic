@@ -41,12 +41,17 @@ fn typed_gate_blocks_unsupported_certainty_and_noise() {
             statement: "All tests passed".to_owned(),
             material: true,
             evidence_ids: vec![reported.evidence_id],
+            subject_key: None,
             supersedes_claim_id: None,
             idempotency_key: "false-certainty".to_owned(),
         })
         .is_err()
     );
 
+    let artifact = std::fs::canonicalize(&workspace)
+        .unwrap()
+        .join("artifact.txt");
+    let artifact_subject = format!("file:{}", artifact.display());
     let unknown = hub
         .assert_claim(&ClaimRequest {
             session_id: session_id.clone(),
@@ -54,6 +59,7 @@ fn typed_gate_blocks_unsupported_certainty_and_noise() {
             statement: "Whether the generated artifact matches the workspace".to_owned(),
             material: true,
             evidence_ids: vec![],
+            subject_key: Some(artifact_subject.clone()),
             supersedes_claim_id: None,
             idempotency_key: "unknown".to_owned(),
         })
@@ -70,7 +76,6 @@ fn typed_gate_blocks_unsupported_certainty_and_noise() {
         .is_err()
     );
 
-    let artifact = workspace.join("artifact.txt");
     std::fs::write(&artifact, "observed state\n").unwrap();
     let direct = hub
         .add_evidence(&EvidenceRequest {
@@ -92,6 +97,7 @@ fn typed_gate_blocks_unsupported_certainty_and_noise() {
             statement: direct_statement,
             material: true,
             evidence_ids: vec![direct.evidence_id.clone()],
+            subject_key: Some(artifact_subject),
             supersedes_claim_id: Some(unknown.claim_id),
             idempotency_key: "resolve-unknown".to_owned(),
         })
@@ -132,6 +138,240 @@ fn typed_gate_blocks_unsupported_certainty_and_noise() {
 }
 
 #[test]
+fn keyed_unknown_rejects_unrelated_direct_file_evidence() {
+    let area = tempfile::tempdir().unwrap();
+    let workspace = area.path().join("workspace");
+    std::fs::create_dir(&workspace).unwrap();
+    let hub = Hub::open(area.path().join("aporic.sqlite3")).unwrap();
+    let session_id = hub
+        .open_session(&OpenRequest {
+            workspace: workspace.to_string_lossy().into_owned(),
+            objective: "Bind claims to evidence subjects".to_owned(),
+            idempotency_key: "open-subject-binding".to_owned(),
+        })
+        .unwrap()
+        .session_id;
+    let subject_file = workspace.join("subject.txt");
+    let unrelated_file = workspace.join("unrelated.txt");
+    std::fs::write(&subject_file, "subject").unwrap();
+    std::fs::write(&unrelated_file, "unrelated").unwrap();
+    let subject_key = format!(
+        "file:{}",
+        std::fs::canonicalize(&subject_file).unwrap().display()
+    );
+    let unrelated_key = format!(
+        "file:{}",
+        std::fs::canonicalize(&unrelated_file).unwrap().display()
+    );
+
+    let missing_key = hub.assert_claim(&ClaimRequest {
+        session_id: session_id.clone(),
+        status: ClaimStatus::Unknown,
+        statement: "Whether subject.txt is current".to_owned(),
+        subject_key: None,
+        material: true,
+        evidence_ids: Vec::new(),
+        supersedes_claim_id: None,
+        idempotency_key: "missing-subject-key".to_owned(),
+    });
+    assert!(missing_key.unwrap_err().to_string().contains("subject_key"));
+    let unknown = hub
+        .assert_claim(&ClaimRequest {
+            session_id: session_id.clone(),
+            status: ClaimStatus::Unknown,
+            statement: "Whether subject.txt is current".to_owned(),
+            subject_key: Some(subject_key.clone()),
+            material: true,
+            evidence_ids: Vec::new(),
+            supersedes_claim_id: None,
+            idempotency_key: "keyed-unknown".to_owned(),
+        })
+        .unwrap()
+        .claim;
+    let unrelated = hub
+        .add_evidence(&EvidenceRequest {
+            session_id: session_id.clone(),
+            kind: EvidenceKind::WorkspaceFile,
+            locator: unrelated_file.to_string_lossy().into_owned(),
+            summary: "Read unrelated file".to_owned(),
+            content_sha256: None,
+            idempotency_key: "unrelated-evidence".to_owned(),
+        })
+        .unwrap()
+        .evidence;
+    for (key, idempotency_key) in [
+        (unrelated_key, "mismatched-subject"),
+        (subject_key.clone(), "false-matching-subject"),
+    ] {
+        let result = hub.assert_claim(&ClaimRequest {
+            session_id: session_id.clone(),
+            status: ClaimStatus::Verified,
+            statement: workspace_file_claim(&unrelated.locator, &unrelated.content_sha256),
+            subject_key: Some(key),
+            material: true,
+            evidence_ids: vec![unrelated.evidence_id.clone()],
+            supersedes_claim_id: Some(unknown.claim_id.clone()),
+            idempotency_key: idempotency_key.to_owned(),
+        });
+        assert!(
+            result.is_err(),
+            "unrelated file must not resolve keyed unknown"
+        );
+    }
+    let subject = hub
+        .add_evidence(&EvidenceRequest {
+            session_id: session_id.clone(),
+            kind: EvidenceKind::WorkspaceFile,
+            locator: subject_file.to_string_lossy().into_owned(),
+            summary: "Read subject file".to_owned(),
+            content_sha256: None,
+            idempotency_key: "subject-evidence".to_owned(),
+        })
+        .unwrap()
+        .evidence;
+    let resolution = hub
+        .assert_claim(&ClaimRequest {
+            session_id,
+            status: ClaimStatus::Verified,
+            statement: workspace_file_claim(&subject.locator, &subject.content_sha256),
+            subject_key: Some(subject_key.clone()),
+            material: true,
+            evidence_ids: vec![subject.evidence_id],
+            supersedes_claim_id: Some(unknown.claim_id),
+            idempotency_key: "matching-subject".to_owned(),
+        })
+        .unwrap()
+        .claim;
+    assert_eq!(
+        resolution.subject_key.as_deref(),
+        Some(subject_key.as_str())
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn keyed_unknown_rejects_retargeted_symlink_evidence() {
+    let area = tempfile::tempdir().unwrap();
+    let workspace = area.path().join("workspace");
+    std::fs::create_dir(&workspace).unwrap();
+    let first = workspace.join("first.txt");
+    let second = workspace.join("second.txt");
+    let link = workspace.join("link.txt");
+    std::fs::write(&first, "first bytes").unwrap();
+    std::fs::write(&second, "second bytes").unwrap();
+    std::os::unix::fs::symlink(&first, &link).unwrap();
+    let hub = Hub::open(area.path().join("aporic.sqlite3")).unwrap();
+    let session_id = hub
+        .open_session(&OpenRequest {
+            workspace: workspace.to_string_lossy().into_owned(),
+            objective: "Reject mutable evidence identity".to_owned(),
+            idempotency_key: "open-retarget".to_owned(),
+        })
+        .unwrap()
+        .session_id;
+    let subject_key = format!("file:{}", std::fs::canonicalize(&second).unwrap().display());
+    let unknown = hub
+        .assert_claim(&ClaimRequest {
+            session_id: session_id.clone(),
+            status: ClaimStatus::Unknown,
+            statement: "Whether second.txt matches evidence".to_owned(),
+            subject_key: Some(subject_key.clone()),
+            material: true,
+            evidence_ids: Vec::new(),
+            supersedes_claim_id: None,
+            idempotency_key: "unknown-retarget".to_owned(),
+        })
+        .unwrap()
+        .claim;
+    let evidence = hub
+        .add_evidence(&EvidenceRequest {
+            session_id: session_id.clone(),
+            kind: EvidenceKind::WorkspaceFile,
+            locator: link.to_string_lossy().into_owned(),
+            summary: "Link originally pointed at first.txt".to_owned(),
+            content_sha256: None,
+            idempotency_key: "evidence-retarget".to_owned(),
+        })
+        .unwrap()
+        .evidence;
+    std::fs::remove_file(&link).unwrap();
+    std::os::unix::fs::symlink(&second, &link).unwrap();
+    let resolution = hub.assert_claim(&ClaimRequest {
+        session_id,
+        status: ClaimStatus::Verified,
+        statement: workspace_file_claim(&evidence.locator, &evidence.content_sha256),
+        subject_key: Some(subject_key),
+        material: true,
+        evidence_ids: vec![evidence.evidence_id],
+        supersedes_claim_id: Some(unknown.claim_id),
+        idempotency_key: "false-retarget-resolution".to_owned(),
+    });
+    assert!(resolution.is_err());
+}
+
+#[test]
+fn historical_unkeyed_unknown_keeps_legacy_resolution_rule() {
+    let area = tempfile::tempdir().unwrap();
+    let workspace = area.path().join("workspace");
+    std::fs::create_dir(&workspace).unwrap();
+    let database = area.path().join("aporic.sqlite3");
+    let hub = Hub::open(&database).unwrap();
+    let session_id = hub
+        .open_session(&OpenRequest {
+            workspace: workspace.to_string_lossy().into_owned(),
+            objective: "Read a historical unkeyed unknown".to_owned(),
+            idempotency_key: "open-legacy-unknown".to_owned(),
+        })
+        .unwrap()
+        .session_id;
+    rusqlite::Connection::open(&database)
+        .unwrap()
+        .execute(
+            "INSERT INTO claims
+             (claim_id, session_id, status, statement, material, created_at_unix_ms)
+             VALUES ('legacy-unknown', ?1, 'unknown', 'Historical question', 1, 1)",
+            [&session_id],
+        )
+        .unwrap();
+    let path = workspace.join("legacy-proof.txt");
+    std::fs::write(&path, "observed").unwrap();
+    let evidence = hub
+        .add_evidence(&EvidenceRequest {
+            session_id: session_id.clone(),
+            kind: EvidenceKind::WorkspaceFile,
+            locator: path.to_string_lossy().into_owned(),
+            summary: "Legacy direct proof".to_owned(),
+            content_sha256: None,
+            idempotency_key: "legacy-proof".to_owned(),
+        })
+        .unwrap()
+        .evidence;
+    let resolution = hub
+        .assert_claim(&ClaimRequest {
+            session_id,
+            status: ClaimStatus::Verified,
+            statement: workspace_file_claim(&evidence.locator, &evidence.content_sha256),
+            subject_key: None,
+            material: true,
+            evidence_ids: vec![evidence.evidence_id],
+            supersedes_claim_id: Some("legacy-unknown".to_owned()),
+            idempotency_key: "legacy-resolution".to_owned(),
+        })
+        .unwrap()
+        .claim;
+    assert_eq!(resolution.subject_key, None);
+    let exported = hub
+        .export_project(workspace.to_string_lossy().as_ref())
+        .unwrap();
+    assert!(
+        exported
+            .claims
+            .iter()
+            .any(|claim| { claim.claim_id == "legacy-unknown" && claim.subject_key.is_none() })
+    );
+}
+
+#[test]
 fn workspace_evidence_rejects_files_above_the_streaming_limit() {
     let area = tempfile::tempdir().unwrap();
     let workspace = area.path().join("workspace");
@@ -166,18 +406,18 @@ fn workspace_evidence_rejects_files_above_the_streaming_limit() {
 }
 
 #[test]
-fn model_router_uses_terra_sol_and_astra_without_conferring_authority() {
+fn model_router_uses_luna_sol_and_astra_without_conferring_authority() {
     let area = tempfile::tempdir().unwrap();
     let hub = Hub::open(area.path().join("aporic.sqlite3")).unwrap();
-    let terra = hub.route_model(&ModelRouteRequest {
+    let luna = hub.route_model(&ModelRouteRequest {
         work_kind: WorkKind::Extraction,
         complexity: WorkComplexity::Bounded,
         consequence: Consequence::Low,
         ambiguity_high: false,
         independent_review: false,
     });
-    assert_eq!(terra.model, "gpt-5.6-terra");
-    assert!(terra.advisory);
+    assert_eq!(luna.model, "gpt-6-luna");
+    assert!(luna.advisory);
 
     let sol = hub.route_model(&ModelRouteRequest {
         work_kind: WorkKind::Implementation,

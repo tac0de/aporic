@@ -35,7 +35,7 @@ fn migrates_v9_to_v10_without_usage_receipts() {
     drop(connection);
 
     let hub = Hub::open(database).unwrap();
-    assert_eq!(hub.stats().unwrap().schema_version, 25);
+    assert_eq!(hub.stats().unwrap().schema_version, 26);
     let audit = hub.audit_token_usage().unwrap();
     assert_eq!(audit.receipt_count, 0);
     assert!(audit.consistent);
@@ -77,6 +77,7 @@ fn usage_receipts_separate_measurement_estimates_and_verified_outcomes() {
             statement: workspace_file_claim(&evidence.locator, &evidence.content_sha256),
             material: true,
             evidence_ids: vec![evidence.evidence_id],
+            subject_key: None,
             supersedes_claim_id: None,
             idempotency_key: "token-verified-claim".to_owned(),
         })

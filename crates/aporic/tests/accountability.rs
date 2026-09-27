@@ -125,6 +125,7 @@ fn repair_obligation_remains_visible_until_a_verified_repair_task_completes() {
             statement: criterion.clone(),
             material: true,
             evidence_ids: vec![direct.evidence_id],
+            subject_key: None,
             supersedes_claim_id: None,
             idempotency_key: "repair-claim".to_owned(),
         })
@@ -213,7 +214,7 @@ fn repair_obligation_remains_visible_until_a_verified_repair_task_completes() {
 
     drop(hub);
     let restarted = Hub::open(area.path().join("aporic.sqlite3")).unwrap();
-    assert_eq!(restarted.stats().unwrap().schema_version, 25);
+    assert_eq!(restarted.stats().unwrap().schema_version, 26);
     let report = restarted
         .list_accountability_cases(&AccountabilityListRequest {
             workspace: workspace.to_string_lossy().into_owned(),
@@ -227,7 +228,7 @@ fn repair_obligation_remains_visible_until_a_verified_repair_task_completes() {
     let export = restarted
         .export_project(workspace.to_str().unwrap())
         .unwrap();
-    assert_eq!(export.format_version, 21);
+    assert_eq!(export.format_version, 22);
     assert_eq!(export.accountability_cases.len(), 1);
     assert_eq!(
         export
@@ -341,11 +342,14 @@ fn upgrades_schema_18_to_accountability_schema() {
             DROP TABLE task_memory_uses;
             DROP TABLE prototype_reviews; DROP TABLE prototype_briefs;
             DROP TABLE improvement_requests; DROP TABLE accountability_cases;
+            DROP INDEX claims_subject_key;
+            ALTER TABLE claims DROP COLUMN subject_key;
+            ALTER TABLE evidence_artifacts DROP COLUMN canonical_locator;
             PRAGMA user_version = 18;",
         )
         .unwrap();
     drop(connection);
     let upgraded = Hub::open(&database).unwrap();
-    assert_eq!(upgraded.stats().unwrap().schema_version, 25);
+    assert_eq!(upgraded.stats().unwrap().schema_version, 26);
     assert!(upgraded.audit_accountability().unwrap().consistent);
 }

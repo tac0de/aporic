@@ -4,8 +4,10 @@
 
 The Aporic kernel and Aporic Hub have different lifecycles.
 
-- The kernel is an exact behavioral constitution and a set of deterministic
-  invariants. It has no transport, database, model, or host dependency.
+- The kernel module verifies the exact behavioral constitution in
+  `canon/KERNEL.md`. The mechanically enforced invariants currently live in
+  the hub's domain, context, and store code; the canon is not an executable
+  state machine. Neither depends on a model for its checks.
 - The hub is evolving software that applies those invariants to projects,
   sessions, tasks, decisions, typed evidence, epistemic claims, and agents.
 - MCP is an adapter. It does not become the domain model and does not by itself
@@ -280,6 +282,33 @@ it never attributes task success to a prompt variant or activates a variant.
 The two built-in templates are `baseline` and `evidence_first`. Project export
 format v20 includes trials without raw response text.
 
+Schema v26 adds an optional subject key to claims. New material unknowns need
+one; a resolving claim must cite the same key. For direct workspace-file
+claims, a supplied key must identify the canonical evidence file observed at
+registration. The current locator and digest are rechecked before a keyed
+claim is accepted, so retargeting a symlink cannot borrow another file's
+evidence. Historical evidence without a recorded canonical locator cannot
+establish a new keyed file claim. Historical unkeyed
+claims keep their prior resolution behavior and are not retroactively assigned
+subjects. Project export format v22 includes subject keys and observed canonical
+locators. The v26 migration normalizes historical supersession timestamps in
+the rebuildable memory projection before field-level auditing.
+
+The completion gate rejects superseded verified claims and reads a directly
+proved file again before accepting its observed canonical identity and digest.
+A successful command
+receipt still attests the registered command's result, not whether that command
+adequately tested a natural-language requirement. Task criteria currently use
+exact mechanical claim strings; semantic acceptance needs separate review.
+
+Recall candidate extraction uses the same material-unknown, constraint, and
+decision priority as final selection, including under the bounded candidate
+limit. Memory projection audit compares reconstructed source fields and FTS
+content, in addition to counts. CLI `doctor` reports core and extension health
+separately; an extension failure does not imply that continuity state is broken.
+These checks detect specified forms of corruption, not same-user database
+tampering or every historical replay discrepancy.
+
 ## MCP surface
 
 - `aporic_open`: start an idempotent session and return recent context.
@@ -303,7 +332,7 @@ format v20 includes trials without raw response text.
 - `aporic_record`: append one durable typed record.
 - `aporic_evidence_add`, `aporic_claim_assert`, and `aporic_dissent_assess`:
   enforce the evidence, certainty, unknown, and counterargument gates.
-- `aporic_model_route`: return an advisory Astra/Sol/Terra route from typed task
+- `aporic_model_route`: return an advisory Astra/Sol/Luna route from typed task
   signals.
 - `aporic_check_register`, `aporic_run_list`, and `aporic_run_get`: register
   immutable checks and inspect verifiable execution history without exposing an

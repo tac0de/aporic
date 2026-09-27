@@ -895,6 +895,7 @@ fn missing_requirements_and_stage_evidence_prevent_advancement_across_restart() 
             statement: criterion.clone(),
             material: true,
             evidence_ids: vec![proof],
+            subject_key: None,
             supersedes_claim_id: None,
             idempotency_key: "verified-claim".into(),
         })
@@ -1096,6 +1097,7 @@ fn evidence_cannot_cross_task_workflows_and_cancelled_tasks_stop() {
             statement: first_criterion.clone(),
             material: true,
             evidence_ids: vec![proof],
+            subject_key: None,
             supersedes_claim_id: None,
             idempotency_key: "first-claim".into(),
         })

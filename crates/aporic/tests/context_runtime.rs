@@ -48,7 +48,7 @@ fn migrates_v5_records_with_non_authoritative_defaults() {
     drop(connection);
 
     let hub = Hub::open(&database).unwrap();
-    assert_eq!(hub.stats().unwrap().schema_version, 25);
+    assert_eq!(hub.stats().unwrap().schema_version, 26);
     let exported = hub
         .export_project(workspace.to_string_lossy().as_ref())
         .unwrap();
@@ -116,6 +116,7 @@ fn context_selection_and_codex_hook_resist_memory_poisoning() {
             statement: "Whether hook consumers honor influence labels".to_owned(),
             material: true,
             evidence_ids: Vec::new(),
+            subject_key: Some("hook-consumer-influence-labels".to_owned()),
             supersedes_claim_id: None,
             idempotency_key: "material-unknown".to_owned(),
         })
@@ -232,6 +233,73 @@ fn context_selection_and_codex_hook_resist_memory_poisoning() {
         labels,
         ("mcp_agent".to_owned(), "untrusted_content".to_owned())
     );
+}
+
+#[test]
+fn recall_keeps_material_unknown_and_constraint_after_many_decisions() {
+    let area = tempfile::tempdir().unwrap();
+    let workspace = area.path().join("workspace");
+    std::fs::create_dir(&workspace).unwrap();
+    let hub = Hub::open(area.path().join("aporic.sqlite3")).unwrap();
+    let session_id = hub
+        .open_session(&OpenRequest {
+            workspace: workspace.to_string_lossy().into_owned(),
+            objective: "Check bounded recall priority".to_owned(),
+            idempotency_key: "open-recall-priority".to_owned(),
+        })
+        .unwrap()
+        .session_id;
+
+    let unknown = hub
+        .record(&RecordRequest {
+            session_id: session_id.clone(),
+            kind: RecordKind::MaterialUnknown,
+            content: "Unresolved deployment readiness".to_owned(),
+            evidence: None,
+            supersedes_record_id: None,
+            verifies_effect_id: None,
+            idempotency_key: "recall-priority-unknown".to_owned(),
+        })
+        .unwrap()
+        .record;
+    let constraint = hub
+        .record(&RecordRequest {
+            session_id: session_id.clone(),
+            kind: RecordKind::Constraint,
+            content: "Require a verified recovery path".to_owned(),
+            evidence: None,
+            supersedes_record_id: None,
+            verifies_effect_id: None,
+            idempotency_key: "recall-priority-constraint".to_owned(),
+        })
+        .unwrap()
+        .record;
+    for index in 0..201 {
+        hub.record(&RecordRequest {
+            session_id: session_id.clone(),
+            kind: RecordKind::Decision,
+            content: format!("Decision number {index}"),
+            evidence: None,
+            supersedes_record_id: None,
+            verifies_effect_id: None,
+            idempotency_key: format!("recall-priority-decision-{index}"),
+        })
+        .unwrap();
+    }
+
+    let request = RecallRequest {
+        workspace: workspace.to_string_lossy().into_owned(),
+        limit: Some(20),
+        objective: None,
+        focus_paths: Vec::new(),
+        max_bytes: Some(16_384),
+        compact: false,
+    };
+    let first = hub.recall(&request).unwrap();
+    assert_eq!(first, hub.recall(&request).unwrap());
+    assert!(first.budget.candidate_items <= 200);
+    assert_eq!(first.selected_items[0].item_id, unknown.record_id);
+    assert_eq!(first.selected_items[1].item_id, constraint.record_id);
 }
 
 #[test]

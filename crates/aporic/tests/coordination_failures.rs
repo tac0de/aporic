@@ -105,6 +105,7 @@ fn deterministic_coordination_failure_suite() {
             statement: proof_statement.clone(),
             material: true,
             evidence_ids: vec![evidence_id],
+            subject_key: None,
             supersedes_claim_id: None,
             idempotency_key: "foundation-claim".to_owned(),
         })

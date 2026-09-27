@@ -136,7 +136,7 @@ fn task_research_links_are_scoped_idempotent_and_exported() {
         .unwrap();
     assert_eq!(linked.len(), 2);
     let export = hub.export_project(&workspace).unwrap();
-    assert_eq!(export.format_version, 21);
+    assert_eq!(export.format_version, 22);
     assert_eq!(export.task_research_items, linked);
     assert!(hub.audit_task_research().unwrap().consistent);
     let connection = rusqlite::Connection::open(&db).unwrap();
@@ -183,10 +183,16 @@ fn schema_24_upgrades_to_task_research_without_prior_items() {
     drop(Hub::open(&db).unwrap());
     let connection = rusqlite::Connection::open(&db).unwrap();
     connection
-        .execute_batch("DROP TABLE task_research_items; PRAGMA user_version = 24;")
+        .execute_batch(
+            "DROP TABLE task_research_items;
+             DROP INDEX claims_subject_key;
+             ALTER TABLE claims DROP COLUMN subject_key;
+             ALTER TABLE evidence_artifacts DROP COLUMN canonical_locator;
+             PRAGMA user_version = 24;",
+        )
         .unwrap();
     drop(connection);
     let upgraded = Hub::open(&db).unwrap();
-    assert_eq!(upgraded.stats().unwrap().schema_version, 25);
+    assert_eq!(upgraded.stats().unwrap().schema_version, 26);
     assert!(upgraded.audit_task_research().unwrap().consistent);
 }

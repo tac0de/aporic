@@ -73,6 +73,7 @@ use crate::{
 };
 
 const SCHEMA: &str = include_str!("../../../migrations/0001_initial.sql");
+mod core_event_audit;
 mod delegation;
 mod government_roster;
 mod improvements;
@@ -105,7 +106,8 @@ const MIGRATION_22: &str = include_str!("../../../migrations/0022_government_ros
 const MIGRATION_23: &str = include_str!("../../../migrations/0023_task_briefs.sql");
 const MIGRATION_24: &str = include_str!("../../../migrations/0024_prompt_trials.sql");
 const MIGRATION_25: &str = include_str!("../../../migrations/0025_task_research.sql");
-const SCHEMA_VERSION: u32 = 25;
+const MIGRATION_26: &str = include_str!("../../../migrations/0026_claim_subject.sql");
+const SCHEMA_VERSION: u32 = 26;
 const MIGRATIONS: &[(u32, &str)] = &[
     (2, MIGRATION_2),
     (3, MIGRATION_3),
@@ -131,6 +133,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (23, MIGRATION_23),
     (24, MIGRATION_24),
     (25, MIGRATION_25),
+    (26, MIGRATION_26),
 ];
 
 #[derive(Debug, Error)]
@@ -1590,23 +1593,24 @@ impl Store {
             return Ok(outcome);
         }
         require_open_session(&transaction, &request.session_id)?;
-        let (grade, digest) = validate_evidence(&transaction, request)?;
+        let (grade, digest, canonical_locator) = validate_evidence(&transaction, request)?;
         let evidence = EvidenceArtifact {
             evidence_id: Uuid::now_v7().to_string(),
             session_id: request.session_id.clone(),
             kind: request.kind.clone(),
             grade,
             locator: request.locator.clone(),
+            canonical_locator,
             summary: request.summary.clone(),
             content_sha256: digest,
             created_at_unix_ms: now,
         };
         transaction.execute(
             "INSERT INTO evidence_artifacts
-             (evidence_id, session_id, kind, grade, locator, summary, content_sha256, created_at_unix_ms)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+             (evidence_id, session_id, kind, grade, locator, canonical_locator, summary, content_sha256, created_at_unix_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![evidence.evidence_id, evidence.session_id, evidence.kind.as_str(),
-                evidence.grade.as_str(), evidence.locator, evidence.summary,
+                evidence.grade.as_str(), evidence.locator, evidence.canonical_locator, evidence.summary,
                 evidence.content_sha256, evidence.created_at_unix_ms],
         )?;
         let outcome = EvidenceOutcome {
@@ -1650,6 +1654,7 @@ impl Store {
             session_id: request.session_id.clone(),
             status: request.status.clone(),
             statement: request.statement.clone(),
+            subject_key: request.subject_key.clone(),
             material: request.material,
             evidence_ids: request.evidence_ids.clone(),
             receipt_ids: Vec::new(),
@@ -1658,10 +1663,10 @@ impl Store {
         };
         transaction.execute(
             "INSERT INTO claims
-             (claim_id, session_id, status, statement, material, supersedes_claim_id, created_at_unix_ms)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+             (claim_id, session_id, status, statement, subject_key, material, supersedes_claim_id, created_at_unix_ms)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
             params![claim.claim_id, claim.session_id, claim.status.as_str(), claim.statement,
-                claim.material, claim.supersedes_claim_id, claim.created_at_unix_ms],
+                claim.subject_key, claim.material, claim.supersedes_claim_id, claim.created_at_unix_ms],
         )?;
         for evidence_id in &claim.evidence_ids {
             transaction.execute(
@@ -2840,8 +2845,9 @@ impl Store {
     }
 
     pub fn audit_memory_projection(&self) -> Result<MemoryProjectionAudit> {
-        let connection = self.connection()?;
-        let expected_source_count = connection.query_row(
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Deferred)?;
+        let expected_source_count = transaction.query_row(
             "SELECT
                 (SELECT count(*) FROM records) +
                 (SELECT count(*) FROM claims) +
@@ -2852,21 +2858,126 @@ impl Store {
             [],
             |row| row.get::<_, u64>(0),
         )?;
-        let item_count = table_count(&connection, "memory_items", "1 = 1")?;
-        let active_count = table_count(&connection, "memory_items", "lifecycle_state = 'active'")?;
+        let item_count = table_count(&transaction, "memory_items", "1 = 1")?;
+        let active_count = table_count(&transaction, "memory_items", "lifecycle_state = 'active'")?;
         let superseded_count = table_count(
-            &connection,
+            &transaction,
             "memory_items",
             "lifecycle_state = 'superseded'",
         )?;
         let untrusted_count = table_count(
-            &connection,
+            &transaction,
             "memory_items",
             "influence_class = 'untrusted_content'",
         )?;
-        let fts_count = table_count(&connection, "memory_fts", "1 = 1")?;
-        let source_consistent = expected_source_count == item_count;
-        Ok(MemoryProjectionAudit {
+        let fts_count = table_count(&transaction, "memory_fts", "1 = 1")?;
+        // Reconstruct the v7 projection from its sources. Counts alone cannot detect
+        // a changed capsule, stale lifecycle, or a missing item replaced by another.
+        // Keep this read-only so doctor can audit existing databases in place.
+        let projection_mismatch_count = transaction.query_row(
+            "WITH expected AS MATERIALIZED (
+                SELECT 'record:' || r.record_id AS memory_id, s.project_id,
+                       'record' AS source_kind, r.record_id AS source_id,
+                       CASE WHEN r.kind IN ('decision', 'constraint') THEN 'semantic'
+                            WHEN r.kind = 'material_unknown' THEN 'unknown'
+                            ELSE 'episodic' END AS memory_class,
+                       r.content, r.origin_channel, r.influence_class,
+                       r.kind AS source_status,
+                       CASE WHEN newer.record_id IS NULL THEN 'active'
+                            ELSE 'superseded' END AS lifecycle_state,
+                       r.created_at_unix_ms AS valid_from_unix_ms,
+                       newer.created_at_unix_ms AS valid_until_unix_ms,
+                       '{}' AS applicability_json,
+                       r.created_at_unix_ms,
+                       coalesce(newer.created_at_unix_ms, r.created_at_unix_ms)
+                           AS updated_at_unix_ms
+                  FROM records r
+                  JOIN sessions s ON s.session_id = r.session_id
+                  LEFT JOIN records newer ON newer.supersedes_record_id = r.record_id
+                UNION ALL
+                SELECT 'claim:' || c.claim_id, s.project_id, 'claim', c.claim_id,
+                       CASE WHEN c.status = 'unknown' THEN 'unknown' ELSE 'semantic' END,
+                       c.statement, 'mcp_agent',
+                       CASE WHEN c.status IN ('observed', 'verified') THEN 'verified_fact'
+                            ELSE 'untrusted_content' END,
+                       c.status,
+                       CASE WHEN newer.claim_id IS NULL THEN 'active'
+                            ELSE 'superseded' END,
+                       c.created_at_unix_ms, newer.created_at_unix_ms, '{}',
+                       c.created_at_unix_ms,
+                       coalesce(newer.created_at_unix_ms, c.created_at_unix_ms)
+                  FROM claims c
+                  JOIN sessions s ON s.session_id = c.session_id
+                  LEFT JOIN claims newer ON newer.supersedes_claim_id = c.claim_id
+                UNION ALL
+                SELECT 'task:' || t.task_id, t.project_id, 'task', t.task_id,
+                       'procedural', t.objective, 'mcp_agent', 'untrusted_content',
+                       t.status, 'active', t.created_at_unix_ms, NULL,
+                       json_object('write_scope', json(t.write_scope_json),
+                                   'depends_on', json(t.depends_on_json)),
+                       t.created_at_unix_ms, t.updated_at_unix_ms
+                  FROM tasks t
+                UNION ALL
+                SELECT 'handoff:' || s.session_id, s.project_id, 'handoff', s.session_id,
+                       'episodic', s.summary || ' Next action: ' || s.next_action,
+                       'mcp_agent', 'untrusted_content', 'handoff', 'active',
+                       s.closed_at_unix_ms, NULL, '{}',
+                       s.closed_at_unix_ms, s.closed_at_unix_ms
+                  FROM sessions s
+                  WHERE s.status = 'handoff' AND s.summary IS NOT NULL
+                    AND s.next_action IS NOT NULL
+                UNION ALL
+                SELECT 'execution:' || run.run_id, s.project_id, 'execution', run.run_id,
+                       CASE WHEN run.status = 'succeeded' THEN 'episodic' ELSE 'gotcha' END,
+                       'Execution ' || run.status || ' for specification ' || run.spec_id ||
+                           ' with termination ' || receipt.termination,
+                       'local_runner', 'verified_fact', run.status, 'active',
+                       run.started_at_unix_ms, NULL,
+                       json_object('spec_id', run.spec_id,
+                                   'command_spec_sha256', receipt.command_spec_sha256),
+                       run.started_at_unix_ms, receipt.created_at_unix_ms
+                  FROM execution_receipts receipt
+                  JOIN execution_runs run ON run.run_id = receipt.run_id
+                  JOIN sessions s ON s.session_id = run.session_id
+            )
+            SELECT
+                (SELECT count(*) FROM expected e
+                 LEFT JOIN memory_items m ON m.memory_id = e.memory_id
+                 WHERE m.memory_id IS NULL
+                    OR NOT (m.project_id IS e.project_id
+                        AND m.source_kind IS e.source_kind
+                        AND m.source_id IS e.source_id
+                        AND m.memory_class IS e.memory_class
+                        AND m.content IS e.content
+                        AND m.origin_channel IS e.origin_channel
+                        AND m.influence_class IS e.influence_class
+                        AND m.source_status IS e.source_status
+                        AND m.lifecycle_state IS e.lifecycle_state
+                        AND m.valid_from_unix_ms IS e.valid_from_unix_ms
+                        AND m.valid_until_unix_ms IS e.valid_until_unix_ms
+                        AND m.applicability_json IS e.applicability_json
+                        AND m.created_at_unix_ms IS e.created_at_unix_ms
+                        AND m.updated_at_unix_ms IS e.updated_at_unix_ms))
+                + (SELECT count(*) FROM memory_items m
+                   LEFT JOIN expected e ON e.memory_id = m.memory_id
+                   WHERE e.memory_id IS NULL)",
+            [],
+            |row| row.get::<_, u64>(0),
+        )?;
+        let fts_mismatch_count = transaction.query_row(
+            "SELECT
+                (SELECT count(*) FROM (
+                    SELECT memory_id, content FROM memory_items
+                    EXCEPT SELECT memory_id, content FROM memory_fts))
+                + (SELECT count(*) FROM (
+                    SELECT memory_id, content FROM memory_fts
+                    EXCEPT SELECT memory_id, content FROM memory_items))",
+            [],
+            |row| row.get::<_, u64>(0),
+        )?;
+        let source_consistent =
+            expected_source_count == item_count && projection_mismatch_count == 0;
+        let audit = MemoryProjectionAudit {
             expected_source_count,
             item_count,
             active_count,
@@ -2874,8 +2985,10 @@ impl Store {
             untrusted_count,
             fts_count,
             source_consistent,
-            consistent: source_consistent && item_count == fts_count,
-        })
+            consistent: source_consistent && item_count == fts_count && fts_mismatch_count == 0,
+        };
+        transaction.commit()?;
+        Ok(audit)
     }
 
     pub(crate) fn record_memory_exposure(
@@ -6179,7 +6292,7 @@ impl Store {
         };
 
         Ok(ProjectExport {
-            format_version: 21,
+            format_version: 22,
             exported_at_unix_ms: unix_millis()?,
             project_id,
             workspace,
@@ -9312,7 +9425,7 @@ fn require_open_session(transaction: &Transaction<'_>, session_id: &str) -> Resu
 fn validate_evidence(
     transaction: &Transaction<'_>,
     request: &EvidenceRequest,
-) -> Result<(EvidenceGrade, String)> {
+) -> Result<(EvidenceGrade, String, Option<String>)> {
     match request.kind {
         EvidenceKind::WorkspaceFile => {
             let workspace = transaction.query_row(
@@ -9340,17 +9453,23 @@ fn validate_evidence(
                     "workspace_file content_sha256 does not match Aporic's read-back".to_owned(),
                 ));
             }
-            Ok((EvidenceGrade::Direct, digest))
+            Ok((
+                EvidenceGrade::Direct,
+                digest,
+                Some(path.to_string_lossy().into_owned()),
+            ))
         }
         EvidenceKind::ModelAssessment => Ok((
             EvidenceGrade::ModelOnly,
             require_sha256(request.content_sha256.as_deref())?,
+            None,
         )),
         EvidenceKind::CommandResult
         | EvidenceKind::ExternalSource
         | EvidenceKind::UserStatement => Ok((
             EvidenceGrade::Reported,
             require_sha256(request.content_sha256.as_deref())?,
+            None,
         )),
     }
 }
@@ -9367,6 +9486,19 @@ fn require_sha256(value: Option<&str>) -> Result<String> {
 }
 
 fn validate_claim(transaction: &Transaction<'_>, request: &ClaimRequest) -> Result<()> {
+    if let Some(subject_key) = &request.subject_key {
+        require_text("subject_key", subject_key)?;
+        if subject_key.trim() != subject_key {
+            return Err(Error::Invalid(
+                "subject_key must not have leading or trailing whitespace".to_owned(),
+            ));
+        }
+    }
+    if request.status == ClaimStatus::Unknown && request.material && request.subject_key.is_none() {
+        return Err(Error::Invalid(
+            "material unknown claims require subject_key".to_owned(),
+        ));
+    }
     let grades = evidence_grades(transaction, &request.session_id, &request.evidence_ids)?;
     let has_direct = grades.contains(&EvidenceGrade::Direct);
     match request.status {
@@ -9397,7 +9529,7 @@ fn validate_claim(transaction: &Transaction<'_>, request: &ClaimRequest) -> Resu
         let mut mechanically_matches = false;
         for evidence_id in &request.evidence_ids {
             let evidence = transaction.query_row(
-                "SELECT grade, kind, locator, content_sha256 FROM evidence_artifacts
+                "SELECT grade, kind, locator, content_sha256, canonical_locator FROM evidence_artifacts
                  WHERE evidence_id = ?1",
                 [evidence_id],
                 |row| {
@@ -9406,6 +9538,7 @@ fn validate_claim(transaction: &Transaction<'_>, request: &ClaimRequest) -> Resu
                         row.get::<_, String>(1)?,
                         row.get::<_, String>(2)?,
                         row.get::<_, String>(3)?,
+                        row.get::<_, Option<String>>(4)?,
                     ))
                 },
             )?;
@@ -9413,6 +9546,38 @@ fn validate_claim(transaction: &Transaction<'_>, request: &ClaimRequest) -> Resu
                 && evidence.1 == "workspace_file"
                 && request.statement == workspace_file_claim(&evidence.2, &evidence.3)
             {
+                if let Some(subject_key) = &request.subject_key {
+                    let observed_locator = evidence.4.as_ref().ok_or_else(|| {
+                        Error::Conflict(
+                            "keyed workspace_file claim requires an observed canonical locator"
+                                .to_owned(),
+                        )
+                    })?;
+                    let canonical_path = fs::canonicalize(&evidence.2)?;
+                    if canonical_path != Path::new(observed_locator) {
+                        return Err(Error::Conflict(
+                            "workspace_file locator no longer identifies its observed file"
+                                .to_owned(),
+                        ));
+                    }
+                    let (current_digest, _) = sha256_file_bounded(
+                        &canonical_path,
+                        MAX_EVIDENCE_FILE_BYTES,
+                        "keyed workspace evidence file",
+                    )?;
+                    if current_digest != evidence.3 {
+                        return Err(Error::Conflict(
+                            "keyed workspace_file evidence changed since observation".to_owned(),
+                        ));
+                    }
+                    let evidence_subject_key = format!("file:{}", canonical_path.to_string_lossy());
+                    if subject_key != &evidence_subject_key {
+                        return Err(Error::Conflict(
+                            "workspace_file claim subject_key must identify its direct evidence file"
+                                .to_owned(),
+                        ));
+                    }
+                }
                 mechanically_matches = true;
             }
         }
@@ -9426,9 +9591,15 @@ fn validate_claim(transaction: &Transaction<'_>, request: &ClaimRequest) -> Resu
     if let Some(target_id) = &request.supersedes_claim_id {
         let target = transaction
             .query_row(
-                "SELECT session_id, status FROM claims WHERE claim_id = ?1",
+                "SELECT session_id, status, subject_key FROM claims WHERE claim_id = ?1",
                 [target_id],
-                |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+                |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, Option<String>>(2)?,
+                    ))
+                },
             )
             .optional()?
             .ok_or_else(|| Error::NotFound(format!("claim {target_id}")))?;
@@ -9443,6 +9614,13 @@ fn validate_claim(transaction: &Transaction<'_>, request: &ClaimRequest) -> Resu
                 "an unknown may only be resolved by an observed or verified claim".to_owned(),
             ));
         }
+        if target.1 == "unknown" && target.2.is_some() && request.subject_key != target.2 {
+            return Err(Error::Conflict(
+                "a keyed unknown may only be resolved by a claim with the same subject_key"
+                    .to_owned(),
+            ));
+        }
+        // Historical unknowns without a subject key retain their prior resolution rule.
     }
     Ok(())
 }
@@ -9994,7 +10172,8 @@ fn load_project_evidence(
 ) -> Result<Vec<EvidenceArtifact>> {
     let mut statement = connection.prepare(
         "SELECT evidence_id, evidence_artifacts.session_id, evidence_artifacts.kind,
-                evidence_artifacts.grade, evidence_artifacts.locator, evidence_artifacts.summary,
+                evidence_artifacts.grade, evidence_artifacts.locator, evidence_artifacts.canonical_locator,
+                evidence_artifacts.summary,
                 evidence_artifacts.content_sha256, evidence_artifacts.created_at_unix_ms
          FROM evidence_artifacts
          JOIN sessions ON sessions.session_id = evidence_artifacts.session_id
@@ -10009,9 +10188,10 @@ fn load_project_evidence(
                 kind: parse_evidence_kind_value(&row.get::<_, String>(2)?)?,
                 grade: parse_evidence_grade_value(&row.get::<_, String>(3)?)?,
                 locator: row.get(4)?,
-                summary: row.get(5)?,
-                content_sha256: row.get(6)?,
-                created_at_unix_ms: row.get(7)?,
+                canonical_locator: row.get(5)?,
+                summary: row.get(6)?,
+                content_sha256: row.get(7)?,
+                created_at_unix_ms: row.get(8)?,
             })
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?)
@@ -10020,7 +10200,7 @@ fn load_project_evidence(
 fn load_project_claims(connection: &Connection, project_id: &str) -> Result<Vec<EpistemicClaim>> {
     let mut statement = connection.prepare(
         "SELECT claims.claim_id, claims.session_id, claims.status, claims.statement,
-                claims.material, claims.supersedes_claim_id, claims.created_at_unix_ms
+                claims.subject_key, claims.material, claims.supersedes_claim_id, claims.created_at_unix_ms
          FROM claims JOIN sessions ON sessions.session_id = claims.session_id
          WHERE sessions.project_id = ?1
          ORDER BY claims.created_at_unix_ms ASC, claims.claim_id ASC",
@@ -10031,15 +10211,24 @@ fn load_project_claims(connection: &Connection, project_id: &str) -> Result<Vec<
             row.get::<_, String>(1)?,
             row.get::<_, String>(2)?,
             row.get::<_, String>(3)?,
-            row.get::<_, bool>(4)?,
-            row.get::<_, Option<String>>(5)?,
-            row.get::<_, i64>(6)?,
+            row.get::<_, Option<String>>(4)?,
+            row.get::<_, bool>(5)?,
+            row.get::<_, Option<String>>(6)?,
+            row.get::<_, i64>(7)?,
         ))
     })?;
     let mut claims = Vec::new();
     for row in rows {
-        let (claim_id, session_id, status, statement, material, supersedes_claim_id, created_at) =
-            row?;
+        let (
+            claim_id,
+            session_id,
+            status,
+            statement,
+            subject_key,
+            material,
+            supersedes_claim_id,
+            created_at,
+        ) = row?;
         let evidence_ids = {
             let mut evidence = connection.prepare(
                 "SELECT evidence_id FROM claim_evidence WHERE claim_id = ?1 ORDER BY evidence_id ASC",
@@ -10061,6 +10250,7 @@ fn load_project_claims(connection: &Connection, project_id: &str) -> Result<Vec<
             session_id,
             status: parse_claim_status_value(&status)?,
             statement,
+            subject_key,
             material,
             evidence_ids,
             receipt_ids,
@@ -10228,7 +10418,9 @@ fn validate_criterion_proofs(
         }
         let claim = connection
             .query_row(
-                "SELECT claims.status, sessions.project_id, claims.statement
+                "SELECT claims.status, sessions.project_id, claims.statement,
+                        EXISTS(SELECT 1 FROM claims replacements
+                               WHERE replacements.supersedes_claim_id = claims.claim_id)
              FROM claims JOIN sessions ON sessions.session_id = claims.session_id
              WHERE claims.claim_id = ?1",
                 [&proof.verified_claim_id],
@@ -10237,15 +10429,73 @@ fn validate_criterion_proofs(
                         row.get::<_, String>(0)?,
                         row.get::<_, String>(1)?,
                         row.get::<_, String>(2)?,
+                        row.get::<_, bool>(3)?,
                     ))
                 },
             )
             .optional()?
             .ok_or_else(|| Error::NotFound(format!("claim {}", proof.verified_claim_id)))?;
-        if claim.0 != "verified" || claim.1 != task.project_id || claim.2 != proof.criterion {
+        if claim.0 != "verified"
+            || claim.1 != task.project_id
+            || claim.2 != proof.criterion
+            || claim.3
+        {
             return Err(Error::Conflict(
-                "each criterion proof must exactly match a verified mechanical claim in the task project".to_owned(),
+                "each criterion proof must exactly match an active verified mechanical claim in the task project".to_owned(),
             ));
+        }
+        // A file digest describes bytes observed at a point in time. Before
+        // using it to complete a task, check that the same file still has
+        // those bytes. Command receipts describe an execution and are handled
+        // by their separate, immutable receipt contract.
+        let mut file_evidence = connection.prepare(
+            "SELECT artifacts.locator, artifacts.content_sha256, projects.workspace,
+                    artifacts.canonical_locator
+             FROM claim_evidence links
+             JOIN evidence_artifacts artifacts ON artifacts.evidence_id = links.evidence_id
+             JOIN sessions ON sessions.session_id = artifacts.session_id
+             JOIN projects ON projects.project_id = sessions.project_id
+             WHERE links.claim_id = ?1
+               AND artifacts.kind = 'workspace_file'
+               AND artifacts.grade = 'direct'",
+        )?;
+        let observed_files = file_evidence
+            .query_map([&proof.verified_claim_id], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                ))
+            })?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        for (locator, digest, workspace, observed_locator) in observed_files {
+            if workspace_file_claim(&locator, &digest) != claim.2 {
+                continue;
+            }
+            let path = fs::canonicalize(&locator).map_err(|_| {
+                Error::Conflict("criterion proof file is no longer available".to_owned())
+            })?;
+            if !path.is_file() || !path.starts_with(Path::new(&workspace)) {
+                return Err(Error::Conflict(
+                    "criterion proof file is no longer inside its workspace".to_owned(),
+                ));
+            }
+            if observed_locator
+                .as_deref()
+                .is_some_and(|observed| path != Path::new(observed))
+            {
+                return Err(Error::Conflict(
+                    "criterion proof file no longer identifies its observed file".to_owned(),
+                ));
+            }
+            let (current_digest, _) =
+                sha256_file_bounded(&path, MAX_EVIDENCE_FILE_BYTES, "criterion proof file")?;
+            if current_digest != digest {
+                return Err(Error::Conflict(
+                    "criterion proof file has changed since verification".to_owned(),
+                ));
+            }
         }
     }
     if observed != expected {
@@ -10371,15 +10621,14 @@ fn recall_for_project(
                WHERE replacements.supersedes_record_id = records.record_id
            )
          ORDER BY CASE records.kind
-                    WHEN 'decision' THEN 0
+                    WHEN 'material_unknown' THEN 0
                     WHEN 'constraint' THEN 1
-                    WHEN 'material_unknown' THEN 2
-                    WHEN 'verification' THEN 3
-                    WHEN 'effect' THEN 4
-                    WHEN 'task_progress' THEN 5
-                    ELSE 6
+                    WHEN 'decision' THEN 2
+                    WHEN 'verification' THEN 5
+                    ELSE 7
                   END,
-                  records.created_at_unix_ms DESC
+                  records.created_at_unix_ms DESC,
+                  records.record_id ASC
          LIMIT ?2",
     )?;
     let candidate_record_limit = limit.max(200);

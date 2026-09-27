@@ -427,6 +427,7 @@ fn doctor() -> Result<(), Box<dyn Error>> {
     let stats = hub.stats()?;
     let execution_replay = hub.audit_execution_replay()?;
     let memory_projection = hub.audit_memory_projection()?;
+    let core_events = hub.audit_core_events()?;
     let runtime_projection = hub.audit_runtime_projection()?;
     let git_snapshots = hub.audit_git_snapshots()?;
     let token_usage = hub.audit_token_usage()?;
@@ -438,9 +439,10 @@ fn doctor() -> Result<(), Box<dyn Error>> {
     let research = hub.audit_research()?;
     let task_research = hub.audit_task_research()?;
     let accountability = hub.audit_accountability()?;
-    let replay_ok = execution_replay.mismatches.is_empty()
+    let core_ok = execution_replay.mismatches.is_empty()
         && memory_projection.consistent
-        && runtime_projection.consistent
+        && core_events.covered_consistent;
+    let extensions_ok = runtime_projection.consistent
         && git_snapshots.consistent
         && token_usage.consistent
         && deliberations.consistent
@@ -448,17 +450,23 @@ fn doctor() -> Result<(), Box<dyn Error>> {
         && role_appointments.consistent
         && government.consistent
         && orchestration.consistent;
-    let replay_ok =
-        replay_ok && research.consistent && task_research.consistent && accountability.consistent;
+    let extensions_ok = extensions_ok
+        && research.consistent
+        && task_research.consistent
+        && accountability.consistent;
     println!(
         "{}",
         serde_json::to_string(&serde_json::json!({
-            "ok": replay_ok,
+            "ok": core_ok && extensions_ok,
+            "core_ok": core_ok,
+            "extensions_ok": extensions_ok,
+            "overall_ok": core_ok && extensions_ok,
             "kernel_sha256": aporic::kernel::digest(),
             "database": hub.database_path(),
             "stats": stats,
             "execution_replay": execution_replay,
             "memory_projection": memory_projection,
+            "core_events": core_events,
             "runtime_projection": runtime_projection,
             "git_snapshots": git_snapshots,
             "token_usage": token_usage,

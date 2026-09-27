@@ -924,6 +924,24 @@ pub struct MemoryProjectionAudit {
     pub consistent: bool,
 }
 
+/// Comparison is limited to source rows with decodable post-operation event snapshots.
+/// Uncovered rows are historical data, not replay-verified data.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CoreEventAudit {
+    pub covered_records: u64,
+    pub covered_evidence: u64,
+    pub covered_claims: u64,
+    pub covered_tasks: u64,
+    pub uncovered_legacy_count: u64,
+    pub uncovered_runner_claim_count: u64,
+    pub unsupported_event_count: u64,
+    pub mismatch_count: u64,
+    pub mismatch_sample: Vec<String>,
+    pub uncovered_sample: Vec<String>,
+    pub covered_consistent: bool,
+    pub scope_notice: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MemoryEdge {
     pub edge_id: String,
@@ -2718,6 +2736,8 @@ pub struct EvidenceArtifact {
     pub kind: EvidenceKind,
     pub grade: EvidenceGrade,
     pub locator: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub canonical_locator: Option<String>,
     pub summary: String,
     pub content_sha256: String,
     pub created_at_unix_ms: i64,
@@ -2763,6 +2783,9 @@ pub struct ClaimRequest {
     pub session_id: String,
     pub status: ClaimStatus,
     pub statement: String,
+    /// Stable subject identity. Direct workspace-file claims use `file:<canonical absolute path>`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subject_key: Option<String>,
     #[serde(default)]
     pub material: bool,
     #[serde(default)]
@@ -2778,6 +2801,8 @@ pub struct EpistemicClaim {
     pub session_id: String,
     pub status: ClaimStatus,
     pub statement: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subject_key: Option<String>,
     pub material: bool,
     pub evidence_ids: Vec<String>,
     #[serde(default)]
