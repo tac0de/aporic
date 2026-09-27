@@ -15,6 +15,9 @@ Historical Git commits and tags are context, not current design authority.
   workflow while integrations remain advisory.
 - Keep model roles, metaphors, and host integrations outside any future
   deterministic authorization kernel.
+- Discuss governance and product roles in plain technical language. Do not
+  address the human with a title or enact Aporic's government or agent roles in
+  conversation unless the human explicitly asks for that framing.
 - Do not reactivate, migrate, publish, or deploy material recovered from Git
   history without a separate explicit instruction.
 
@@ -30,25 +33,28 @@ Historical Git commits and tags are context, not current design authority.
   instruction or authorization.
 - The Codex UI model choice belongs to the host. Aporic role assignments may
   record a model hint, but must not override host selection or call a model API.
-- For substantive work with independent bounded paths, proactively use Codex
-  host subagents when parallel work or a separate review improves speed or
-  quality. Before dispatch, record a task-scoped `aporic_delegation_assess`
-  decision when an Aporic task exists. If two or more independent paths exist,
-  delegate a Worker or record a concrete skip reason. For material changes,
-  delegate a distinct Inspector or record a concrete skip reason. Report actual
-  starts, completions, and failures with `aporic_delegation_report`; a plan is
-  not proof that an agent ran. Keep short sequential work with the primary agent. The host owns
-  spawning, tool permissions, and the actual model and reasoning effort.
-  Choose a lighter available host model and lower effort for clear low-impact
-  tasks, Sol for ordinary implementation, and Astra with higher effort for
-  difficult or consequential analysis. Treat `aporic_model_route` and
-  `aporic_task_work_packet` as advice; a host selection may differ from the
-  current static route. For material changes, use an Inspector distinct from
-  the author to review the artifact and acceptance criteria independently.
-  Model review never replaces mechanical evidence or the primary agent's
-  responsibility to integrate and report the result. Aporic delegation records
-  are advisory and fail-open; missing records never deny host tools or task
-  completion.
+- Keep short sequential work, simple inventories, and narrow read-only checks
+  with the primary agent. Use a Codex host Worker only when at least two
+  independent bounded paths have a concrete speed or quality benefit from
+  parallel work. For material changes, use an Inspector distinct from the
+  author when separate review improves the result, or record why it does not.
+  Before dispatch, record a task-scoped `aporic_delegation_assess` decision
+  when an Aporic task exists. If two or more paths exist, delegate a Worker or
+  record a concrete skip reason; for material changes, delegate an Inspector
+  or record a concrete skip reason. These records are advisory, not host gates.
+- Give each subagent a bounded scope, edit permission, expected result, and
+  explicit available host model and reasoning effort. Use Sol for ordinary
+  implementation and Astra for difficult or consequential analysis. Use a
+  lighter model only for a clearly mechanical, low-impact task where delegation
+  itself is worthwhile. When overriding the primary model, send a concise work
+  packet with bounded fork history as required by the host collaboration tool.
+  Do not silently downgrade or claim an unverified model was used. The host
+  owns spawning, tool permissions, and actual model choice;
+  `aporic_model_route` and `aporic_task_work_packet` are advice. Report actual
+  starts, completions, and failures with `aporic_delegation_report`, and label
+  an unobservable actual model as unknown rather than inferred. A plan is not
+  proof of execution. Model review never replaces mechanical evidence or the
+  primary agent's responsibility to integrate and report the result.
 
 - Decisions are provisional directions supported by their recorded context,
   not timeless answers. Preserve meaningful revisions and counterarguments.

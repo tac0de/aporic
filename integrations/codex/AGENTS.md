@@ -28,7 +28,9 @@ material changes. A missing assessment is an advisory diagnostic, not a gate.
 Codex host instructions and tools decide whether an agent can run. Report
 actual starts, completions, and failures with `aporic_session_delegation_report`;
 never report a proposed run as an actual one. Short sequential work can remain
-with the primary agent.
+with the primary agent. Keep simple inventories and narrow read-only checks
+there too; two paths alone do not justify a spawn without a concrete parallel
+benefit.
 
 Inspect any `open_repair_obligations` returned by `aporic_open`. When a material
 mistake is observed, state what happened and preserve its evidence, then use
@@ -72,21 +74,28 @@ bounded paths exist, select Worker delegation or record a concrete skip reason.
 For material changes, select a distinct Inspector or record a concrete skip
 reason. This is advisory and never limits host tools or task completion. Use
 Codex's host collaboration tools to spawn agents; Aporic never spawns them.
-Select an available host model and reasoning effort
-proportionate to the work. The current route table recommends Luna for bounded
-work; the host may choose a different available model when task risk warrants
-it and should record that difference as reported task progress.
+Give each host subagent a bounded scope, edit permission, expected result,
+explicit available model, and reasoning effort. Use Sol for ordinary
+implementation and Astra for difficult or consequential analysis. Use a lighter
+model only for a clearly mechanical, low-impact task where delegation itself is
+worthwhile. When overriding the primary model, send a concise work packet with
+bounded fork history as required by the host collaboration tool. Do not silently
+downgrade. The Aporic route table is advice, and the host may select a different
+model when task risk warrants it.
 After spawning, use `aporic_delegation_report` to record the actual host agent
 ID, selected model and effort, and start. Report completion or failure after it
 occurs. These are reported observations, not host attestations. Record the
-returned host agent ID in a task-scoped
+selected model precisely; if the actual executed model cannot be observed,
+label that uncertainty instead of claiming it was inherited or verified.
+Record the returned host agent ID in a task-scoped
 `delivery.worker` role appointment and claim the task lease with that ID. A
 model hint is reported selection intent, not attestation of the executed model.
 Use `aporic_record` task progress to note the route recommendation, host-selected
 model and effort, host agent ID, and later completion or failure as reported
 observations. Record the selection even when it matches the recommendation.
-For material work, spawn a distinct Inspector and record its host ID in an
-`oversight.inspector` appointment while the task is active. Never reuse the
+For material work where separate review improves the result, spawn a distinct
+Inspector and record its host ID in an `oversight.inspector` appointment while
+the task is active. Otherwise record a concrete skip reason. Never reuse the
 author as Inspector, including after an appointment is revoked. Have the
 Inspector review the artifact, criteria, and evidence directly before task
 completion. Record the Inspector's selected model, effort, host ID, findings,
