@@ -7,14 +7,12 @@ pub mod discovery;
 pub mod domain;
 pub mod eval;
 pub mod git;
-pub mod government;
 pub mod hook;
 pub mod hub;
 pub mod kernel;
 pub mod mcp;
 pub mod recovery;
 pub mod research;
-pub mod roles;
 pub mod runner;
 pub mod store;
 

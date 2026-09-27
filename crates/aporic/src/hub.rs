@@ -9,47 +9,37 @@ use crate::{
     domain::{
         AccountabilityAudit, AccountabilityListRequest, AccountabilityOpenRequest,
         AccountabilityOutcome, AccountabilityPlanRequest, AccountabilityReport,
-        AccountabilityResolveRequest, AdvisoryRoleReportRequest, CapabilityGetRequest,
-        CapabilityManifest, CapabilityOutcome, CapabilityRegisterRequest, CapabilityReport,
-        CapabilitySearchRequest, CapabilitySummary, ClaimOutcome, ClaimRequest, CloseOutcome,
-        CloseRequest, CommandSpecOutcome, CommandSpecRequest, Consequence, ContextCapsule,
-        CoordinatedTask, CoreEventAudit, DelegationDecisionOutcome, DelegationDecisionRequest,
-        DelegationReportOutcome, DelegationReportRequest, DelegationStatus,
-        DelegationStatusRequest, DeliberationAudit, DeliberationCreateRequest,
-        DeliberationDecisionRequest, DeliberationGetRequest, DeliberationGraph,
-        DeliberationListRequest, DeliberationNodeAddRequest, DeliberationOutcome,
-        DeliberationSummary, DissentAssessment, DissentRequest, EvidenceOutcome, EvidenceRequest,
-        ExecutionFinish, ExecutionGetRequest, ExecutionListRequest, ExecutionOutcome,
-        ExecutionReplayAudit, ExecutionRun, ExecutionStart, ExperimentCreateRequest,
-        ExperimentDecisionRequest, ExperimentGetRequest, ExperimentListRequest,
-        ExperimentMeasurementAddRequest, ExperimentOutcome, ExperimentPortfolio, ExperimentSummary,
-        ExperimentVariantAddRequest, GitObserveRequest, GitSnapshot, GitSnapshotAudit,
-        GitSnapshotGetRequest, GitSnapshotListRequest, GovernmentAudit, GovernmentBootstrapRequest,
-        GovernmentDefinition, GovernmentPersonOutcome, GovernmentPersonRegisterRequest,
-        GovernmentRoster, GovernmentRosterOutcome, GovernmentTermAppointRequest,
-        GovernmentTermEndRequest, GovernmentTermOutcome, GovernmentWorkspaceRequest,
+        AccountabilityResolveRequest, CapabilityGetRequest, CapabilityManifest, CapabilityOutcome,
+        CapabilityRegisterRequest, CapabilityReport, CapabilitySearchRequest, CapabilitySummary,
+        ClaimOutcome, ClaimRequest, CloseOutcome, CloseRequest, CommandSpecOutcome,
+        CommandSpecRequest, Consequence, ContextCapsule, CoordinatedTask, CoreEventAudit,
+        DelegationDecisionOutcome, DelegationDecisionRequest, DelegationReportOutcome,
+        DelegationReportRequest, DelegationStatus, DelegationStatusRequest, DeliberationAudit,
+        DeliberationCreateRequest, DeliberationDecisionRequest, DeliberationGetRequest,
+        DeliberationGraph, DeliberationListRequest, DeliberationNodeAddRequest,
+        DeliberationOutcome, DeliberationSummary, DissentAssessment, DissentRequest,
+        EvidenceOutcome, EvidenceRequest, ExecutionFinish, ExecutionGetRequest,
+        ExecutionListRequest, ExecutionOutcome, ExecutionReplayAudit, ExecutionRun, ExecutionStart,
+        ExperimentCreateRequest, ExperimentDecisionRequest, ExperimentGetRequest,
+        ExperimentListRequest, ExperimentMeasurementAddRequest, ExperimentOutcome,
+        ExperimentPortfolio, ExperimentSummary, ExperimentVariantAddRequest, GitObserveRequest,
+        GitSnapshot, GitSnapshotAudit, GitSnapshotGetRequest, GitSnapshotListRequest,
         HookHealthReport, HubStats, ImprovementListRequest, ImprovementOutcome, ImprovementRequest,
         ImprovementSubmitRequest, MemoryGetRequest, MemoryItem, MemoryProjectionAudit,
-        MemorySearchRequest, MemorySearchResult, ModelRoute, ModelRouteRequest, OfficeAppointment,
-        OfficeAppointmentCreateRequest, OfficeAppointmentOutcome, OfficeAppointmentRevokeRequest,
-        OpenOutcome, OpenRequest, OrchestrationAudit, OrchestrationOutcome,
-        OrchestrationRunCreateRequest, OrchestrationRunGetRequest, OrchestrationRunListRequest,
-        OrchestrationRunSummary, OrchestrationRunView, ProductCell, ProductCellCreateRequest,
-        ProductCellOutcome, ProjectExport, PromptComparison, PromptComparisonRequest,
-        PromptTrialOutcome, PromptTrialRequest, PrototypeBriefCreateRequest, PrototypeBriefOutcome,
+        MemorySearchRequest, MemorySearchResult, ModelRoute, ModelRouteRequest, OpenOutcome,
+        OpenRequest, ProjectExport, PromptComparison, PromptComparisonRequest, PromptTrialOutcome,
+        PromptTrialRequest, PrototypeBriefCreateRequest, PrototypeBriefOutcome,
         PrototypeGetRequest, PrototypeReviewOutcome, PrototypeReviewRequest, PrototypeStatus,
         RecallRequest, ReconcileOutcome, ReconcileRequest, RecordOutcome, RecordRequest,
-        ResumeBrief, ResumeRequest, RoleAppointment, RoleAppointmentAudit,
-        RoleAppointmentCreateRequest, RoleAppointmentListRequest, RoleAppointmentOutcome,
-        RoleAppointmentRevokeRequest, RuntimeEvent, RuntimeObservation, RuntimeProjectionAudit,
+        ResumeBrief, ResumeRequest, RuntimeEvent, RuntimeObservation, RuntimeProjectionAudit,
         RuntimeTraceGetRequest, RuntimeTraceListRequest, RuntimeWorkspaceRequest,
         SecureCapabilityAudit, SecurityArtifactImport, SecurityAssessment,
         SecurityAssessmentGetRequest, SecurityAssessmentListRequest, SecurityAssessmentOutcome,
         SecurityCoverage, SecurityImportRequest, SessionDelegationDecisionOutcome,
         SessionDelegationDecisionRequest, SessionDelegationReportOutcome,
         SessionDelegationReportRequest, SessionDelegationStatus, SessionDelegationStatusRequest,
-        ShadowEvaluationRequest, TaskBriefOutcome, TaskBriefRequest, TaskCancelRequest,
-        TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskMemoryUse,
+        TaskBriefOutcome, TaskBriefRequest, TaskCancelRequest, TaskClaimRequest,
+        TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskMemoryUse,
         TaskMemoryUseListRequest, TaskMemoryUseOutcome, TaskMemoryUseRequest, TaskOutcome,
         TaskResearchAttachRequest, TaskResearchAudit, TaskResearchItem, TaskResearchListRequest,
         TaskResearchOutcome, TaskWorkPacket, TaskWorkPacketRequest, TokenEfficiencyReport,
@@ -97,113 +87,6 @@ impl Hub {
 
     pub fn resume(&self, request: &ResumeRequest) -> Result<ResumeBrief> {
         self.store.resume(request)
-    }
-
-    pub fn role_definitions(&self) -> Vec<crate::domain::RoleDefinition> {
-        crate::roles::definitions()
-    }
-
-    pub fn create_role_appointment(
-        &self,
-        request: &RoleAppointmentCreateRequest,
-    ) -> Result<RoleAppointmentOutcome> {
-        self.store.create_role_appointment(request)
-    }
-
-    pub fn revoke_role_appointment(
-        &self,
-        request: &RoleAppointmentRevokeRequest,
-    ) -> Result<RoleAppointmentOutcome> {
-        self.store.revoke_role_appointment(request)
-    }
-
-    pub fn list_role_appointments(
-        &self,
-        request: &RoleAppointmentListRequest,
-    ) -> Result<Vec<RoleAppointment>> {
-        self.store.list_role_appointments(request)
-    }
-
-    pub fn audit_role_appointments(&self) -> Result<RoleAppointmentAudit> {
-        self.store.audit_role_appointments()
-    }
-
-    pub fn government_definition(&self) -> GovernmentDefinition {
-        crate::government::definition()
-    }
-
-    pub fn bootstrap_government(
-        &self,
-        request: &GovernmentBootstrapRequest,
-    ) -> Result<GovernmentRosterOutcome> {
-        self.store.bootstrap_government(request)
-    }
-
-    pub fn register_government_person(
-        &self,
-        request: &GovernmentPersonRegisterRequest,
-    ) -> Result<GovernmentPersonOutcome> {
-        self.store.register_government_person(request)
-    }
-
-    pub fn appoint_government_term(
-        &self,
-        request: &GovernmentTermAppointRequest,
-    ) -> Result<GovernmentTermOutcome> {
-        self.store.appoint_government_term(request)
-    }
-
-    pub fn end_government_term(
-        &self,
-        request: &GovernmentTermEndRequest,
-    ) -> Result<GovernmentTermOutcome> {
-        self.store.end_government_term(request)
-    }
-
-    pub fn government_roster(
-        &self,
-        request: &GovernmentWorkspaceRequest,
-    ) -> Result<GovernmentRoster> {
-        self.store.government_roster(request)
-    }
-
-    pub fn create_office_appointment(
-        &self,
-        request: &OfficeAppointmentCreateRequest,
-    ) -> Result<OfficeAppointmentOutcome> {
-        self.store.create_office_appointment(request)
-    }
-
-    pub fn revoke_office_appointment(
-        &self,
-        request: &OfficeAppointmentRevokeRequest,
-    ) -> Result<OfficeAppointmentOutcome> {
-        self.store.revoke_office_appointment(request)
-    }
-
-    pub fn list_office_appointments(
-        &self,
-        request: &GovernmentWorkspaceRequest,
-    ) -> Result<Vec<OfficeAppointment>> {
-        self.store.list_office_appointments(request)
-    }
-
-    pub fn create_product_cell(
-        &self,
-        request: &ProductCellCreateRequest,
-    ) -> Result<ProductCellOutcome> {
-        self.store.create_product_cell(request)
-    }
-
-    pub fn list_product_cells(
-        &self,
-        request: &GovernmentWorkspaceRequest,
-    ) -> Result<Vec<ProductCell>> {
-        self.store.list_product_cells(request)
-    }
-
-    pub fn audit_government(&self) -> Result<GovernmentAudit> {
-        self.store.audit_government()
     }
 
     pub fn open_accountability_case(
@@ -273,7 +156,6 @@ impl Hub {
             .research_search(&crate::research::ResearchSearchRequest {
                 workspace: request.workspace.clone(),
                 query: request.query.clone(),
-                cell_id: None,
                 source: Some(request.source.clone()),
                 limit: Some(20),
                 max_bytes: Some(16_384),
@@ -626,45 +508,6 @@ impl Hub {
 
     pub fn audit_deliberations(&self) -> Result<DeliberationAudit> {
         self.store.audit_deliberations()
-    }
-
-    pub fn create_orchestration_run(
-        &self,
-        request: &OrchestrationRunCreateRequest,
-    ) -> Result<OrchestrationOutcome> {
-        self.store.create_orchestration_run(request)
-    }
-
-    pub fn submit_advisory_role_report(
-        &self,
-        request: &AdvisoryRoleReportRequest,
-    ) -> Result<OrchestrationOutcome> {
-        self.store.submit_advisory_role_report(request)
-    }
-
-    pub fn evaluate_shadow_run(
-        &self,
-        request: &ShadowEvaluationRequest,
-    ) -> Result<OrchestrationOutcome> {
-        self.store.evaluate_shadow_run(request)
-    }
-
-    pub fn get_orchestration_run(
-        &self,
-        request: &OrchestrationRunGetRequest,
-    ) -> Result<OrchestrationRunView> {
-        self.store.get_orchestration_run(request)
-    }
-
-    pub fn list_orchestration_runs(
-        &self,
-        request: &OrchestrationRunListRequest,
-    ) -> Result<Vec<OrchestrationRunSummary>> {
-        self.store.list_orchestration_runs(request)
-    }
-
-    pub fn audit_orchestration(&self) -> Result<OrchestrationAudit> {
-        self.store.audit_orchestration()
     }
 
     pub fn record(&self, request: &RecordRequest) -> Result<RecordOutcome> {

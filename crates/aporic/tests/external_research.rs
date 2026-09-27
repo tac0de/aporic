@@ -38,7 +38,6 @@ fn search(workspace: &str, query: &str) -> ResearchSearchRequest {
     ResearchSearchRequest {
         workspace: workspace.into(),
         query: query.into(),
-        cell_id: None,
         source: None,
         limit: Some(8),
         max_bytes: Some(8_192),

@@ -330,21 +330,6 @@ impl Store {
                 "worker and reviewer must have different host agent IDs".to_owned(),
             ));
         }
-        let opposed_role = match request.dimension {
-            DelegationDimension::Worker => "oversight.inspector",
-            DelegationDimension::Reviewer => "delivery.worker",
-        };
-        let conflict: bool = transaction.query_row(
-            "SELECT EXISTS(SELECT 1 FROM role_appointments WHERE task_id = ?1
-             AND role_id = ?2 AND assignee_id = ?3)",
-            params![request.task_id, opposed_role, request.host_agent_id],
-            |row| row.get(0),
-        )?;
-        if conflict {
-            return Err(Error::Conflict(
-                "host agent conflicts with an existing or revoked opposed role".to_owned(),
-            ));
-        }
         let now = unix_millis()?;
         let outcome = DelegationReportOutcome {
             report: DelegationReport {
@@ -401,29 +386,6 @@ fn validate_ids(task_id: &str, key: &str) -> Result<()> {
     if key.len() > 256 {
         return Err(Error::Invalid(
             "idempotency_key exceeds 256 bytes".to_owned(),
-        ));
-    }
-    Ok(())
-}
-
-pub(super) fn validate_role_assignee(
-    connection: &Connection,
-    task_id: &str,
-    role_id: &str,
-    assignee_id: &str,
-) -> Result<()> {
-    let opposed = if role_id == "delivery.worker" {
-        DelegationDimension::Reviewer
-    } else {
-        DelegationDimension::Worker
-    };
-    if read_status(connection, task_id)?
-        .reports
-        .iter()
-        .any(|report| report.dimension == opposed && report.host_agent_id == assignee_id)
-    {
-        return Err(Error::Conflict(
-            "role assignee conflicts with reported worker/reviewer history".to_owned(),
         ));
     }
     Ok(())

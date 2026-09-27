@@ -4,9 +4,8 @@ For a new-session continuation request such as `이어한다`, call `aporic_resu
 first. Continue a single ready candidate after checking its current task,
 evidence, and live repository state. Ask which candidate when the result is
 ambiguous; a `none` result does not authorize inventing unfinished work. Then
-open a new session for the selected objective. Role definitions and appointments
-are advisory records: neither a role title nor a model hint grants permission,
-loads a plugin, dispatches an agent, or proves that work was done.
+open a new session for the selected objective. A model hint never grants
+permission, loads a plugin, dispatches an agent, or proves that work was done.
 
 For substantive work that benefits from durable project context, use the
 `aporic_open` tool once near the start of the task. Use `aporic_recall` only
@@ -20,10 +19,10 @@ or has one concrete next action.
 
 Inspect `session_delegation` in the `aporic_open` response. For substantive
 work, assess the number of independent bounded paths and whether a distinct
-Inspector would help with a material change. If no Aporic task exists, call
+reviewer would help with a material change. If no Aporic task exists, call
 `aporic_session_delegation_assess`:
-choose a Worker or record a concrete skip reason when two or more independent
-paths exist, and choose an Inspector or record a concrete skip reason for
+choose delegation or record a concrete skip reason when two or more independent
+paths exist, and choose independent review or record a concrete skip reason for
 material changes. A missing assessment is an advisory diagnostic, not a gate.
 Codex host instructions and tools decide whether an agent can run. Report
 actual starts, completions, and failures with `aporic_session_delegation_report`;
@@ -70,8 +69,8 @@ review need. It returns the existing task contract, linked memories, an
 advisory worker/reviewer route, and delegation history. Check task status,
 dependencies, and write scope before delegation. When an Aporic task exists,
 call `aporic_delegation_assess` before host dispatch. When two or more independent
-bounded paths exist, select Worker delegation or record a concrete skip reason.
-For material changes, select a distinct Inspector or record a concrete skip
+bounded paths exist, select delegation or record a concrete skip reason.
+For material changes, select a distinct reviewer or record a concrete skip
 reason. This is advisory and never limits host tools or task completion. Use
 Codex's host collaboration tools to spawn agents; Aporic never spawns them.
 Give each host subagent a bounded scope, edit permission, expected result,
@@ -87,22 +86,19 @@ ID, selected model and effort, and start. Report completion or failure after it
 occurs. These are reported observations, not host attestations. Record the
 selected model precisely; if the actual executed model cannot be observed,
 label that uncertainty instead of claiming it was inherited or verified.
-Record the returned host agent ID in a task-scoped
-`delivery.worker` role appointment and claim the task lease with that ID. A
-model hint is reported selection intent, not attestation of the executed model.
-Use `aporic_record` task progress to note the route recommendation, host-selected
-model and effort, host agent ID, and later completion or failure as reported
-observations. Record the selection even when it matches the recommendation.
+Claim the task lease with the returned host agent ID. A model hint is reported
+selection intent, not attestation of the executed model. Use `aporic_record`
+task progress to note the route recommendation, host-selected model and effort,
+host agent ID, and later completion or failure as reported observations. Record
+the selection even when it matches the recommendation.
 For material work where separate review improves the result, spawn a distinct
-Inspector and record its host ID in an `oversight.inspector` appointment while
-the task is active. Otherwise record a concrete skip reason. Never reuse the
-author as Inspector, including after an appointment is revoked. Have the
-Inspector review the artifact, criteria, and evidence directly before task
-completion. Record the Inspector's selected model, effort, host ID, findings,
-and review outcome as reported task progress. Integrate findings centrally and
+reviewer. Otherwise record a concrete skip reason. Never reuse the author as
+the reviewer. Have the reviewer inspect the artifact, criteria, and evidence
+directly before task completion. Record the reviewer's selected model, effort,
+host ID, findings, and review outcome as reported task progress. Integrate findings centrally and
 complete only with the existing
-verified criterion proofs. Do not encode actual host execution as a Hermes
-advisory run or treat agent reports as verified completion evidence. If Aporic
+verified criterion proofs. Do not treat agent reports as verified completion
+evidence. If Aporic
 is unavailable, continue under host permissions and report the missing
 coordination record.
 

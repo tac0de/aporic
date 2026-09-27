@@ -16,7 +16,7 @@ The Aporic kernel and Aporic Hub have different lifecycles.
 ## Implementation
 
 The implementation is one Rust package with internal `kernel`, `domain`,
-`context`, `government`, `store`, `hub`, `runner`, `git`, `git_process`,
+`context`, `store`, `hub`, `runner`, `git`, `git_process`,
 `bounded`, `recovery`, `hook`, and `mcp` modules. Package
 boundaries will be introduced only when an independently versioned contract or
 deployment unit exists.
@@ -38,13 +38,6 @@ host/local counts --> provenance gate --> token usage receipt --> efficiency rep
 Git snapshot + typed evidence --> public argument graph --> provisional decision
                                       \--> open aporia + staleness report
 
-human intent --> versioned government charter --> workspace roster bootstrap
-                                                |     \--> advisory terms/history
-                                                \--> office appointment
-                                                      \--> task-bound product cell
-                                                           \--> prototype evidence
-
-independent Inspector appointment ------------------> assurance report
 ```
 
 Each Codex connection runs an inexpensive child process. Processes share one
@@ -84,6 +77,11 @@ quality or remote effects.
 The event log preserves accepted state transitions and idempotent results. Read
 tables provide bounded context without replaying the whole log on every tool
 call. Tests replay events independently and compare the result with projections.
+
+The retired government, role-appointment, product-cell, and role-report tables
+remain in historical migrations so existing databases still open. Their write
+APIs and typed exports are removed. Project export retains their old events as
+raw event records, without treating those records as current assignments.
 
 Schema v7 adds a rebuildable `memory_items` projection, explicit relation edges,
 and a synchronized local FTS5 index. Active retrieval applies lifecycle and
@@ -161,42 +159,11 @@ and read-only or read-write workspace access. Required execution fails closed on
 unsupported platforms or backend/setup failure and cannot issue a verified claim
 without the in-sandbox readiness marker.
 
-Schema v14 adds immutable `orchestration_runs`, one-to-one
-`advisory_role_reports`, and one-to-one `shadow_evaluations`. Each Hermes run
-binds an advisory role to an active task, clean Git commit/tree, context-policy
-digest, and fixed resource budget. The only capability ceiling is `propose`;
-there is no provider invocation or agent-dispatch path. Blind-shadow report
-content is sealed before the task outcome and omitted from reads, exports, and
-event payloads until evaluation. Evaluation uses the task projection and its
-existing Aporic-direct criterion proofs, records Git staleness, and never turns
-model output into completion evidence.
-
-Schema v15 adds bounded `role_appointments` for four versioned advisory duty
-contracts. Each appointment is scoped to a session or active task, preserves
-optional model and existing capability-catalog references, and has an immutable
-creation digest with a separately recorded revocation. Worker and Inspector
-assignees are separated for the same task. An appointment does not invoke the
-assignee, load plugin code, or grant host access. Schema v16 lets new Hermes
-runs cite an appointment matching their session, task, role, and model hint;
-legacy runs retain their original digest. `aporic_resume` is a read-only
-selector over unfinished tasks, open sessions, and fresh handoffs; it reports
-ambiguity and does not execute the selected next action.
-
-Schema v17 adds immutable `office_appointments` and `product_cells`. The first
-versioned office is `product.experiment`, headed by one active session-scoped
-Steward appointment. A task may bind one product cell with an explicit problem,
-hypothesis, bounded success measures, and two to eight discipline assignments.
-Planning and prototype delivery are mandatory and must use distinct active
-Worker assignees for the same task. The minister cannot be a cell member or an
-Inspector; Worker/Inspector separation continues to apply. These records are
-advisory organization and accountability data, not agent dispatch, execution,
-approval, deployment, or host authority.
-
 Schema v18 adds source-scoped external research documents and append-only
 revisions with a separate FTS5 projection. Official API sync is explicit and
 local; MCP exposes only workspace-scoped search and current-document reads.
-An optional product cell supplies query context. Search results carry source
-URLs, fetch times, hashes, and an untrusted-content notice. The corpus never
+Search results carry source URLs, fetch times, hashes, and an untrusted-content
+notice. The corpus never
 enters verified claims or authorization state.
 
 Schema v25 adds append-only task research items. Each item is scoped to a task
@@ -236,28 +203,12 @@ completion, the criterion's verified claim. This establishes a planned use and
 a verified task criterion, not that the memory caused the outcome. The MCP
 surface neither enforces recalled text nor changes host permissions.
 
-Schema v22 advances the government charter to version 2 with three offices:
-`product.experiment`, `memory.information`, and `execution.operations`. A
-workspace must explicitly bootstrap its initial advisory roster; schema
-migration and ordinary workspace opening never create people or active terms.
-The roster has stable person IDs and separately stable position IDs. A term
-binds those identities, preserving appointment, renewal, replacement,
-predecessor, handoff, and retirement history. Host model selection stays outside
-term records. The initial positions are Prime Minister; the three ministers;
-Design, Frontend, Backend, and Game Development leads; and an Independent
-Inspector. The Inspector is outside the three offices. Term records provide
-organizational continuity only: they neither dispatch an assignee nor invoke a
-model, approve a result, change the current human instruction, or grant host
-permissions. Existing session-scoped product-office appointments remain the
-mechanism for product cells. When bootstrapped, a session-scoped product minister must use the active named minister person ID, and product-cell Worker assignees must match active named product leads for their duties. Historical terms retain a snapshot of their position definition. The roster read exposes current incumbents separately from bounded person and term history.
-
 Task-scoped delegation decisions and host-run reports are append-only events.
-Worker parallelism and independent Inspector review are assessed separately;
+Parallel work and independent review are assessed separately;
 each skipped path has a stated reason. Later reports identify host agents and
 selected models as reported observations. Work packets expose the bounded
 history and advisory gaps. These records never dispatch agents, attest host
-execution, or become task-completion and permission gates. Worker and Inspector
-assignee separation holds across revoked appointments for the same task.
+execution, or become task-completion and permission gates.
 
 Schema v27 adds session-scoped delegation decisions and host-run reports so
 ordinary `aporic_open` usage can surface a missing assessment without first
@@ -325,18 +276,6 @@ tampering or every historical replay discrepancy.
 - `aporic_recall`: retrieve a bounded project capsule.
 - `aporic_resume`: identify one unambiguous unfinished task or fresh handoff
   for a new session, without treating prior text as authority.
-- `aporic_roles_list`, `aporic_role_appoint`, `aporic_role_revoke`, and
-  `aporic_role_appointments`: inspect duty contracts and record advisory
-  assignments with optional catalog capability references.
-- `aporic_government_get`, `aporic_government_bootstrap`,
-  `aporic_government_person_register`, `aporic_government_term_appoint`,
-  `aporic_government_term_end`, and `aporic_government_roster`: inspect the
-  government charter and explicitly maintain a workspace-scoped advisory
-  roster and its term history.
-- `aporic_office_appoint`, `aporic_office_revoke`,
-  `aporic_office_appointments`, `aporic_product_cell_create`, and
-  `aporic_product_cell_list`: record the Product Experiment Ministry's
-  accountable, multidisciplinary advisory cells.
 - `aporic_memory_search` and `aporic_memory_get`: inspect deterministic,
   workspace-scoped memory without granting write or execution authority.
 - `aporic_record`: append one durable typed record.
@@ -412,12 +351,6 @@ requires a separate paired outcome evaluation.
 - `aporic_security_assessment_get` and `aporic_security_assessment_list`:
   inspect imported security-artifact summaries; scanner execution remains a
   host-owned operation outside MCP.
-- `aporic_orchestration_run_create`, `aporic_role_report_submit`,
-  `aporic_shadow_evaluate`, `aporic_orchestration_run_get`, and
-  `aporic_orchestration_run_list`: maintain commit/context/task-bound advisory
-  shadow runs while keeping blind reports sealed until deterministic outcome
-  evaluation. They do not invoke models, dispatch agents, execute tools, or
-  grant authority.
 
 Recall excludes records and claims superseded by newer state. Its selector
 combines unresolved material unknowns, active constraints and decisions, active

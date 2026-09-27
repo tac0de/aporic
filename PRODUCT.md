@@ -32,8 +32,8 @@ saves.
 
 ## Current stage
 
-The product is in v0.26 core hardening. Optional capability catalogs,
-government roles, research, and prototype workflows remain advisory layers.
+The product is in v0.26 core hardening. Optional capability catalogs, research,
+and prototype workflows remain advisory layers.
 The current product question is:
 
 > Can a small local continuity and evidence core preserve current context,
@@ -73,18 +73,6 @@ outcomes and repays its recording/retrieval cost remains unproved.
 - Coordination is advisory: task contracts, dependencies, write scopes, leases,
   cancellations, and criterion proofs are recorded, but Aporic does not launch
   workers or grant host authority.
-- Government composition is advisory: workspace-scoped people, positions, and
-  appointment terms preserve organizational continuity, but never dispatch an
-  agent, invoke a model, approve work, or grant authority. The current human
-  instruction remains the authority source.
-- Hermes orchestration is an Aporic-native deterministic envelope, not an
-  external agent framework. Steward- and Worker-style roles can submit only
-  bounded advisory reports under a fixed `propose` ceiling; Aporic makes no
-  model/API call and dispatches no agent.
-- Blind-shadow reports must be sealed before task termination and remain absent
-  from normal reads, exports, and event payloads until their prediction is
-  compared with the independently recorded outcome. A role report can never
-  complete the task or become its proof.
 - Model routing is advisory and outside the kernel: Luna handles bounded work,
   Sol is the default for complex implementation, and Astra handles frontier or
   high-consequence ambiguous work.
@@ -183,22 +171,6 @@ write scopes, and supply-chain/coverage release gates. Restore still refuses to
 overwrite an existing database. v0.14 adds capability maturity metadata and an
 opt-in, fail-closed Linux `bubblewrap` profile for local verification commands;
 neither feature grants provider authority or makes catalog entries executable.
-v0.15 adds only zero-effect advisory orchestration and deterministic shadow
-evaluation; provider invocation, scheduling, and recommendation execution remain
-deferred.
-
-v0.22 introduces the first explicit advisory government roster. A workspace may
-bootstrap the version-2 charter with three offices: Product Experiment, Memory
-and Information, and Execution and Operations. It begins with a Prime Minister,
-three ministers, four product-specialist leads, and an independent Inspector.
-People retain stable IDs across terms, positions retain separate stable IDs, and
-the host's model selection remains outside roster records. Appointments,
-renewals, replacements, handoffs, and retirements are preserved as history so
-later work can identify the responsible position at the time. Each term keeps
-the position definition used at appointment. Once bootstrapped, product
-ministry appointments and product-cell members must match active named
-incumbents. Bootstrap is an explicit action; opening or migrating a workspace
-never seeds personnel.
 
 ## Current evidence
 
@@ -206,7 +178,7 @@ Observed on 2026-09-25:
 
 - the exact versioned kernel candidate in the repository matches the installed candidate
   by SHA-256;
-- a real stdio MCP child process exposes all fifty tools and preserves a record
+- a real stdio MCP child process exposes the documented MCP surface and preserves a record
   across a server restart;
 - exact retries are idempotent and conflicting reuse of a key is rejected;
 - concurrent writers retain all tested sessions through SQLite WAL;
@@ -283,10 +255,6 @@ Observed on 2026-09-25:
   routines, and requires unsupported platforms to fail closed. Linux CI also
   exercises denial of an out-of-workspace secret, read-only workspace writes,
   and network connection attempts inside the real `bubblewrap` backend.
-- the v0.15 orchestration suite keeps blind reports out of reads, exports, and
-  event payloads before evaluation; rejects false completion, budget overrun,
-  post-outcome advice, and digest tampering; and scores predictions only against
-  later task state backed by existing direct criterion proofs.
 
 Not yet established:
 
@@ -298,7 +266,7 @@ Not yet established:
   byte simulation is structural evidence only;
 - better decisions or reduced rework in model-driven deliberation; the current
   graph and simulation establish structural guarantees only;
-- actual agent dispatch or parallel worker execution;
+- actual agent dispatch or parallel execution;
 - hostile multi-tenant isolation, cgroup resource quotas, custom seccomp policy,
   and VM/microVM containment.
 - real-world hook coverage and outcome accuracy across host versions; the

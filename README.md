@@ -27,29 +27,6 @@ Continuity:
 - `aporic_close`: complete or hand off a session;
 - `aporic_reconcile`: abandon stale interrupted sessions without claiming success.
 
-Advisory roles:
-
-- `aporic_roles_list`: inspect four versioned duty and output contracts;
-- `aporic_role_appoint`, `aporic_role_revoke`, and
-  `aporic_role_appointments`: record and inspect bounded assignments. Optional
-  catalog capability references are associations, not executable grants.
-
-Advisory government composition:
-
-- `aporic_government_get`: inspect the versioned Aporic government charter;
-- `aporic_government_bootstrap`, `aporic_government_person_register`,
-  `aporic_government_term_appoint`, `aporic_government_term_end`, and
-  `aporic_government_roster`: explicitly initialize a workspace's advisory
-government roster, maintain stable people and position identities, and retain
-appointment, replacement, and retirement history;
-- `aporic_office_appoint`, `aporic_office_revoke`, and
-  `aporic_office_appointments`: bind one active product minister to an existing
-  session-scoped Steward appointment without granting authority;
-- `aporic_product_cell_create` and `aporic_product_cell_list`: record one
-  immutable, task-bound multidisciplinary cell with distinct planning and
-  prototype-delivery assignees, explicit problem, hypothesis, and success
-  measures.
-
 Memory lifecycle:
 
 - `aporic_memory_search`: search the deterministic FTS projection under class,
@@ -197,18 +174,6 @@ Security evidence bridge:
 - `aporic_security_assessment_get` and `aporic_security_assessment_list`:
   inspect locally imported, commit-bound Codex Security artifact summaries.
   Zero findings and partial coverage never become a safety claim.
-
-Zero-effect advisory orchestration:
-
-- `aporic_orchestration_run_create`: bind a Hermes run envelope to one active
-  task, clean Git snapshot, recorded context exposure, role, and hard budget;
-- `aporic_role_report_submit`: seal one bounded Steward- or Worker-style report
-  without invoking a model, dispatching an agent, executing a tool, or claiming
-  task completion;
-- `aporic_shadow_evaluate`: compare a pre-outcome report with the later
-  independently recorded task outcome and verified criterion proofs;
-- `aporic_orchestration_run_get` and `aporic_orchestration_run_list`: inspect
-  runs without revealing blind-shadow report content before evaluation.
 
 MCP cannot execute a registered check or submit a receipt. A human or local
 automation invokes `aporic verify --spec SPEC_ID`; the Rust runner executes the
@@ -484,112 +449,6 @@ seccomp policy; provide a VM/microVM boundary; execute catalog capabilities; or
 verify remote side effects. The existing timeout remains the resource-lifetime
 limit.
 
-## v0.15 zero-effect advisory orchestration
-
-v0.15 adds an Aporic-native Hermes coordinator as deterministic data contracts,
-not as an agent runtime. A run is immutably bound to an active task, clean Git
-commit/tree, one recorded context exposure, a Steward or Worker role, and input,
-output, and duration budgets. Its capability ceiling is always `propose`.
-
-`blind_shadow` reports are submitted before the task outcome, sealed from read
-and export surfaces, and revealed only after deterministic evaluation against a
-later completed or cancelled task. Completion is evidence-eligible only when
-every task criterion has an Aporic-direct verified proof and the Git binding is
-not stale. `visible_advisory` exposes advice immediately but grants no extra
-authority. Reports cannot complete tasks, call providers, use credentials,
-access the network, mutate a workspace, or trigger tools.
-
-## v0.16 roles and new-session continuity
-
-The four foundation roles are Prime Minister (conversation and synthesis),
-Steward (project continuity), Worker (bounded delivery), and Inspector
-(independent review). A role is a versioned duty contract; an appointment binds
-an assignee and optional model hint to a session or active task. Worker and
-Inspector assignments for one task must use different assignee IDs. Capability
-references must exist in the workspace catalog and remain advisory. Installing
-a provider or recording an appointment never changes host permissions or
-dispatches an agent. The human's Codex UI model choice stays with the host.
-Hermes runs may bind a matching, active Steward or Worker appointment; older
-unbound runs remain readable with their original digest.
-
-For `이어한다` in a new session, the bridge calls `aporic_resume` before opening
-new work. It selects exactly one unfinished task, otherwise one interrupted
-session, otherwise a handoff newer than the latest completed session. Multiple
-unfinished candidates yield `ambiguous`; no eligible candidate yields `none`.
-The client then inspects live Git and the chosen task or handoff before acting.
-Historical text never becomes a new instruction by being selected.
-
-## v0.17 advisory government composition
-
-v0.17 adds a versioned Aporic government charter whose authority source remains
-the current human instruction. Its first office is the Product Experiment
-Ministry. One active minister per session must be backed by an active,
-session-scoped Steward appointment. Ministry appointments are advisory records:
-they do not dispatch an assignee, approve a prototype, deploy software, or alter
-host permissions.
-
-Each active task can have one immutable product cell. A cell records the problem,
-hypothesis, success measures, and two to eight appointed disciplines. Product
-planning and prototype delivery are mandatory, use distinct delivery-worker
-assignees, and cannot be performed by the minister. Existing Worker/Inspector
-separation plus the new Minister/Inspector separation keep assurance outside the
-delivery cell. Digests, event history, export, restart persistence, schema-16
-migration, and doctor audit cover both office appointments and product cells.
-
-Product cells can also appoint interaction, visual, and motion design disciplines.
-For new frontend tasks, the native versioned `frontend` procedure profile begins
-with the `frontend.browser_review` module: browser scenarios, rendered
-interaction review, and responsive and accessibility review. It records
-advisory workflow state and direct evidence; it neither dispatches browser work
-nor changes host permissions. The older `ui` profile remains readable for
-historical tasks.
-
-The local [frontend browser review example](examples/frontend-browser-review/README.md)
-shows one complete review flow, Playwright observations at desktop and narrow
-viewports, and a completed `frontend@v2` procedure replay in an isolated test
-database.
-
-## v0.22 initial advisory government roster
-
-v0.22 advances the government charter to version 2 and makes a small,
-workspace-scoped initial roster available through explicit bootstrap. Bootstrap
-does not migrate or silently seed any existing workspace. It records advisory
-terms for the following stable people and positions:
-
-Run `aporic government bootstrap --workspace PATH` once after updating the
-local binary, then use `aporic government roster --workspace PATH` to inspect
-current incumbents and bounded history. Existing active session-scoped product
-minister appointments must be revoked before bootstrap.
-
-| Position | Person | Responsibility |
-| --- | --- | --- |
-| Prime Minister | 김민준 | coordinate the offices and synthesize their reports |
-| Product Experiment Minister | 이서연 | lead problem, hypothesis, prototype, and evidence work |
-| Memory and Information Minister | 박지훈 | steward durable context, sources, and retrieval quality |
-| Execution and Operations Minister | 최수진 | coordinate tasks, integrations, operational records, and recovery |
-| Design Lead | 정민지 | lead UX, visual, and motion design work in product cells |
-| Frontend Lead | 강도윤 | lead browser implementation, accessibility, and rendered review |
-| Backend Lead | 조현우 | lead service contracts, data, and operational reliability work |
-| Game Development Lead | 윤지우 | lead game systems, levels, playable builds, and playtesting |
-| Independent Inspector | 한예진 | independently inspect evidence and completion claims |
-
-The charter has three offices: Product Experiment Ministry,
-Memory and Information Ministry, and Execution and Operations Ministry.
-The Inspector remains independent of those offices. A person ID identifies the
-individual across terms; a position ID identifies the office or specialist
-seat. The host's model selection remains outside this roster and never changes
-either identity.
-
-Each appointment has a recorded lifecycle: appointment creates an active
-term; renewal or replacement creates a later term that cites its predecessor
-and requires a handoff note; retirement ends the active term without
-erasing it. The roster returns current incumbents separately from bounded
-history. After bootstrap, product-office and product-cell assignments must
-match the named minister and product leads. These are advisory
-organizational records only. They never dispatch an agent, invoke a model,
-grant a host permission, approve a result, or change the authority of the
-current human instruction.
-
 ## Offline evaluation
 
 Aporic does not call the OpenAI API or any other model endpoint. Its offline
@@ -670,7 +529,6 @@ cargo test -p aporic --test memory_lifecycle -- --nocapture
 cargo test -p aporic --test runtime_trace -- --nocapture
 cargo test -p aporic --test git_governance -- --nocapture
 cargo test -p aporic --test token_efficiency -- --nocapture
-cargo test -p aporic --test advisory_orchestration -- --nocapture
 ```
 
 The Codex bridge template is under `integrations/codex/`. Nothing in the build
@@ -697,17 +555,16 @@ fetch time. The previous revision
 remains in the export but is excluded from search. Source text is untrusted
 data, never an instruction or verification of a product claim.
 
-Agents use `aporic_research_search` with a workspace, query, and optional
-`cell_id` to add a product cell's problem and hypothesis to the query. Results
-have bounded excerpts and citations; `aporic_research_get` reads a current
-document. The external index is separate from Aporic's durable memory index.
+Agents use `aporic_research_search` with a workspace and query. Results have
+bounded excerpts and citations; `aporic_research_get` reads a current document.
+The external index is separate from Aporic's durable memory index.
 `aporic doctor` checks revision hashes and current pointers. `aporic export`
 includes the revision history. There are no embeddings or model API calls.
 
 ## v0.27 delegation entry contract
 
 `aporic_open` now exposes an advisory `session_delegation` status for every
-workspace session. Substantive work can record a Worker/Inspector decision with
+workspace session. Substantive work can record a delegation and review decision with
 `aporic_session_delegation_assess` without creating a task solely to discuss
 delegation. It records independent path count, material change, and a delegate
 or concrete skip decision. `aporic_session_delegation_report` records actual

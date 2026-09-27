@@ -26,7 +26,7 @@ OpenAI model documentation on 2026-09-27:
 - <https://developers.openai.com/api/docs/models>
 - <https://developers.openai.com/api/docs/models/gpt-6-luna>
 
-Model roles belong to this evolving hub policy and stay outside the stable
+Model selection belongs to this evolving hub policy and stays outside the stable
 behavioral kernel.
 
 The v0.6 Codex hook may receive the active model slug from the host. Aporic

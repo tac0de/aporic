@@ -177,27 +177,13 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_git_observe",
             "aporic_git_snapshot_get",
             "aporic_git_snapshot_list",
-            "aporic_government_bootstrap",
-            "aporic_government_get",
-            "aporic_government_person_register",
-            "aporic_government_roster",
-            "aporic_government_term_appoint",
-            "aporic_government_term_end",
             "aporic_hook_health",
             "aporic_improvement_list",
             "aporic_improvement_submit",
             "aporic_memory_get",
             "aporic_memory_search",
             "aporic_model_route",
-            "aporic_office_appoint",
-            "aporic_office_appointments",
-            "aporic_office_revoke",
             "aporic_open",
-            "aporic_orchestration_run_create",
-            "aporic_orchestration_run_get",
-            "aporic_orchestration_run_list",
-            "aporic_product_cell_create",
-            "aporic_product_cell_list",
             "aporic_prompt_compare",
             "aporic_prompt_trial_record",
             "aporic_prototype_brief_create",
@@ -211,11 +197,6 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_research_get",
             "aporic_research_search",
             "aporic_resume",
-            "aporic_role_appoint",
-            "aporic_role_appointments",
-            "aporic_role_report_submit",
-            "aporic_role_revoke",
-            "aporic_roles_list",
             "aporic_run_get",
             "aporic_run_list",
             "aporic_security_assessment_get",
@@ -223,7 +204,6 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_session_delegation_assess",
             "aporic_session_delegation_report",
             "aporic_session_delegation_status",
-            "aporic_shadow_evaluate",
             "aporic_task_brief",
             "aporic_task_cancel",
             "aporic_task_claim",
@@ -297,28 +277,6 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
         .as_str()
         .expect("open result has a session id")
         .to_owned();
-    let bootstrap = call_json(
-        &client,
-        "aporic_government_bootstrap",
-        json!({"session_id": session_id, "idempotency_key": "mcp-government-bootstrap"}),
-    )
-    .await?;
-    assert_eq!(bootstrap["ok"], true);
-    assert_eq!(
-        bootstrap["result"]["roster"]["people"]
-            .as_array()
-            .unwrap()
-            .len(),
-        9
-    );
-    let roster = call_json(
-        &client,
-        "aporic_government_roster",
-        json!({"workspace": workspace}),
-    )
-    .await?;
-    assert_eq!(roster["result"]["initialized"], true);
-    assert_eq!(roster["result"]["terms"].as_array().unwrap().len(), 9);
     let accountability = call_json(
         &client,
         "aporic_accountability_list",
@@ -405,15 +363,6 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
     .await?;
     assert_eq!(linked["result"].as_array().unwrap().len(), 1);
     assert_eq!(linked["result"][0]["provenance"], "aporic_api");
-
-    let roles = call_json(&client, "aporic_roles_list", json!({})).await?;
-    assert_eq!(roles["result"].as_array().unwrap().len(), 4);
-    let government = call_json(&client, "aporic_government_get", json!({})).await?;
-    assert_eq!(
-        government["result"]["offices"][0]["office_id"],
-        "product.experiment"
-    );
-    assert_eq!(government["result"]["grants_authority"], false);
 
     let recorded = call_json(
         &client,

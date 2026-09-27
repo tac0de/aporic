@@ -33,8 +33,6 @@ pub struct ResearchSearchRequest {
     pub workspace: String,
     pub query: String,
     #[serde(default)]
-    pub cell_id: Option<String>,
-    #[serde(default)]
     pub source: Option<String>,
     #[serde(default)]
     pub limit: Option<u32>,
@@ -313,20 +311,7 @@ impl Store {
             validate_source(source)?;
         }
         let connection = self.connection()?;
-        let mut query = request.query.clone();
-        if let Some(cell_id) = &request.cell_id {
-            let context: Option<String> = connection.query_row(
-                "SELECT c.title || ' ' || c.problem_statement || ' ' || c.hypothesis FROM product_cells c JOIN projects p ON p.project_id = c.project_id WHERE p.workspace = ?1 AND c.cell_id = ?2",
-                params![workspace, cell_id],
-                |row| row.get(0),
-            ).optional()?;
-            query.push(' ');
-            query
-                .push_str(&context.ok_or_else(|| {
-                    Error::NotFound("product cell not found in workspace".into())
-                })?);
-        }
-        let terms = query_terms(&query);
+        let terms = query_terms(&request.query);
         if terms.is_empty() {
             return Err(Error::Invalid("query must contain searchable words".into()));
         }

@@ -34,7 +34,7 @@ In this workspace, `aporic_resume` initially returned six unfinished task contra
 
 ## Provisional scope decision
 
-Keep the continuity and evidence path as the unit of evaluation: bounded session context, durable records and handoffs, claim provenance, and replayable storage. Do not make government roles, capability catalogs, prototype portfolios, or advisory orchestration prerequisites for that path. Their presence in the one Rust crate is source organization and historical compatibility, not evidence that they improve owner outcomes. Freeze new default-workflow requirements from those layers while the core cost test is unresolved. Remove or archive a layer only after identifying its live callers, stored data, and a migration or read-only history path; tool count alone is not the decision criterion.
+Keep the continuity and evidence path as the unit of evaluation: bounded session context, durable records and handoffs, claim provenance, and replayable storage. Do not make capability catalogs or prototype portfolios prerequisites for that path. Their presence in the one Rust crate is source organization and historical compatibility, not evidence that they improve owner outcomes. Freeze new default-workflow requirements from those layers while the core cost test is unresolved. Remove or archive a layer only after identifying its live callers, stored data, and a migration or read-only history path; tool count alone is not the decision criterion.
 
 ## Cost model and next test
 
