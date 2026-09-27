@@ -1,0 +1,30 @@
+{
+  "case_id": "kakao-stage",
+  "status": "fixture_preflight_only_no_agent_ab_run",
+  "source_commit": "671cb2df615a1df4151e5f090417e46773bf1043",
+  "reference_commit": "eb892971",
+  "source_archive_sha256": "88f148250c0335c091b03c8e917cb92cc24d5d76f310294fc248f1dda3e8cadb",
+  "reference_archive_sha256": "250f59d4b3b04ce30dffe521342cc1e915a8d6a48cfa7b3c3d7fc46cc93719fb",
+  "task_sha256": "9aae9cd8318f51a6963b0d77f0b3da0fefe3934413f894a6d2d7b9ba1c07f034",
+  "hidden_test_sha256": "a14a651e6961b890de64bc8ff4fc8ba7ea762c1c1818ea643f9d69702f2a48a0",
+  "grader_sha256": "c334d7b42d0cd2eba0d35058508f5b26aa8d21968d6a0b78d55e2c3ad480edb2",
+  "source_grade": {
+    "hidden_pass": false,
+    "public_pass": true,
+    "typecheck_pass": true,
+    "accepted_mechanical": false
+  },
+  "reference_grade": {
+    "hidden_pass": true,
+    "public_pass": true,
+    "typecheck_pass": true,
+    "accepted_mechanical": true
+  },
+  "node_version": "v24.2.0",
+  "npm_version": "11.3.0",
+  "dependency_install": "npm ci from source package-lock; online cache fill followed by offline grader installs",
+  "limits": [
+    "The fixed reference solution is only an instrument check, not participant evidence.",
+    "No agent arm, blind review, scope audit, owner proxy, or direct-MCP route has been run."
+  ]
+}
