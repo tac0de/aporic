@@ -1,0 +1,28 @@
+binary_sha256 e8960d66b9b827e2236c2b89a0650ae14e89199d1afbd0d963cc6c2a6ee86dc1
+run 1
+aporic_open 8.29 1691 1503
+aporic_record 5.31 525 395
+aporic_close 4.45 312 200
+aporic_resume 4.06 867 721
+aporic_recall 4.47 2130 1880
+total 26.58 5525 4699
+run 2
+aporic_open 8.21 1691 1503
+aporic_record 4.8 525 395
+aporic_close 7.68 312 200
+aporic_resume 4.24 867 721
+aporic_recall 4.5 2130 1880
+total 29.44 5525 4699
+run 3
+aporic_open 8.07 1691 1503
+aporic_record 4.57 525 395
+aporic_close 7.53 312 200
+aporic_resume 4.27 867 721
+aporic_recall 4.51 2130 1880
+total 28.96 5525 4699
+median by method
+aporic_open 8.21 1691 1503
+aporic_record 4.8 525 395
+aporic_close 7.53 312 200
+aporic_resume 4.24 867 721
+aporic_recall 4.5 2130 1880
