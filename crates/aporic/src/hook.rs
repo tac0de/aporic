@@ -70,6 +70,7 @@ fn context_output(
             objective,
             focus_paths: Vec::new(),
             max_bytes: Some(4_096),
+            compact: false,
         })
         .ok()?;
     let mut additional_context =

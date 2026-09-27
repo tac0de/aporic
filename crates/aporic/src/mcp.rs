@@ -57,7 +57,7 @@ impl AporicMcp {
     }
 
     #[tool(
-        description = "Recall a bounded set of active sessions and durable records for a workspace. Use current user intent to decide whether old records remain relevant."
+        description = "Recall workspace context. Set compact=true to return selected budgeted items without the raw session, handoff, and record lists. Use current user intent to decide whether old records remain relevant."
     )]
     async fn aporic_recall(&self, Parameters(request): Parameters<RecallRequest>) -> String {
         render(self.hub.recall(&request))

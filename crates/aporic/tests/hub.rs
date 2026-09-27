@@ -67,6 +67,7 @@ fn persists_context_across_hub_restarts_and_deduplicates_retries() {
             objective: None,
             focus_paths: Vec::new(),
             max_bytes: None,
+            compact: false,
         })
         .unwrap();
     assert!(recalled.active_sessions.is_empty());
@@ -166,6 +167,7 @@ fn concurrent_process_equivalent_writers_do_not_lose_sessions() {
             objective: None,
             focus_paths: Vec::new(),
             max_bytes: None,
+            compact: false,
         })
         .unwrap();
     assert_eq!(recalled.active_sessions.len(), 8);

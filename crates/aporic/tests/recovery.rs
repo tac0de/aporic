@@ -41,6 +41,7 @@ fn restores_a_validated_backup_into_a_new_database() {
             focus_paths: Vec::new(),
             limit: Some(20),
             max_bytes: Some(16_384),
+            compact: false,
         })
         .unwrap();
     assert_eq!(recalled.active_sessions.len(), 1);

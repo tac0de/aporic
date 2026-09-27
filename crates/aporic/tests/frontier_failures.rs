@@ -70,6 +70,7 @@ fn deterministic_frontier_failure_suite() {
             objective: None,
             focus_paths: Vec::new(),
             max_bytes: None,
+            compact: false,
         })
         .unwrap();
     let restart_memory = capsule
@@ -179,6 +180,7 @@ fn deterministic_frontier_failure_suite() {
                 objective: None,
                 focus_paths: Vec::new(),
                 max_bytes: None,
+                compact: false,
             })
             .unwrap()
             .active_sessions

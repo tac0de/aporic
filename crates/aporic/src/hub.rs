@@ -829,6 +829,7 @@ impl Hub {
             objective: Some(task.objective.clone()),
             focus_paths: task.write_scope.clone(),
             max_bytes: Some(max_context_bytes),
+            compact: false,
         })?;
         let assembly = crate::brief::assemble_variant(
             &task,

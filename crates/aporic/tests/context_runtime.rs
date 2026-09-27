@@ -139,10 +139,26 @@ fn context_selection_and_codex_hook_resist_memory_poisoning() {
         objective: Some("context utility hook".to_owned()),
         focus_paths: vec!["crates/aporic/tests".to_owned()],
         max_bytes: Some(1_024),
+        compact: false,
     };
     let first = hub.recall(&request).unwrap();
     let second = hub.recall(&request).unwrap();
     assert_eq!(first, second);
+    let compact = hub
+        .recall(&RecallRequest {
+            compact: true,
+            ..request.clone()
+        })
+        .unwrap();
+    assert_eq!(compact.selected_items, first.selected_items);
+    assert_eq!(compact.budget, first.budget);
+    assert!(!first.recent_records.is_empty());
+    assert!(compact.active_sessions.is_empty());
+    assert!(compact.recent_handoffs.is_empty());
+    assert!(compact.recent_records.is_empty());
+    assert!(
+        serde_json::to_vec(&compact).unwrap().len() < serde_json::to_vec(&first).unwrap().len()
+    );
     assert!(first.budget.used_content_bytes <= first.budget.max_content_bytes);
     assert!(
         first

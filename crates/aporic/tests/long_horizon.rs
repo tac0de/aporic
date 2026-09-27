@@ -65,6 +65,7 @@ fn long_horizon_frontier_workload_does_not_accumulate_known_failures() {
             objective: None,
             focus_paths: Vec::new(),
             max_bytes: None,
+            compact: false,
         })
         .unwrap();
     let active_decisions = capsule

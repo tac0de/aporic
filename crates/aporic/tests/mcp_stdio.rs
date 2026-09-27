@@ -585,6 +585,20 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
         recalled["result"]["recent_records"][0]["content"],
         "The stdio MCP tool call completed."
     );
+    let compact = call_json(
+        &restarted,
+        "aporic_recall",
+        json!({ "workspace": workspace, "limit": 10, "compact": true }),
+    )
+    .await?;
+    assert_eq!(compact["ok"], true);
+    assert_eq!(
+        compact["result"]["selected_items"],
+        recalled["result"]["selected_items"]
+    );
+    assert_eq!(compact["result"]["budget"], recalled["result"]["budget"]);
+    assert_eq!(compact["result"]["recent_records"], json!([]));
+    assert!(serde_json::to_vec(&compact)?.len() < serde_json::to_vec(&recalled)?.len());
     restarted.cancel().await?;
     Ok(())
 }

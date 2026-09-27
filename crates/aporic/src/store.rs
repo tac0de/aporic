@@ -355,7 +355,7 @@ impl Store {
         let limit = request.limit.unwrap_or(20).clamp(1, 100);
         let max_bytes = request.max_bytes.unwrap_or(16_384).clamp(1_024, 65_536);
 
-        match project_id {
+        let mut capsule = match project_id {
             Some(project_id) => recall_for_project(
                 &connection,
                 &project_id,
@@ -385,7 +385,13 @@ impl Store {
                     authority_notice: crate::context::AUTHORITY_NOTICE.to_owned(),
                 })
             }
+        }?;
+        if request.compact {
+            capsule.active_sessions.clear();
+            capsule.recent_handoffs.clear();
+            capsule.recent_records.clear();
         }
+        Ok(capsule)
     }
 
     pub fn resume(&self, request: &ResumeRequest) -> Result<ResumeBrief> {

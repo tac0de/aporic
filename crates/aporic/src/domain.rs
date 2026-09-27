@@ -62,6 +62,9 @@ pub struct RecallRequest {
     pub focus_paths: Vec<String>,
     #[serde(default)]
     pub max_bytes: Option<u32>,
+    /// Return only selected, budgeted items; omit raw session, handoff, and record lists.
+    #[serde(default)]
+    pub compact: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
