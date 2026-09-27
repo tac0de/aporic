@@ -45,16 +45,18 @@ use crate::{
         RuntimeTraceGetRequest, RuntimeTraceListRequest, RuntimeWorkspaceRequest,
         SecureCapabilityAudit, SecurityArtifactImport, SecurityAssessment,
         SecurityAssessmentGetRequest, SecurityAssessmentListRequest, SecurityAssessmentOutcome,
-        SecurityCoverage, SecurityImportRequest, ShadowEvaluationRequest, TaskBriefOutcome,
-        TaskBriefRequest, TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest,
-        TaskCreateRequest, TaskListRequest, TaskMemoryUse, TaskMemoryUseListRequest,
-        TaskMemoryUseOutcome, TaskMemoryUseRequest, TaskOutcome, TaskResearchAttachRequest,
-        TaskResearchAudit, TaskResearchItem, TaskResearchListRequest, TaskResearchOutcome,
-        TaskWorkPacket, TaskWorkPacketRequest, TokenEfficiencyReport, TokenEfficiencyReportRequest,
-        TokenUsageAudit, TokenUsageListRequest, TokenUsageOutcome, TokenUsageReceipt,
-        TokenUsageRecordRequest, WorkComplexity, WorkKind, WorkflowAdvanceRequest, WorkflowOutcome,
-        WorkflowPlanRequest, WorkflowStatus, WorkflowStatusRequest, WorkflowStepRecordRequest,
-        WorkflowSteps, WorkflowStepsRequest,
+        SecurityCoverage, SecurityImportRequest, SessionDelegationDecisionOutcome,
+        SessionDelegationDecisionRequest, SessionDelegationReportOutcome,
+        SessionDelegationReportRequest, SessionDelegationStatus, SessionDelegationStatusRequest,
+        ShadowEvaluationRequest, TaskBriefOutcome, TaskBriefRequest, TaskCancelRequest,
+        TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskMemoryUse,
+        TaskMemoryUseListRequest, TaskMemoryUseOutcome, TaskMemoryUseRequest, TaskOutcome,
+        TaskResearchAttachRequest, TaskResearchAudit, TaskResearchItem, TaskResearchListRequest,
+        TaskResearchOutcome, TaskWorkPacket, TaskWorkPacketRequest, TokenEfficiencyReport,
+        TokenEfficiencyReportRequest, TokenUsageAudit, TokenUsageListRequest, TokenUsageOutcome,
+        TokenUsageReceipt, TokenUsageRecordRequest, WorkComplexity, WorkKind,
+        WorkflowAdvanceRequest, WorkflowOutcome, WorkflowPlanRequest, WorkflowStatus,
+        WorkflowStatusRequest, WorkflowStepRecordRequest, WorkflowSteps, WorkflowStepsRequest,
     },
     kernel,
     store::{Result, Store},
@@ -869,6 +871,27 @@ impl Hub {
         request: &DelegationDecisionRequest,
     ) -> Result<DelegationDecisionOutcome> {
         self.store.assess_delegation(request)
+    }
+
+    pub fn assess_session_delegation(
+        &self,
+        request: &SessionDelegationDecisionRequest,
+    ) -> Result<SessionDelegationDecisionOutcome> {
+        self.store.assess_session_delegation(request)
+    }
+
+    pub fn report_session_delegation(
+        &self,
+        request: &SessionDelegationReportRequest,
+    ) -> Result<SessionDelegationReportOutcome> {
+        self.store.report_session_delegation(request)
+    }
+
+    pub fn session_delegation_status(
+        &self,
+        request: &SessionDelegationStatusRequest,
+    ) -> Result<SessionDelegationStatus> {
+        self.store.session_delegation_status(request)
     }
 
     pub fn report_delegation(

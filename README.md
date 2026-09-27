@@ -704,6 +704,23 @@ document. The external index is separate from Aporic's durable memory index.
 `aporic doctor` checks revision hashes and current pointers. `aporic export`
 includes the revision history. There are no embeddings or model API calls.
 
+## v0.27 delegation entry contract
+
+`aporic_open` now exposes an advisory `session_delegation` status for every
+workspace session. Substantive work can record a Worker/Inspector decision with
+`aporic_session_delegation_assess` without creating a task solely to discuss
+delegation. It records independent path count, material change, and a delegate
+or concrete skip decision. `aporic_session_delegation_report` records actual
+host-reported starts and terminal outcomes; status distinguishes missing
+assessment, a decision, and reported execution. An existing task-scoped
+assessment also satisfies the session's assessment diagnostic.
+
+Aporic never launches a subagent, chooses the Codex UI model, or grants host
+tools. Its core makes a missed decision visible. The Codex host still applies
+its own instructions and permissions to any dispatch, and a reported start is
+not an independent attestation. The Codex bridge template in
+`integrations/codex/AGENTS.md` describes the host handoff.
+
 ## v0.26 core hardening
 
 The continuity core prioritizes unresolved material unknowns, constraints, and

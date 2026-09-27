@@ -265,7 +265,7 @@ fn upgrades_existing_role_schema_without_recreating_appointments() {
         .unwrap();
     drop(connection);
     let upgraded = Hub::open(database).unwrap();
-    assert_eq!(upgraded.stats().unwrap().schema_version, 26);
+    assert_eq!(upgraded.stats().unwrap().schema_version, 27);
     assert_eq!(
         upgraded
             .list_role_appointments(&RoleAppointmentListRequest {

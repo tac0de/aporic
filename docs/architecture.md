@@ -259,6 +259,16 @@ history and advisory gaps. These records never dispatch agents, attest host
 execution, or become task-completion and permission gates. Worker and Inspector
 assignee separation holds across revoked appointments for the same task.
 
+Schema v27 adds session-scoped delegation decisions and host-run reports so
+ordinary `aporic_open` usage can surface a missing assessment without first
+creating a task contract. The session status shows the latest decision and
+reported execution separately. A task-scoped decision for a task opened in the
+session satisfies the session diagnostic without duplicating a decision.
+Assessment and reporting stay advisory and fail-open; neither the session
+status nor MCP server instructions can dispatch a host agent or override host
+permissions. The host adapter must explicitly call its own collaboration tool
+and report what actually ran.
+
 Schema v23 adds append-only task-brief assembly receipts. A built-in, versioned
 template combines a task objective and exact acceptance criteria with a bounded
 selection from the existing context policy. The MCP response includes the

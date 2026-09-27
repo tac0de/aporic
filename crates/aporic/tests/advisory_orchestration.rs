@@ -241,7 +241,7 @@ fn migrates_v13_to_v14_without_orchestration_state() {
     }
     drop(connection);
     let hub = Hub::open(database).unwrap();
-    assert_eq!(hub.stats().unwrap().schema_version, 26);
+    assert_eq!(hub.stats().unwrap().schema_version, 27);
     let audit = hub.audit_orchestration().unwrap();
     assert_eq!(audit.run_count, 0);
     assert!(audit.consistent);

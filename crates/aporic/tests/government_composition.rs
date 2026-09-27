@@ -266,7 +266,7 @@ fn product_minister_and_multidisciplinary_cell_preserve_independent_oversight() 
 
     drop(hub);
     let restarted = Hub::open(area.path().join("aporic.sqlite3")).unwrap();
-    assert_eq!(restarted.stats().unwrap().schema_version, 26);
+    assert_eq!(restarted.stats().unwrap().schema_version, 27);
     assert_eq!(
         restarted
             .list_office_appointments(&GovernmentWorkspaceRequest {
@@ -431,6 +431,6 @@ fn upgrades_schema_16_to_product_government() {
         .unwrap();
     drop(connection);
     let upgraded = Hub::open(database).unwrap();
-    assert_eq!(upgraded.stats().unwrap().schema_version, 26);
+    assert_eq!(upgraded.stats().unwrap().schema_version, 27);
     assert!(upgraded.audit_government().unwrap().consistent);
 }

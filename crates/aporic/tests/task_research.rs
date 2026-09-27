@@ -193,6 +193,6 @@ fn schema_24_upgrades_to_task_research_without_prior_items() {
         .unwrap();
     drop(connection);
     let upgraded = Hub::open(&db).unwrap();
-    assert_eq!(upgraded.stats().unwrap().schema_version, 26);
+    assert_eq!(upgraded.stats().unwrap().schema_version, 27);
     assert!(upgraded.audit_task_research().unwrap().consistent);
 }

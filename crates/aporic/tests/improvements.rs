@@ -264,5 +264,5 @@ fn upgrades_schema_19_to_20() {
         .unwrap();
     drop(connection);
     let hub = Hub::open(&database).unwrap();
-    assert_eq!(hub.stats().unwrap().schema_version, 26);
+    assert_eq!(hub.stats().unwrap().schema_version, 27);
 }

@@ -160,7 +160,7 @@ fn compares_two_variants_without_promoting_reported_quality_to_causal_proof() {
     assert_eq!(alternative_summary.associated_verified_claims, 0);
 
     let restarted = Hub::open(&database).unwrap();
-    assert_eq!(restarted.stats().unwrap().schema_version, 26);
+    assert_eq!(restarted.stats().unwrap().schema_version, 27);
     assert_eq!(
         restarted
             .compare_prompt_trials(&comparison_request)

@@ -107,7 +107,8 @@ const MIGRATION_23: &str = include_str!("../../../migrations/0023_task_briefs.sq
 const MIGRATION_24: &str = include_str!("../../../migrations/0024_prompt_trials.sql");
 const MIGRATION_25: &str = include_str!("../../../migrations/0025_task_research.sql");
 const MIGRATION_26: &str = include_str!("../../../migrations/0026_claim_subject.sql");
-const SCHEMA_VERSION: u32 = 26;
+const MIGRATION_27: &str = include_str!("../../../migrations/0027_session_delegation.sql");
+const SCHEMA_VERSION: u32 = 27;
 const MIGRATIONS: &[(u32, &str)] = &[
     (2, MIGRATION_2),
     (3, MIGRATION_3),
@@ -134,6 +135,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (24, MIGRATION_24),
     (25, MIGRATION_25),
     (26, MIGRATION_26),
+    (27, MIGRATION_27),
 ];
 
 #[derive(Debug, Error)]
@@ -264,6 +266,10 @@ impl Store {
             request,
         )? {
             outcome.duplicate = true;
+            outcome.session_delegation = Some(delegation::status_for_session(
+                &transaction,
+                &outcome.session_id,
+            )?);
             return Ok(outcome);
         }
 
@@ -330,6 +336,7 @@ impl Store {
             open_repair_count,
             open_repair_obligations,
             accountability_notice: accountability_authority_notice(),
+            session_delegation: Some(delegation::status_for_session(&transaction, &session_id)?),
             duplicate: false,
         };
         append_event(

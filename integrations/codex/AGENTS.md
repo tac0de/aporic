@@ -18,6 +18,18 @@ constraints, progress, observations, effects, verification, or material
 unknowns with `aporic_record`, then use `aporic_close` when the work is complete
 or has one concrete next action.
 
+Inspect `session_delegation` in the `aporic_open` response. For substantive
+work, assess the number of independent bounded paths and whether a distinct
+Inspector would help with a material change. If no Aporic task exists, call
+`aporic_session_delegation_assess`:
+choose a Worker or record a concrete skip reason when two or more independent
+paths exist, and choose an Inspector or record a concrete skip reason for
+material changes. A missing assessment is an advisory diagnostic, not a gate.
+Codex host instructions and tools decide whether an agent can run. Report
+actual starts, completions, and failures with `aporic_session_delegation_report`;
+never report a proposed run as an actual one. Short sequential work can remain
+with the primary agent.
+
 Inspect any `open_repair_obligations` returned by `aporic_open`. When a material
 mistake is observed, state what happened and preserve its evidence, then use
 `aporic_accountability_open` to record an advisory case. Use
@@ -50,12 +62,12 @@ leased tasks must not overlap their declared write scopes. A lease grants no
 authority beyond the current host task. Complete a task only with evidence for
 every acceptance criterion; otherwise cancel it or leave it queued.
 
-For a bounded task that can run independently, call `aporic_task_work_packet`
+For a bounded Aporic task that can run independently, call `aporic_task_work_packet`
 with the task ID and typed complexity, consequence, work kind, ambiguity, and
 review need. It returns the existing task contract, linked memories, an
 advisory worker/reviewer route, and delegation history. Check task status,
-dependencies, and write scope before delegation. For substantive work, call
-`aporic_delegation_assess` before host dispatch. When two or more independent
+dependencies, and write scope before delegation. When an Aporic task exists,
+call `aporic_delegation_assess` before host dispatch. When two or more independent
 bounded paths exist, select Worker delegation or record a concrete skip reason.
 For material changes, select a distinct Inspector or record a concrete skip
 reason. This is advisory and never limits host tools or task completion. Use

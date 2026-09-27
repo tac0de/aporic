@@ -9,6 +9,72 @@ use rmcp::{
 use serde_json::{Map, Value, json};
 
 #[tokio::test]
+async fn session_delegation_is_available_without_creating_a_task() -> Result<(), Box<dyn Error>> {
+    let area = tempfile::tempdir()?;
+    let workspace = area.path().join("workspace");
+    std::fs::create_dir(&workspace)?;
+    let database = area.path().join("aporic.sqlite3");
+    let client = start_server(&database).await?;
+    let opened = call_json(
+        &client,
+        "aporic_open",
+        json!({"workspace": workspace, "objective": "Two independent paths", "idempotency_key": "session-delegation-open"}),
+    )
+    .await?;
+    assert_eq!(opened["ok"], true);
+    assert_eq!(
+        opened["result"]["session_delegation"]["assessment_missing"],
+        true
+    );
+    let session_id = opened["result"]["session_id"].as_str().unwrap();
+    let decision = call_json(
+        &client,
+        "aporic_session_delegation_assess",
+        json!({
+            "session_id": session_id,
+            "parallel_paths": 2,
+            "material_change": true,
+            "worker": {"disposition": "delegate", "reason": "Independent code and documentation paths"},
+            "reviewer": {"disposition": "delegate", "reason": "Material core change"},
+            "idempotency_key": "session-delegation-assess"
+        }),
+    )
+    .await?;
+    assert_eq!(decision["ok"], true);
+    let decision_id = decision["result"]["decision"]["decision_id"]
+        .as_str()
+        .unwrap();
+    let status = call_json(
+        &client,
+        "aporic_session_delegation_status",
+        json!({"workspace": workspace, "session_id": session_id}),
+    )
+    .await?;
+    assert_eq!(status["ok"], true);
+    assert_eq!(status["result"]["assessment_missing"], false);
+    assert_eq!(status["result"]["executable"], false);
+    let reported = call_json(
+        &client,
+        "aporic_session_delegation_report",
+        json!({
+            "session_id": session_id,
+            "decision_id": decision_id,
+            "dimension": "worker",
+            "host_agent_id": "host-agent-1",
+            "model": "gpt-6-sol",
+            "reasoning_effort": "high",
+            "outcome": "started",
+            "result_summary": "Host reported an actual start",
+            "idempotency_key": "session-delegation-start"
+        }),
+    )
+    .await?;
+    assert_eq!(reported["ok"], true);
+    client.cancel().await?;
+    Ok(())
+}
+
+#[tokio::test]
 async fn exposes_frontend_browser_module_over_stdio() -> Result<(), Box<dyn Error>> {
     let area = tempfile::tempdir()?;
     let workspace = area.path().join("workspace");
@@ -154,6 +220,9 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
             "aporic_run_list",
             "aporic_security_assessment_get",
             "aporic_security_assessment_list",
+            "aporic_session_delegation_assess",
+            "aporic_session_delegation_report",
+            "aporic_session_delegation_status",
             "aporic_shadow_evaluate",
             "aporic_task_brief",
             "aporic_task_cancel",

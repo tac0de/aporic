@@ -2404,6 +2404,8 @@ pub struct OpenOutcome {
     pub open_repair_obligations: Vec<AccountabilityNotice>,
     #[serde(default)]
     pub accountability_notice: String,
+    #[serde(default)]
+    pub session_delegation: Option<SessionDelegationStatus>,
     pub duplicate: bool,
 }
 
@@ -3624,6 +3626,89 @@ pub struct DelegationStatus {
     pub task_id: String,
     pub decisions: Vec<DelegationDecision>,
     pub reports: Vec<DelegationReport>,
+    pub advisory_gaps: Vec<String>,
+    pub advisory: bool,
+    pub executable: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SessionDelegationDecisionRequest {
+    pub session_id: String,
+    pub parallel_paths: u8,
+    pub material_change: bool,
+    pub worker: DelegationChoice,
+    pub reviewer: DelegationChoice,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionDelegationDecision {
+    pub decision_id: String,
+    pub session_id: String,
+    pub parallel_paths: u8,
+    pub material_change: bool,
+    pub worker: DelegationChoice,
+    pub reviewer: DelegationChoice,
+    pub evidence_grade: EvidenceGrade,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionDelegationDecisionOutcome {
+    pub decision: SessionDelegationDecision,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SessionDelegationReportRequest {
+    pub session_id: String,
+    pub decision_id: String,
+    pub dimension: DelegationDimension,
+    pub host_agent_id: String,
+    pub model: String,
+    pub reasoning_effort: String,
+    pub outcome: DelegationRunOutcome,
+    pub result_summary: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionDelegationReport {
+    pub report_id: String,
+    pub session_id: String,
+    pub decision_id: String,
+    pub dimension: DelegationDimension,
+    pub host_agent_id: String,
+    pub model: String,
+    pub reasoning_effort: String,
+    pub outcome: DelegationRunOutcome,
+    pub result_summary: String,
+    pub evidence_grade: EvidenceGrade,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionDelegationReportOutcome {
+    pub report: SessionDelegationReport,
+    pub duplicate: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SessionDelegationStatusRequest {
+    pub workspace: String,
+    pub session_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionDelegationStatus {
+    pub session_id: String,
+    pub decisions: Vec<SessionDelegationDecision>,
+    pub reports: Vec<SessionDelegationReport>,
+    pub task_assessment_count: u64,
+    pub assessment_missing: bool,
     pub advisory_gaps: Vec<String>,
     pub advisory: bool,
     pub executable: bool,

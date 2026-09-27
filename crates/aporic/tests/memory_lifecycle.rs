@@ -69,7 +69,7 @@ fn migrates_v6_model_text_into_untrusted_v7_memory() {
     drop(connection);
 
     let hub = Hub::open(&database).unwrap();
-    assert_eq!(hub.stats().unwrap().schema_version, 26);
+    assert_eq!(hub.stats().unwrap().schema_version, 27);
     let item = hub
         .memory_get(&MemoryGetRequest {
             workspace: workspace.to_string_lossy().into_owned(),
