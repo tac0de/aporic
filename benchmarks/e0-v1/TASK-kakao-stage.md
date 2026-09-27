@@ -7,10 +7,11 @@ fallback only when no valid stage is available from the existing sources.
 Preserve explicit elementary, middle, and high stage choices and the normal
 answer/review flow.
 
-Add a focused regression test. Keep product changes within
-`src/features/quiz/quizFlowService.ts` and relevant quiz tests. Do not
+Add a focused regression test at `tests/e0-stage-regression.test.ts`.
+Keep product changes within `src/features/quiz/quizFlowService.ts`; the new
+test is the only other allowed changed file. Do not
 change dependencies, state schema, authentication, deployment, or production
 configuration. Do not commit, push, deploy, or contact the network.
 
-Stage 1 is investigation and a concise handoff only. A fresh Stage 2 agent
-will implement and run relevant checks.
+Stage 1 is investigation and a concise handoff only. Follow the supplied
+two-session protocol for the handoff and Stage 2 implementation.

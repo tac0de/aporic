@@ -24,13 +24,14 @@ paired-run protocol is **not frozen**. The other cases remain candidates.
 Each needs a new hidden grader, source preflight that fails only the intended
 check, public-test integrity check, leakage audit, and precise task brief
 before an arm runs. The first Kakao stage case now has a
-[task brief](TASK-kakao-stage.md), [hidden check](hidden_kakao_stage.test.ts),
-[fresh-tree grader](grade_kakao_stage.py), and
+[task brief](TASK-kakao-stage.md),
+[two-session protocol draft](PROTOCOL-kakao-stage.md),
+[hidden check](hidden_kakao_stage.test.ts), [fresh-tree grader](grade_kakao_stage.py), and
 [preflight summary](preflight-kakao-stage.json). On the pre-fix source the
 hidden check failed while public focused tests and typecheck passed; on the
 reference fix all three passed. This validates the instrument's direction
-only. Its scope audit, history protocol, owner proxy, and direct-MCP path
-remain open, so no agent arm has run.
+only. Its direct-MCP path and participant filesystem isolation remain open,
+so no agent arm has run.
 
 | Candidate | Pre-fix source | Intended acceptance | Main limitation |
 | --- | --- | --- | --- |
@@ -57,16 +58,22 @@ Aporic task or more external cases may be safer.
   not independently attest the provider-side model identity.
 - The same CLI rejected `gpt-6-sol` for this ChatGPT account. Do not select
   it merely because the Codex desktop host lists it.
-- A current release Aporic binary built offline. In a fresh CLI workspace,
+- A current release Aporic binary built offline. In one fresh CLI workspace,
   a direct `aporic_recall` MCP call was visible but denied because its
-  approval policy was `never`. A separate `--approve-for-me` probe did
-  not expose the tool. No participant pair can use this as a working direct
-  MCP path yet.
+  approval policy was `never`. Separate `--approve-for-me` and one-shot
+  configuration probes did not expose a callable Aporic tool. CLI MCP server
+  registration alone did not establish a working route. No participant pair
+  can use this as a repeatable direct MCP path yet.
 - The older benchmark's command helper calls the real Aporic stdio MCP
   server and captures replies, but it excludes Codex's direct MCP schema and
   approval cost. If used, label the experiment **Aporic core via helper**,
   not full installed-plugin E0. Preserve the failed direct-MCP probes as
   instrument evidence, not product-outcome failures.
+- A targeted macOS `sandbox-exec` smoke, outside the nested host sandbox,
+  denied reads of the original Groupbot checkout and hidden test while
+  allowing the participant's own source export. This has not established
+  complete allowlist isolation or a working Codex CLI launch under that
+  profile; participant access control remains a gate.
 
 ## Gates before a frozen paired run
 
@@ -97,12 +104,17 @@ Aporic task or more external cases may be safer.
    cost. An unsafe or fabricated-verification event in either arm triggers
    investigation. Ordinary wrong answers and timeouts remain outcomes.
 
-An independent fixture review found four remaining freeze gaps: no fixed
-Stage 2 prompt or handoff schema; the grader overlays only the product file
-and therefore does not inspect the required regression test or entire
-submission scope; the hidden check does not directly cover all explicit
-school stages; and the offline dependency cache is not a portable frozen
-artifact. These are instrument gaps, not participant failures.
+An independent fixture review originally found four freeze gaps. The draft
+protocol now specifies both session messages and the handoff/submission
+rules. The grader now audits the complete submitted tree, requires the added
+regression test to pass on the submission and fail on the original product
+file, and preserves original public files. The hidden check now covers all
+three explicit school stages as well as missing and general profiles. A
+same-host npm cache archive is frozen by digest, but it is still held in
+temporary local storage rather than a portable published artifact. The
+direct-MCP and participant filesystem-isolation gates remain open. The blind
+Inspector procedure is specified but has not run. These are
+instrument gaps, not participant failures.
 
 The next step for the **instrument pilot** is to resolve the Aporic MCP access
 gate and these freeze gaps. The Kakao stage-less quiz case is selected, and
