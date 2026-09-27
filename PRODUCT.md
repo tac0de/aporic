@@ -32,8 +32,8 @@ saves.
 
 ## Current stage
 
-The product is in v0.26 core hardening. Optional capability catalogs, research,
-and prototype workflows remain advisory layers.
+The product is in core hardening. The active surface centers on continuity,
+evidence, task and workflow records, bounded research, and local verification.
 The current product question is:
 
 > Can a small local continuity and evidence core preserve current context,
@@ -126,21 +126,6 @@ outcomes and repays its recording/retrieval cost remains unproved.
   claim or execution state in the same workspace.
 - Exact duplicate context content is removed only after safety-priority sorting;
   budget reports disclose duplicate, oversized, and item-limit omissions.
-- v0.11 deliberations contain only concise public statements and typed
-  relations; there is no field for private chain-of-thought or raw transcripts.
-- Every deliberation is bound to an existing clean, committed local Git
-  snapshot and becomes stale when the latest observed HEAD commit/tree differs
-  or the newest snapshot is dirty.
-- A new decision cannot be recorded on a stale graph; current Git evidence must
-  seed a new deliberation instead of silently reusing old premises.
-- Material objections, counterexamples, falsifiers, and unknowns require direct
-  evidence or an observed/verified claim. Non-material dissent remains visible
-  but cannot block a provisional decision.
-- Decisions remain provisional, disclose the count of open material issues,
-  and never establish approval, permission, merge safety, or tool authority.
-- Deliberation listings return summaries, while graph detail uses fixed
-  node/edge/decision bounds and reports total counts, sequence cursors, and
-  truncation explicitly.
 
 ## Material unknowns
 
@@ -150,8 +135,6 @@ outcomes and repays its recording/retrieval cost remains unproved.
   model-driven workloads, beyond the current structural simulations.
 - Whether host environments expose complete and trustworthy token counts for
   all Astra, Sol, and Terra work, including hidden reasoning and cached input.
-- Whether public argument graphs improve real project decisions enough to
-  justify their recording overhead beyond deterministic adversarial tests.
 - Which agent runtime should back later delegation and scheduling.
 - Whether the observed efficiency gain justifies an always-running local
   service beyond the current stdio deployment.
@@ -161,16 +144,14 @@ outcomes and repays its recording/retrieval cost remains unproved.
 
 ## Deferred operational work
 
-Destructive in-place restore, remote authentication,
-long-running agent scheduling, provider code loading, credential brokering,
-general-purpose capability execution, remote-effect verification, and
-multi-tenant worker isolation are intentionally deferred. v0.13 adds validated
-restore to a new destination, narrowly matched
-backup retention, bounded streaming file and Git observation, canonical task
-write scopes, and supply-chain/coverage release gates. Restore still refuses to
-overwrite an existing database. v0.14 adds capability maturity metadata and an
-opt-in, fail-closed Linux `bubblewrap` profile for local verification commands;
-neither feature grants provider authority or makes catalog entries executable.
+Destructive in-place restore, remote authentication, long-running agent
+scheduling, provider code loading, credential brokering, remote-effect
+verification, and multi-tenant worker isolation are intentionally deferred.
+Validated restore writes only to a fresh destination; backup retention is
+narrowly matched; file and Git observation are bounded; and task write scopes
+have a canonical form. Restore still refuses to overwrite an existing database.
+The opt-in Linux `bubblewrap` profile for local verification commands fails
+closed when its requested boundary is unavailable.
 
 ## Current evidence
 
@@ -229,32 +210,14 @@ Observed on 2026-09-25:
   206 to 107 UTF-8 bytes while retaining all three essential items and the
   unresolved unknown; it makes zero exact token claims, network calls, or model
   calls.
-- the commit-bound-deliberation suite migrates v10 state, rejects unsupported
-  material dissent and narrative closure of unknowns, preserves non-blocking
-  low-materiality objections, requires direct evidence to undercut a material
-  unknown, marks changed commit/tree decisions stale, detects digest
-  corruption, and exports the complete graph.
-- the fixed deliberation simulation preserves all three material challenges,
-  rejects unsupported materiality, detects stale state, and emits zero
-  approvals, hidden-reasoning fields, network calls, or model calls.
-- the secure-capability suite migrates schema v11 to v12, rejects embedded
-  credential material and exact prototype clones, exposes no generic invocation
-  surface, and keeps every registered capability non-executable;
-- the experiment suite requires direct hard-gate evidence, prevents a faster but
-  unsafe candidate from winning, computes Pareto candidates, enforces variant
-  budgets, and rejects final selection without a zero-open-issue deliberation;
-- the Codex Security bridge hashes three bounded local artifacts, preserves
-  partial coverage and zero findings without claiming safety, and validates a
-  SQLite backup through a read-only integrity check.
 - the v0.13 adversarial boundary suite rejects oversized hook input, evidence,
   receipt artifacts, and artifact lists; normalizes write scopes; disables Git
   fsmonitor in runner snapshots; and restores a validated backup into a fresh
   supported-schema database without overwriting an existing target.
-- the v0.14 execution-governance suite rejects invalid host-profile restriction
-  claims, rejects insufficient capability maturity and non-idempotent persistent
-  routines, and requires unsupported platforms to fail closed. Linux CI also
-  exercises denial of an out-of-workspace secret, read-only workspace writes,
-  and network connection attempts inside the real `bubblewrap` backend.
+- the execution-boundary suite requires unsupported Linux sandbox requests to
+  fail closed. Linux CI also exercises denial of an out-of-workspace secret,
+  read-only workspace writes, and network connection attempts inside the real
+  `bubblewrap` backend.
 
 Not yet established:
 
@@ -264,8 +227,6 @@ Not yet established:
   workload;
 - a real reduction in provider-reported tokens per verified success; current
   byte simulation is structural evidence only;
-- better decisions or reduced rework in model-driven deliberation; the current
-  graph and simulation establish structural guarantees only;
 - actual agent dispatch or parallel execution;
 - hostile multi-tenant isolation, cgroup resource quotas, custom seccomp policy,
   and VM/microVM containment.

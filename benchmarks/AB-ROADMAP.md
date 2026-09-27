@@ -95,13 +95,9 @@ needs its own frozen cases and grader before running.
 | W2 | P1 | `general` workflow stages/steps versus ordinary task planning on multi-step backend work | First-pass acceptance and missed criteria; planning and rework time |
 | F1 | P1 | `frontend` procedure versus normal frontend workflow on new, distinct UI tasks | Blind visual, responsive, keyboard, and functional acceptance using Playwright CLI; procedure cost |
 | R1 | P1 | Task-scoped cited research retrieval versus ordinary host research using the same available sources | Correct source-backed decision and unsupported-claim rate; retrieval/review time |
-| D1 | P1 | Evidence-linked deliberation plus commit-bound Git state versus ordinary design notes and Git inspection | Decision quality after new contrary evidence and stale-premise/reversal rate; graph upkeep |
 | T1 | P1 | `compact=true` or smaller bounded context versus legacy Aporic recall at the same selection facts | Noninferior accepted task and retained required constraints; provider tokens, tool bytes, latency |
 | T2 | P1 | Evidence-first task brief versus baseline brief and ordinary instructions, with templates frozen | Accepted task and correction turns; brief generation and trial bookkeeping |
-| O1 | P2 | Aporic-guided role/Inspector/coordination reporting versus the same host-run agents with ordinary assignment notes | Review defects found before integration and net parallel-work benefit; reporting overhead |
 | A1 | P2 | Accountability case and linked repair plan versus ordinary bug postmortem/handoff | Recurrence on a later analogous task and verified repair; case upkeep |
-| P1 | P2 | Evidence-gated prototype portfolio and frontend/product-cell review versus ordinary variant selection | Blind user/task success of selected prototype per budget; variant and playtest cost |
-| K1 | P2 | Capability catalog search and bounded schema disclosure versus ordinary tool documentation | Correct capability choice without false authority claim; discovery tokens/time |
 | H1 | P2 | Optional hook-based context exposure/trace guidance versus explicit manual recall only | Missed relevant context and task acceptance; hook gaps, payload privacy, latency |
 | M1 | Conditional | Advisory model-route recommendation versus a fixed host-selected model on matched tasks | Accepted tasks per measured cost, stratified by task risk; actual model identity must be observable |
 
@@ -128,9 +124,6 @@ ran, so blind review must also assess whether that check was adequate.
   blind-shadow evaluation are primarily measurement/evidence mechanisms. First
   validate their coverage and calibration against known ground truth; test a
   user-facing intervention only when their output changes an actual decision.
-- Government roster, office appointments, and advisory orchestration do not
-  dispatch agents or grant authority. Evaluate them within W1/O1 or P1 only
-  after a concrete host-run workflow uses the records.
 - The external research provider needs a separately frozen source corpus or
   contemporaneous source snapshot. Otherwise source changes confound R1.
 

@@ -864,14 +864,6 @@ const STEP_SPECS: &[StepSpec] = &[
         skippable: false,
     },
     StepSpec {
-        id: "prototype_feedback",
-        stage: WorkflowStage::Design,
-        description: "Evaluate a small prototype and revise the design",
-        minimum_depth: WorkflowProcedureDepth::High,
-        ui_only: false,
-        skippable: true,
-    },
-    StepSpec {
         id: "concept_comparison",
         stage: WorkflowStage::Design,
         description: "Compare distinct visual concepts when direction is uncertain",

@@ -243,7 +243,7 @@ fn migrates_v1_state_and_exports_complete_project_history() {
     .unwrap();
 
     let exported = hub.export_project(&workspace).unwrap();
-    assert_eq!(exported.format_version, 22);
+    assert_eq!(exported.format_version, 23);
     assert_eq!(exported.sessions.len(), 1);
     assert_eq!(exported.records.len(), 1);
     assert!(exported.tasks.is_empty());

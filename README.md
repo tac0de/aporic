@@ -16,6 +16,10 @@ See [PRODUCT.md](PRODUCT.md) for the product objective and
 
 The hub exposes MCP tools for continuity, coordination, evidence, research,
 accountability, and other advisory project work.
+`aporic mcp serve --stdio` exposes the 42-tool core profile. Use
+`aporic mcp serve --stdio --profile full` to expose all 56 current tools,
+including optional diagnostics. Core rejects direct calls to full-only tools.
+Tools marked as full-only below require `--profile full`.
 
 Continuity:
 
@@ -50,20 +54,6 @@ Advisory coordination:
   versioned general or UI procedure checks, concrete skips, and rework within
   those advisory stages.
 
-Client feedback and prototype planning:
-
-- `aporic_improvement_submit` and `aporic_improvement_list`: submit a concise
-  evidence-referenced request from a client workspace to Aporic core and read
-  its queued or later task status. Registration does not start implementation;
-- `aporic_prototype_brief_create`, `aporic_prototype_review`, and
-  `aporic_prototype_get`: record an active task's target user, experience
-  hypothesis, fidelity, reuse and repository boundaries, technology plan, and
-  validation method; review smoke checks, rules, and observed play separately.
-  User value remains unknown without a current direct `.playtest.json` report;
-- `aporic_related_workspaces`: optionally inspect Git repository names and
-  explicit labels under supplied local roots. Empty roots disable discovery.
-  Results are historical context and do not copy or merge code.
-
 Design delivery in v0.21 uses a versioned repository manifest to connect
 references, a selected concept, design tokens and component specifications,
 implementation, and browser review. `aporic_design_validate` and
@@ -71,16 +61,11 @@ implementation, and browser review. `aporic_design_validate` and
 files and hashes without judging or approving the design. See the
 [design delivery workflow](docs/design-delivery.md).
 
-The playtest report is a JSON file in the task workspace with nonempty
-`target_user`, `observed_behavior`, and `session_date` fields and a positive
-`participant_count`. Register it with `aporic_evidence_add` as a workspace
-file before citing its evidence ID in `aporic_prototype_review`. The review
-records that an observation artifact exists; it does not judge whether the
-experience was enjoyable. Feedback intake accepts a concise, single-line
-objective and criteria plus a source evidence ID. It rejects obvious credential
-strings and stores no source conversation or evidence body in the core task.
+`aporic_related_workspaces` (full-only) can inspect Git repository names and explicit labels
+under supplied local roots. Results are historical context only and never copy
+or merge code.
 
-Accountability and repair:
+Accountability and repair (full-only):
 
 - `aporic_accountability_open`: record an evidence-labelled task failure as an
   advisory case; any assignee attribution remains reported, not established;
@@ -97,10 +82,10 @@ Epistemic gate:
 - `aporic_evidence_add`: classify provenance as direct, reported, or model-only;
 - `aporic_claim_assert`: keep observed, verified, inferred, assumed, intended,
   and unknown claims distinct;
-- `aporic_dissent_assess`: surface only consequential, actionable dissent with
+- `aporic_dissent_assess` (full-only): surface only consequential, actionable dissent with
   direct evidence.
 
-Model routing:
+Model routing (full-only):
 
 - `aporic_model_route`: recommend Astra, Sol, or Luna from typed task signals.
 
@@ -112,7 +97,7 @@ Verifiable execution history:
 - `aporic_run_get`: inspect one receipt, its hashes, declared artifacts, and any
   mechanically issued claim.
 
-Runtime observation:
+Runtime observation (full-only):
 
 - `aporic_trace_list` and `aporic_trace_get`: inspect privacy-minimized,
   append-only host lifecycle observations;
@@ -128,52 +113,12 @@ Git evidence and governance:
 - `aporic_git_snapshot_list` and `aporic_git_snapshot_get`: inspect prior
   repository observations without treating findings as review or merge approval.
 
-Token efficiency:
+Token efficiency (full-only):
 
 - `aporic_token_usage_record`: append a provenance-labelled usage receipt;
 - `aporic_token_usage_list`: inspect bounded, append-only usage history;
 - `aporic_token_efficiency_report`: separate measured counts, conservative
   estimates, cached input, and verified outcomes.
-
-Commit-bound deliberation:
-
-- `aporic_deliberation_create`: open a concise public question bound to an
-  existing Git snapshot;
-- `aporic_deliberation_node_add`: append a typed premise, claim, objection,
-  counterexample, falsifier, value constraint, material unknown, proposal, or
-  revision with explicit graph relations;
-- `aporic_deliberation_decide`: record only a provisional decision while
-  preserving its open material issues;
-- `aporic_deliberation_get` and `aporic_deliberation_list`: inspect graph
-  history, unresolved aporia, and commit/tree staleness; list returns compact
-  summaries and graph detail supports sequence cursors with explicit
-  truncation at fixed bounds.
-
-Secure capability catalog:
-
-- `aporic_capability_register`: record an immutable, schema-bounded manifest
-  without loading code or granting execution authority;
-- `aporic_capability_search`: retrieve compact summaries before paying the
-  context cost of a full schema;
-- `aporic_capability_get`: inspect one manifest, risk declaration, digest, and
-  catalog state. Every capability reports `executable: false`.
-
-Evidence-gated prototype portfolio:
-
-- `aporic_experiment_create`: bind a hypothesis, budget, hard gates, and Pareto
-  dimensions to a clean committed Git snapshot;
-- `aporic_experiment_variant_add` and `aporic_experiment_measurement_add`:
-  preserve distinct commit-bound variants and measurements with typed evidence;
-- `aporic_experiment_decide`: require a zero-open-issue deliberation before
-  final selection;
-- `aporic_experiment_get` and `aporic_experiment_list`: inspect bounded
-  portfolios, budgets, Pareto candidates, and integration staleness.
-
-Security evidence bridge:
-
-- `aporic_security_assessment_get` and `aporic_security_assessment_list`:
-  inspect locally imported, commit-bound Codex Security artifact summaries.
-  Zero findings and partial coverage never become a safety claim.
 
 MCP cannot execute a registered check or submit a receipt. A human or local
 automation invokes `aporic verify --spec SPEC_ID`; the Rust runner executes the
@@ -337,68 +282,12 @@ idempotency key with changed source context returns a conflict. Brief content
 and recalled text remain data and do not change host instructions, agent
 dispatch, or permissions.
 
-v0.24 adds two built-in brief variants, `baseline` and `evidence_first`, selected
-through the optional `variant` field of `aporic_task_brief`. Each variant has a
-separate template identity and digest. `aporic_prompt_trial_record` associates
-one brief receipt with a response SHA-256 digest and a reported rating for
-every task acceptance criterion. An optional Aporic-direct workspace-file
-evidence ID verifies the response file hash; an optional verified claim must
-exactly match its task criterion. Each rating identifies its criterion by
-zero-based `criterion_index` and exact criterion text. Ratings and model names
-remain host-reported.
-`aporic_prompt_compare` shows the variants' reported met, unmet, and unknown
-counts separately from associated verified claims and direct response-file
-evidence. It groups receipts by template identity, version, and digest. It does
-not infer that a prompt caused task success or promote a
-variant automatically. Schema v24 stores trial metadata and ratings, never raw
-response text. Project export format v20 includes these trials.
-
-## Commit-bound deliberation
-
-v0.11 represents inspectable public reasons rather than hidden model reasoning.
-A graph begins from a question bound to an existing clean, committed Git
-governance snapshot; unborn or dirty snapshots are rejected.
-Nodes have a closed type vocabulary and edges distinguish support, attack,
-undercut, dependency, falsification, and revision. Material challenges require
-direct evidence or an observed/verified claim; unsupported model rhetoric
-cannot become a blocking objection merely by declaring itself important.
-
-Material objections, counterexamples, and falsifiers remain open until a later
-undercut or revision targets them. A material unknown is stricter: narrative
-revision cannot close it, and a directly evidenced undercut is required. A
-provisional decision records how many issues were still open. After a newer Git
-observation changes the bound HEAD commit or tree, reads mark the graph stale.
-The newest observation being dirty also marks it stale.
-New decisions on that stale graph are rejected; the graph must be recreated
-against current Git evidence. This is deliberative memory, not approval,
-authorization, merge safety, or a tool gate.
-
-Inspect one graph:
+Historical records from retired prompt-trial, deliberation, capability-catalog,
+experiment, security-summary, improvement, and prototype features remain
+exportable as raw append-only events in project export format v23. They are not
+part of the current MCP or CLI surface.
 
 ```console
-cargo run -p aporic -- deliberation show --workspace /absolute/project/path --id GRAPH_ID
-```
-
-## Secure capabilities and prototype experiments
-
-v0.12 keeps a single Aporic MCP surface while separating the exact behavioral
-kernel, Hub-owned catalog state, and future provider runtimes. Manifests are
-bounded, digest-bound data. There is no generic provider invocation, credential
-broker, network path, or plugin code loader.
-
-Experiment campaigns reject exact approach duplicates and variant-budget
-overflow, require direct evidence or an observed/verified claim for hard-gate
-qualification, and compute non-dominated Pareto candidates only after evidence
-is complete. Final selection additionally requires a v0.11 deliberation
-decision whose material-issue count is zero.
-
-Completed Codex Security artifacts are imported through the local CLI using an
-explicit JSON request. The importer reads bounded regular non-symlink files,
-hashes the exact parsed bytes, normalizes finding counts and coverage, and never
-launches the scanner:
-
-```console
-cargo run -p aporic -- security import-codex --request /absolute/import-request.json
 cargo run -p aporic -- backup --to /absolute/aporic-backup.sqlite3
 cargo run -p aporic -- restore --dry-run /absolute/aporic-backup.sqlite3
 cargo run -p aporic -- restore --from /absolute/aporic-backup.sqlite3 --to /absolute/restored.sqlite3
@@ -426,15 +315,7 @@ an existing database. Retention removes only regular non-symlink files matching
 These controls improve local reliability; they do not turn the runner into a
 sandbox or establish model-driven product utility.
 
-## v0.14 execution-governance boundary
-
-v0.14 gives each capability manifest an explicit maturity stage: `observe`,
-`propose`, `sandboxed_execute`, `connected_effect`, or `persistent_routine`.
-Registration enforces a minimum stage from the declared effect class, and a
-persistent routine must be idempotent. The stage is catalog metadata, not an
-execution permission; every registered capability remains non-executable through
-MCP.
-
+## Verification execution boundary
 Verification specifications now carry a versioned sandbox profile. `host`
 preserves existing behavior. `required` is implemented on Linux with
 `bubblewrap`, requires network denial, and chooses read-only or read-write
@@ -445,9 +326,8 @@ backend and whether enforcement was established.
 
 This is a bounded verification worker, not a general untrusted-code service.
 It does not yet impose cgroup CPU, memory, or process-count quotas; use a custom
-seccomp policy; provide a VM/microVM boundary; execute catalog capabilities; or
-verify remote side effects. The existing timeout remains the resource-lifetime
-limit.
+seccomp policy; provide a VM/microVM boundary; or verify remote side effects.
+The existing timeout remains the resource-lifetime limit.
 
 ## Offline evaluation
 
@@ -471,10 +351,6 @@ cargo run -p aporic -- eval memory
 cargo run -p aporic -- eval runtime
 cargo run -p aporic -- eval git
 cargo run -p aporic -- eval tokens
-cargo run -p aporic -- eval deliberation
-cargo run -p aporic -- eval capabilities
-cargo run -p aporic -- eval experiments
-cargo run -p aporic -- eval security-import
 ```
 
 State is stored in platform-native application data, not in the governed

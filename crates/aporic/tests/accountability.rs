@@ -228,7 +228,7 @@ fn repair_obligation_remains_visible_until_a_verified_repair_task_completes() {
     let export = restarted
         .export_project(workspace.to_str().unwrap())
         .unwrap();
-    assert_eq!(export.format_version, 22);
+    assert_eq!(export.format_version, 23);
     assert_eq!(export.accountability_cases.len(), 1);
     assert_eq!(
         export

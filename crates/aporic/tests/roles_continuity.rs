@@ -105,7 +105,7 @@ fn resume_uses_fresh_handoff_and_ignores_finished_history() {
 }
 
 #[test]
-fn export_keeps_legacy_government_and_role_events() {
+fn export_keeps_retired_feature_events_as_history() {
     let (area, workspace, hub) = setup();
     let session_id = open(&hub, &workspace, "Continue historical work", "open");
     let database = area.path().join("aporic.sqlite3");
@@ -117,6 +117,18 @@ fn export_keeps_legacy_government_and_role_events() {
             |row| row.get(0),
         )
         .unwrap();
+    let task_id = hub
+        .create_task(&TaskCreateRequest {
+            session_id: session_id.clone(),
+            objective: "Historical prompt run".to_owned(),
+            acceptance_criteria: vec!["Retain the event".to_owned()],
+            write_scope: vec!["history".to_owned()],
+            depends_on: vec![],
+            idempotency_key: "historical-prompt-task".to_owned(),
+        })
+        .unwrap()
+        .task
+        .task_id;
     connection
         .execute(
             "INSERT INTO role_appointments (
@@ -149,6 +161,18 @@ fn export_keeps_legacy_government_and_role_events() {
             "legacy-person",
             "government_person_registered",
         ),
+        (
+            "legacy-capability-event",
+            "legacy-capability-event-key",
+            session_id.as_str(),
+            "capability_registered",
+        ),
+        (
+            "legacy-prompt-trial-event",
+            "legacy-prompt-trial-event-key",
+            task_id.as_str(),
+            "prompt_trial_recorded",
+        ),
     ] {
         connection
             .execute(
@@ -160,6 +184,17 @@ fn export_keeps_legacy_government_and_role_events() {
             )
             .unwrap();
     }
+    connection
+        .execute(
+            "INSERT INTO events (
+                event_id, idempotency_key, stream_id, kind, payload_json, result_json,
+                occurred_at_unix_ms
+             ) VALUES ('legacy-improvement-event', 'legacy-improvement-event-key',
+                'legacy-improvement', 'improvement_submitted',
+                ?1, '{\"preserved\":true}', 1)",
+            [serde_json::json!({"source_session_id": session_id}).to_string()],
+        )
+        .unwrap();
     drop(connection);
 
     let exported = hub.export_project(&workspace).unwrap();
@@ -177,4 +212,14 @@ fn export_keeps_legacy_government_and_role_events() {
             .any(|event| event.kind == "government_person_registered"
                 && event.payload["historical"] == true)
     );
+    for kind in [
+        "capability_registered",
+        "prompt_trial_recorded",
+        "improvement_submitted",
+    ] {
+        assert!(
+            exported.events.iter().any(|event| event.kind == kind),
+            "missing retired event {kind}"
+        );
+    }
 }

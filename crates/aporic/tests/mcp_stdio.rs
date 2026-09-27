@@ -136,96 +136,59 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
     let database = area.path().join("aporic.sqlite3");
 
     let client = start_server(&database).await?;
-    let mut tool_names = client
+    let tool_names = client
         .list_all_tools()
         .await?
         .into_iter()
         .map(|tool| tool.name.to_string())
         .collect::<Vec<_>>();
-    tool_names.sort();
-    assert_eq!(
-        tool_names,
-        [
-            "aporic_accountability_list",
-            "aporic_accountability_open",
-            "aporic_accountability_plan",
-            "aporic_accountability_resolve",
-            "aporic_capability_get",
-            "aporic_capability_register",
-            "aporic_capability_report",
-            "aporic_capability_search",
-            "aporic_check_register",
-            "aporic_claim_assert",
-            "aporic_close",
-            "aporic_delegation_assess",
-            "aporic_delegation_report",
-            "aporic_delegation_status",
-            "aporic_deliberation_create",
-            "aporic_deliberation_decide",
-            "aporic_deliberation_get",
-            "aporic_deliberation_list",
-            "aporic_deliberation_node_add",
-            "aporic_design_validate",
-            "aporic_dissent_assess",
-            "aporic_evidence_add",
-            "aporic_experiment_create",
-            "aporic_experiment_decide",
-            "aporic_experiment_get",
-            "aporic_experiment_list",
-            "aporic_experiment_measurement_add",
-            "aporic_experiment_variant_add",
-            "aporic_git_observe",
-            "aporic_git_snapshot_get",
-            "aporic_git_snapshot_list",
-            "aporic_hook_health",
-            "aporic_improvement_list",
-            "aporic_improvement_submit",
-            "aporic_memory_get",
-            "aporic_memory_search",
-            "aporic_model_route",
-            "aporic_open",
-            "aporic_prompt_compare",
-            "aporic_prompt_trial_record",
-            "aporic_prototype_brief_create",
-            "aporic_prototype_get",
-            "aporic_prototype_review",
-            "aporic_recall",
-            "aporic_reconcile",
-            "aporic_record",
-            "aporic_related_workspaces",
-            "aporic_research_fetch",
-            "aporic_research_get",
-            "aporic_research_search",
-            "aporic_resume",
-            "aporic_run_get",
-            "aporic_run_list",
-            "aporic_security_assessment_get",
-            "aporic_security_assessment_list",
-            "aporic_session_delegation_assess",
-            "aporic_session_delegation_report",
-            "aporic_session_delegation_status",
-            "aporic_task_brief",
-            "aporic_task_cancel",
-            "aporic_task_claim",
-            "aporic_task_complete",
-            "aporic_task_create",
-            "aporic_task_list",
-            "aporic_task_memory_apply",
-            "aporic_task_memory_list",
-            "aporic_task_research_attach",
-            "aporic_task_research_list",
-            "aporic_task_work_packet",
-            "aporic_token_efficiency_report",
-            "aporic_token_usage_list",
-            "aporic_token_usage_record",
-            "aporic_trace_get",
-            "aporic_trace_list",
-            "aporic_workflow_advance",
-            "aporic_workflow_plan",
-            "aporic_workflow_status",
-            "aporic_workflow_step_record",
-            "aporic_workflow_steps"
-        ]
+    for required in [
+        "aporic_open",
+        "aporic_recall",
+        "aporic_resume",
+        "aporic_record",
+        "aporic_close",
+        "aporic_evidence_add",
+        "aporic_claim_assert",
+        "aporic_task_create",
+        "aporic_task_work_packet",
+        "aporic_workflow_plan",
+        "aporic_workflow_advance",
+        "aporic_session_delegation_assess",
+        "aporic_research_search",
+        "aporic_design_validate",
+        "aporic_run_list",
+        "aporic_git_snapshot_list",
+    ] {
+        assert!(
+            tool_names.iter().any(|name| name == required),
+            "missing {required}"
+        );
+    }
+    for retired_or_optional in [
+        "aporic_prompt_trial_record",
+        "aporic_prompt_compare",
+        "aporic_deliberation_create",
+        "aporic_capability_register",
+        "aporic_experiment_create",
+        "aporic_security_assessment_get",
+        "aporic_improvement_submit",
+        "aporic_prototype_brief_create",
+        "aporic_trace_list",
+        "aporic_token_usage_record",
+        "aporic_accountability_open",
+    ] {
+        assert!(
+            !tool_names.iter().any(|name| name == retired_or_optional),
+            "default profile unexpectedly exposes {retired_or_optional}"
+        );
+    }
+    assert!(
+        client
+            .call_tool(CallToolRequestParams::new("aporic_trace_list"))
+            .await
+            .is_err(),
+        "core profile must reject calls to hidden optional tools"
     );
 
     let opened = call_json(
@@ -259,32 +222,10 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
     .await?;
     assert_eq!(design["ok"], true);
     assert_eq!(design["result"]["design_artifacts_complete"], false);
-    let related = call_json(
-        &client,
-        "aporic_related_workspaces",
-        json!({"workspace": workspace, "concept": "example", "roots": []}),
-    )
-    .await?;
-    assert_eq!(related["result"], json!([]));
-    let intake = call_json(
-        &client,
-        "aporic_improvement_list",
-        json!({"workspace": workspace}),
-    )
-    .await?;
-    assert_eq!(intake["result"], json!([]));
     let session_id = opened["result"]["session_id"]
         .as_str()
         .expect("open result has a session id")
         .to_owned();
-    let accountability = call_json(
-        &client,
-        "aporic_accountability_list",
-        json!({ "workspace": workspace }),
-    )
-    .await?;
-    assert_eq!(accountability["result"]["open_count"], 0);
-    assert_eq!(accountability["result"]["advisory"], true);
 
     let stored = Store::open(&database)?.ingest_research_document(
         workspace.to_str().unwrap(),
@@ -538,27 +479,6 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
     assert_eq!(brief["ok"], true);
     assert_eq!(brief["result"]["receipt"]["template_version"], 1);
     assert_eq!(brief["result"]["advisory"], true);
-    let trial = call_json(
-        &client,
-        "aporic_prompt_trial_record",
-        json!({
-            "workspace": workspace,
-            "brief_receipt_id": brief["result"]["receipt"]["receipt_id"],
-            "response_sha256": "a".repeat(64),
-            "assessments": [{"criterion_index": 0, "criterion": "The observation is reviewed", "rating": "unknown", "verified_claim_id": null}],
-            "idempotency_key": "mcp-prompt-trial"
-        }),
-    )
-    .await?;
-    assert_eq!(trial["ok"], true);
-    let comparison = call_json(
-        &client,
-        "aporic_prompt_compare",
-        json!({"workspace": workspace, "task_id": task_id}),
-    )
-    .await?;
-    assert_eq!(comparison["result"]["variants"][0]["reported_unknown"], 1);
-    assert_eq!(comparison["result"]["attribution_verified"], false);
     assert_eq!(packet["result"]["memory_uses"][0]["memory_id"], memory_id);
     assert_eq!(
         packet["result"]["delegation"]["decisions"]
@@ -624,14 +544,56 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
 async fn start_server(
     database: &std::path::Path,
 ) -> Result<rmcp::service::RunningService<rmcp::RoleClient, ()>, Box<dyn Error>> {
+    start_server_with_profile(database, false).await
+}
+
+async fn start_server_with_profile(
+    database: &std::path::Path,
+    full: bool,
+) -> Result<rmcp::service::RunningService<rmcp::RoleClient, ()>, Box<dyn Error>> {
     let transport = TokioChildProcess::new(
         tokio::process::Command::new(env!("CARGO_BIN_EXE_aporic")).configure(|command| {
-            command
-                .args(["mcp", "serve", "--stdio"])
-                .env("APORIC_DATABASE", database);
+            command.args(["mcp", "serve", "--stdio"]);
+            if full {
+                command.args(["--profile", "full"]);
+            }
+            command.env("APORIC_DATABASE", database);
         }),
     )?;
     Ok(().serve(transport).await?)
+}
+
+#[tokio::test]
+async fn full_mcp_profile_is_explicit_and_reveals_optional_diagnostics()
+-> Result<(), Box<dyn Error>> {
+    let area = tempfile::tempdir()?;
+    let database = area.path().join("aporic.sqlite3");
+    let client = start_server_with_profile(&database, true).await?;
+    let names = client
+        .list_all_tools()
+        .await?
+        .into_iter()
+        .map(|tool| tool.name.to_string())
+        .collect::<Vec<_>>();
+    assert!(names.iter().any(|name| name == "aporic_trace_list"));
+    assert!(
+        names
+            .iter()
+            .any(|name| name == "aporic_accountability_list")
+    );
+    assert!(names.iter().any(|name| name == "aporic_open"));
+    assert!(
+        !names
+            .iter()
+            .any(|name| name == "aporic_prompt_trial_record")
+    );
+    assert!(
+        !names
+            .iter()
+            .any(|name| name == "aporic_deliberation_create")
+    );
+    client.cancel().await?;
+    Ok(())
 }
 
 async fn call_json(

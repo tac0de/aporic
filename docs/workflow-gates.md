@@ -86,7 +86,6 @@ separate state. `aporic_workflow_status.missing_for_next_stage` reports it as
 | standard | `planning` | `verification_strategy` | Yes |
 | standard | `implementation` | `scenario_walkthrough` | Yes |
 | standard | `verification` | `quality_review` | Yes |
-| high | `design` | `prototype_feedback` | Yes |
 | high | `verification` | `residual_risks` | Yes |
 
 `standard` adds its rows to `light`; `high` adds its rows to `standard`.

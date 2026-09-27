@@ -95,7 +95,7 @@ fn revisions_are_append_only_and_only_current_content_is_retrieved() {
         .unwrap();
     assert_eq!(count, 2);
     let export = hub.export_project(&workspace).unwrap();
-    assert_eq!(export.format_version, 22);
+    assert_eq!(export.format_version, 23);
     assert_eq!(export.research_revisions.len(), 2);
     assert_eq!(
         export

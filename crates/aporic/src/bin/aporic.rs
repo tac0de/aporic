@@ -51,11 +51,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         {
             prune_backups(directory, keep)
         }
-        [security, import, flag, request]
-            if security == "security" && import == "import-codex" && flag == "--request" =>
-        {
-            import_codex_security(request)
-        }
         [
             research,
             sync,
@@ -96,48 +91,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         [eval, runtime] if eval == "eval" && runtime == "runtime" => simulate_runtime_eval(),
         [eval, git] if eval == "eval" && git == "git" => simulate_git_eval(),
         [eval, tokens] if eval == "eval" && tokens == "tokens" => simulate_token_eval(),
-        [eval, deliberation] if eval == "eval" && deliberation == "deliberation" => {
-            simulate_deliberation_eval()
-        }
-        [eval, capabilities] if eval == "eval" && capabilities == "capabilities" => {
-            println!(
-                "{}",
-                serde_json::to_string_pretty(&aporic::eval::simulate_capability_fabric())?
-            );
-            Ok(())
-        }
-        [eval, experiments] if eval == "eval" && experiments == "experiments" => {
-            println!(
-                "{}",
-                serde_json::to_string_pretty(&aporic::eval::simulate_experiment_portfolio())?
-            );
-            Ok(())
-        }
-        [eval, security_import] if eval == "eval" && security_import == "security-import" => {
-            println!(
-                "{}",
-                serde_json::to_string_pretty(&aporic::eval::simulate_security_import())?
-            );
-            Ok(())
-        }
         [tokens, report, flag, workspace]
             if tokens == "tokens" && report == "report" && flag == "--workspace" =>
         {
             token_report(workspace)
-        }
-        [
-            deliberation,
-            show,
-            workspace_flag,
-            workspace,
-            id_flag,
-            deliberation_id,
-        ] if deliberation == "deliberation"
-            && show == "show"
-            && workspace_flag == "--workspace"
-            && id_flag == "--id" =>
-        {
-            show_deliberation(workspace, deliberation_id)
         }
         [executions, reconcile, flag, seconds]
             if executions == "executions"
@@ -148,11 +105,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         [hook, codex] if hook == "hook" && codex == "codex" => codex_hook(),
         [mcp, serve, transport] if mcp == "mcp" && serve == "serve" && transport == "--stdio" => {
-            serve_stdio().await
+            serve_stdio(aporic::mcp::McpProfile::Core).await
+        }
+        [mcp, serve, transport, profile_flag, profile]
+            if mcp == "mcp"
+                && serve == "serve"
+                && transport == "--stdio"
+                && profile_flag == "--profile"
+                && profile == "full" =>
+        {
+            serve_stdio(aporic::mcp::McpProfile::Full).await
         }
         _ => {
             eprintln!(
-                "usage: aporic doctor | aporic design validate --workspace PATH --manifest RELATIVE_PATH | aporic backup --to PATH | aporic backup prune --dir DIR --keep COUNT | aporic restore --dry-run PATH | aporic restore --from BACKUP --to DATABASE | aporic security import-codex --request REQUEST.json | aporic research sync --workspace PATH --source github|stackoverflow --query TEXT | aporic export --workspace PATH | aporic trace export --workspace PATH | aporic git inspect --workspace PATH | aporic tokens report --workspace PATH | aporic deliberation show --workspace PATH --id ID | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic eval context | aporic eval memory | aporic eval runtime | aporic eval git | aporic eval tokens | aporic eval deliberation | aporic eval capabilities | aporic eval experiments | aporic eval security-import | aporic executions reconcile --stale-after SECONDS | aporic hook codex | aporic mcp serve --stdio"
+                "usage: aporic doctor | aporic design validate --workspace PATH --manifest RELATIVE_PATH | aporic backup --to PATH | aporic backup prune --dir DIR --keep COUNT | aporic restore --dry-run PATH | aporic restore --from BACKUP --to DATABASE | aporic research sync --workspace PATH --source github|stackoverflow --query TEXT | aporic export --workspace PATH | aporic trace export --workspace PATH | aporic git inspect --workspace PATH | aporic tokens report --workspace PATH | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic eval context | aporic eval memory | aporic eval runtime | aporic eval git | aporic eval tokens | aporic executions reconcile --stale-after SECONDS | aporic hook codex | aporic mcp serve --stdio [--profile full]"
             );
             std::process::exit(2);
         }
@@ -202,21 +168,6 @@ fn prune_backups(directory: &str, keep: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn import_codex_security(request_path: &str) -> Result<(), Box<dyn Error>> {
-    let bytes = fs::read(request_path)?;
-    if bytes.len() > 65_536 {
-        return Err("security import request exceeds 65536 bytes".into());
-    }
-    let request: aporic::domain::SecurityImportRequest = serde_json::from_slice(&bytes)?;
-    let database = default_database_path().map_err(std::io::Error::other)?;
-    let hub = Hub::open(database)?;
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&hub.import_codex_security(&request)?)?
-    );
-    Ok(())
-}
-
 fn sync_research(workspace: &str, source: &str, query: &str) -> Result<(), Box<dyn Error>> {
     let database = default_database_path().map_err(std::io::Error::other)?;
     let hub = Hub::open(database)?;
@@ -263,33 +214,6 @@ fn simulate_token_eval() -> Result<(), Box<dyn Error>> {
     println!(
         "{}",
         serde_json::to_string_pretty(&aporic::eval::simulate_token_efficiency())?
-    );
-    Ok(())
-}
-
-fn simulate_deliberation_eval() -> Result<(), Box<dyn Error>> {
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&aporic::eval::simulate_deliberation())?
-    );
-    Ok(())
-}
-
-fn show_deliberation(workspace: &str, deliberation_id: &str) -> Result<(), Box<dyn Error>> {
-    let database = default_database_path().map_err(std::io::Error::other)?;
-    let hub = Hub::open(database)?;
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&hub.get_deliberation(
-            &aporic::domain::DeliberationGetRequest {
-                workspace: workspace.to_owned(),
-                deliberation_id: deliberation_id.to_owned(),
-                node_after_sequence: None,
-                edge_after_sequence: None,
-                decision_after_sequence: None,
-                limit: None,
-            },
-        )?)?
     );
     Ok(())
 }
@@ -366,19 +290,14 @@ fn doctor() -> Result<(), Box<dyn Error>> {
     let runtime_projection = hub.audit_runtime_projection()?;
     let git_snapshots = hub.audit_git_snapshots()?;
     let token_usage = hub.audit_token_usage()?;
-    let deliberations = hub.audit_deliberations()?;
-    let secure_capabilities = hub.audit_secure_capabilities()?;
     let research = hub.audit_research()?;
     let task_research = hub.audit_task_research()?;
     let accountability = hub.audit_accountability()?;
     let core_ok = execution_replay.mismatches.is_empty()
         && memory_projection.consistent
         && core_events.covered_consistent;
-    let extensions_ok = runtime_projection.consistent
-        && git_snapshots.consistent
-        && token_usage.consistent
-        && deliberations.consistent
-        && secure_capabilities.consistent;
+    let extensions_ok =
+        runtime_projection.consistent && git_snapshots.consistent && token_usage.consistent;
     let extensions_ok = extensions_ok
         && research.consistent
         && task_research.consistent
@@ -399,8 +318,6 @@ fn doctor() -> Result<(), Box<dyn Error>> {
             "runtime_projection": runtime_projection,
             "git_snapshots": git_snapshots,
             "token_usage": token_usage,
-            "deliberations": deliberations,
-            "secure_capabilities": secure_capabilities,
             "research": research,
             "task_research": task_research,
             "accountability": accountability,
@@ -447,10 +364,14 @@ fn export_runtime_trace(workspace: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-async fn serve_stdio() -> Result<(), Box<dyn Error>> {
+async fn serve_stdio(profile: aporic::mcp::McpProfile) -> Result<(), Box<dyn Error>> {
     let database = default_database_path().map_err(std::io::Error::other)?;
     let hub = Hub::open(database)?;
-    let service = AporicMcp::new(hub).serve(stdio()).await?;
+    let server = match profile {
+        aporic::mcp::McpProfile::Core => AporicMcp::core(hub),
+        aporic::mcp::McpProfile::Full => AporicMcp::full(hub),
+    };
+    let service = server.serve(stdio()).await?;
     service.waiting().await?;
     Ok(())
 }

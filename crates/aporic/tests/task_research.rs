@@ -136,7 +136,7 @@ fn task_research_links_are_scoped_idempotent_and_exported() {
         .unwrap();
     assert_eq!(linked.len(), 2);
     let export = hub.export_project(&workspace).unwrap();
-    assert_eq!(export.format_version, 22);
+    assert_eq!(export.format_version, 23);
     assert_eq!(export.task_research_items, linked);
     assert!(hub.audit_task_research().unwrap().consistent);
     let connection = rusqlite::Connection::open(&db).unwrap();

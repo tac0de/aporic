@@ -114,35 +114,11 @@ upper bounds and unknowns. They expose measured tokens per verified success
 only when a measured verified denominator exists, and mark the overall report
 incomplete when estimates, unknown provenance, or unverified outcomes remain.
 
-Schema v11 adds append-only `deliberations`, `deliberation_nodes`,
-`deliberation_edges`, and `deliberation_decisions`. The root question is bound
-to an existing clean, committed v0.9 Git snapshot and its HEAD commit/tree;
-dirty and unborn snapshots are rejected. Nodes use a closed
-public vocabulary, and edges make support, attack, undercut, dependency,
-falsification, and revision explicit. Material challenges require direct typed
-evidence or an observed/verified claim. A material objection, counterexample,
-or falsifier stays open until a later undercut or revision explicitly targets
-it. A material unknown rejects narrative revision and closes only through a
-directly evidenced undercut. Decisions store the open-material count at
-decision time and remain provisional. Reads compare the bound commit/tree with the newest observed Git
-snapshot and report staleness without mutating history. Canonical digests make
-projection corruption visible but do not create a same-user security boundary.
-Decision writes reject stale graphs, including a newest dirty snapshot, so old
-repository premises cannot silently produce a fresh-looking decision.
-List reads return summaries rather than graph bodies. Detail and mutation
-responses cap nodes, edges, and decisions at fixed limits while reporting total
-counts, truncation, and continuation sequences, preventing old argument history
-from becoming an unbounded or inaccessible context payload.
-
-Schema v12 adds immutable `capability_manifests` with append-only catalog-state
-events, plus commit-bound experiment campaigns, criteria, variants,
-measurements, and decisions. Manifests are bounded catalog data and always
-report `executable: false`; the MCP surface has no generic invocation tool.
-Hard-gate qualification requires direct evidence or an observed/verified claim,
-while Pareto comparison cannot override a failed gate. Imported
-`security_assessments` bind locally hashed Codex Security manifest, findings,
-and coverage artifacts to one clean Git snapshot. They prove observed bytes and
-normalized coverage/counts, never safety or approval.
+Schemas v11 and v12 introduced deliberation graphs, capability manifests,
+experiment portfolios, and imported security summaries. Those feature families
+are retired from the active product surface. Their historical migrations and
+events remain readable and exportable as raw records so existing databases can
+open without reinterpreting past records as current state.
 
 v0.13 deliberately leaves the database at schema v12 because stabilization adds
 no tables. Runtime boundaries now share streaming file hashing, bounded Git
@@ -150,14 +126,11 @@ subprocess capture, lower-case portable-ASCII advisory write scopes, and fresh-d
 restore. Backup retention remains an explicit CLI operation over a strict
 filename pattern.
 
-Schema v13 adds capability maturity, versioned capability-manifest digests,
-verification sandbox profiles, and receipt enforcement evidence. Existing
-capabilities receive the minimum maturity implied by their effect class and keep
-their v1 digest contract; new manifests use the v2 digest. Existing checks retain
-the `host` profile. New checks can require Linux `bubblewrap`, network denial,
-and read-only or read-write workspace access. Required execution fails closed on
-unsupported platforms or backend/setup failure and cannot issue a verified claim
-without the in-sandbox readiness marker.
+Schema v13 adds verification sandbox profiles and receipt enforcement evidence.
+Checks can require Linux `bubblewrap`, network denial, and read-only or
+read-write workspace access. Required execution fails closed on unsupported
+platforms or backend/setup failure and cannot issue a verified claim without the
+in-sandbox readiness marker.
 
 Schema v18 adds source-scoped external research documents and append-only
 revisions with a separate FTS5 projection. Official API sync is explicit and
@@ -185,15 +158,10 @@ that task's existing verified criterion proofs, while the original failure and
 all plan revisions remain readable. Open cases are summarized on `aporic_open`
 and do not narrow host permissions or change authorization decisions.
 
-Schema v20 adds cross-workspace improvement intake and task-bound prototype
-briefs/reviews. Intake creates a queued core task and retains only a source
-evidence reference, project paths, and bounded summary metadata. It does not
-dispatch work. Prototype reviews keep smoke, rule, and user-play evidence
-separate; an unrelated test log cannot count as a playtest report. The report
-must be a current, directly hashed `.playtest.json` artifact with a minimal
-observation record. These are advisory evidence classifications, not proof that
-a game is fun. Related local Git repository discovery is read-only, opt-in,
-limited to supplied roots, and does not persist or read repository contents.
+Schema v20 introduced cross-workspace improvement intake, prototype
+briefs/reviews, and related-workspace discovery. They are retired; existing
+tables and events remain available only through historical migration and raw
+event export.
 
 Schema v21 adds immutable task-memory-use links. During planning, a queued task
 may link up to eight active memories in its workspace to exact acceptance
@@ -231,17 +199,9 @@ evaluation suite reports fixed-fixture coverage, untrusted-item selection,
 authority-label preservation, byte budgets, and replay determinism; it does
 not measure model outcomes.
 
-Schema v24 adds append-only prompt trials linked to task-brief receipts. The
-host supplies a response digest and a bounded rating for each task criterion,
-identified by its zero-based index and exact text. A direct workspace-file evidence ID, when provided, must match the
-digest; a linked verified claim must match the task criterion and workspace.
-The response hash/evidence proves only the recorded file bytes, while all
-quality ratings remain host-reported. Read-only comparison separates reported
-ratings, directly hashed response artifacts, and associated verified claims,
-grouped by immutable template identity, version, and digest;
-it never attributes task success to a prompt variant or activates a variant.
-The two built-in templates are `baseline` and `evidence_first`. Project export
-format v20 includes trials without raw response text.
+Schema v24 introduced prompt-trial records linked to task briefs. Prompt trials
+are retired; their migrations and prior event records remain available through
+raw event export without retaining a current evaluation surface.
 
 Schema v26 adds an optional subject key to claims. New material unknowns need
 one; a resolving claim must cite the same key. For direct workspace-file
@@ -304,9 +264,8 @@ tampering or every historical replay discrepancy.
   before delegation. The packet is read-only and never dispatches an agent.
 - `aporic_task_brief`: assemble a versioned bounded advisory brief and record a
   content-free receipt, without dispatching an agent or changing host instructions.
-- `aporic_prompt_trial_record` and `aporic_prompt_compare`: record bounded
-  host-reported criterion ratings for one brief receipt and compare variants
-  without treating ratings or association as causal proof.
+- `aporic_related_workspaces`: inspect metadata for explicitly configured local
+  roots and return historical candidates without cross-project mutation.
 
 The task-memory workflow is: search or recall current workspace memory, create
 a task with a concrete acceptance criterion, link a relevant memory and intended
@@ -316,14 +275,6 @@ the proof, while exposing if the linked memory has since been superseded. An
 unlinked task remains valid for callers with no relevant memory. Linkage is a
 reported plan, and criterion verification does not measure causal benefit; that
 requires a separate paired outcome evaluation.
-- `aporic_improvement_submit` and `aporic_improvement_list`: register bounded
-  evidence-referenced client feedback as a queued core task and read its live
-  status from either workspace.
-- `aporic_prototype_brief_create`, `aporic_prototype_review`, and
-  `aporic_prototype_get`: record an advisory task plan and distinguish functional,
-  rule, and user-play evidence without treating absent play as validation.
-- `aporic_related_workspaces`: inspect only metadata for explicitly configured
-  local roots and return historical candidates without cross-project mutation.
 - `aporic_accountability_open`, `aporic_accountability_plan`,
   `aporic_accountability_resolve`, and `aporic_accountability_list`: preserve
   evidence-labelled failure reports and repair obligations without changing
@@ -337,20 +288,6 @@ requires a separate paired outcome evaluation.
 - `aporic_token_usage_record`, `aporic_token_usage_list`, and
   `aporic_token_efficiency_report`: append and inspect provenance-labelled usage
   without calling a model API or converting estimates into exact counts.
-- `aporic_deliberation_create`, `aporic_deliberation_node_add`,
-  `aporic_deliberation_decide`, `aporic_deliberation_get`, and
-  `aporic_deliberation_list`: maintain and inspect public commit-bound argument
-  graphs without storing hidden reasoning, granting approval, or gating tools.
-- `aporic_capability_register`, `aporic_capability_search`, and
-  `aporic_capability_get`: maintain a progressively disclosed catalog without
-  loading provider code or granting execution authority.
-- `aporic_experiment_create`, `aporic_experiment_variant_add`,
-  `aporic_experiment_measurement_add`, `aporic_experiment_decide`,
-  `aporic_experiment_get`, and `aporic_experiment_list`: maintain an advisory,
-  evidence-gated prototype tournament bound to immutable Git evidence.
-- `aporic_security_assessment_get` and `aporic_security_assessment_list`:
-  inspect imported security-artifact summaries; scanner execution remains a
-  host-owned operation outside MCP.
 
 Recall excludes records and claims superseded by newer state. Its selector
 combines unresolved material unknowns, active constraints and decisions, active
@@ -433,19 +370,9 @@ unknown retention. `eval tokens` compares a duplicate-bearing byte baseline
 with the bounded selector and explicitly emits no exact token claim from byte
 estimates.
 
-`commit_bound_deliberation` exercises v10 migration, idempotent graph creation,
-direct-evidence requirements for material dissent, non-blocking irrelevant
-objections, explicit revision, provisional decisions with retained aporia,
-Git-state staleness, export, and post-write digest corruption detection. `eval
-deliberation` fixes adversarial policy cases and asserts zero approvals, hidden
-reasoning fields, network calls, or model/API calls.
-
-`secure_capabilities` exercises v11 migration, manifest bounds,
-non-executability, direct-evidence hard gates, exact-clone and budget rejection,
-Pareto selection, Codex Security artifact import, partial-coverage honesty, and
-backup integrity. `eval capabilities`, `eval experiments`, and `eval
-security-import` remain fixed offline contracts with zero provider, network,
-scanner, or model calls.
+Historical migrations for retired feature families are covered by compatibility
+tests that ensure existing databases still open and their event history remains
+exportable without recreating an active API.
 
 ## Later growth
 

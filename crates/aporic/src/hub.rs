@@ -1,41 +1,23 @@
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
-
-use sha2::{Digest, Sha256};
+use std::path::{Path, PathBuf};
 
 use crate::{
     domain::{
         AccountabilityAudit, AccountabilityListRequest, AccountabilityOpenRequest,
         AccountabilityOutcome, AccountabilityPlanRequest, AccountabilityReport,
-        AccountabilityResolveRequest, CapabilityGetRequest, CapabilityManifest, CapabilityOutcome,
-        CapabilityRegisterRequest, CapabilityReport, CapabilitySearchRequest, CapabilitySummary,
-        ClaimOutcome, ClaimRequest, CloseOutcome, CloseRequest, CommandSpecOutcome,
-        CommandSpecRequest, Consequence, ContextCapsule, CoordinatedTask, CoreEventAudit,
-        DelegationDecisionOutcome, DelegationDecisionRequest, DelegationReportOutcome,
-        DelegationReportRequest, DelegationStatus, DelegationStatusRequest, DeliberationAudit,
-        DeliberationCreateRequest, DeliberationDecisionRequest, DeliberationGetRequest,
-        DeliberationGraph, DeliberationListRequest, DeliberationNodeAddRequest,
-        DeliberationOutcome, DeliberationSummary, DissentAssessment, DissentRequest,
-        EvidenceOutcome, EvidenceRequest, ExecutionFinish, ExecutionGetRequest,
-        ExecutionListRequest, ExecutionOutcome, ExecutionReplayAudit, ExecutionRun, ExecutionStart,
-        ExperimentCreateRequest, ExperimentDecisionRequest, ExperimentGetRequest,
-        ExperimentListRequest, ExperimentMeasurementAddRequest, ExperimentOutcome,
-        ExperimentPortfolio, ExperimentSummary, ExperimentVariantAddRequest, GitObserveRequest,
+        AccountabilityResolveRequest, CapabilityReport, ClaimOutcome, ClaimRequest, CloseOutcome,
+        CloseRequest, CommandSpecOutcome, CommandSpecRequest, Consequence, ContextCapsule,
+        CoordinatedTask, CoreEventAudit, DelegationDecisionOutcome, DelegationDecisionRequest,
+        DelegationReportOutcome, DelegationReportRequest, DelegationStatus,
+        DelegationStatusRequest, DissentAssessment, DissentRequest, EvidenceOutcome,
+        EvidenceRequest, ExecutionFinish, ExecutionGetRequest, ExecutionListRequest,
+        ExecutionOutcome, ExecutionReplayAudit, ExecutionRun, ExecutionStart, GitObserveRequest,
         GitSnapshot, GitSnapshotAudit, GitSnapshotGetRequest, GitSnapshotListRequest,
-        HookHealthReport, HubStats, ImprovementListRequest, ImprovementOutcome, ImprovementRequest,
-        ImprovementSubmitRequest, MemoryGetRequest, MemoryItem, MemoryProjectionAudit,
+        HookHealthReport, HubStats, MemoryGetRequest, MemoryItem, MemoryProjectionAudit,
         MemorySearchRequest, MemorySearchResult, ModelRoute, ModelRouteRequest, OpenOutcome,
-        OpenRequest, ProjectExport, PromptComparison, PromptComparisonRequest, PromptTrialOutcome,
-        PromptTrialRequest, PrototypeBriefCreateRequest, PrototypeBriefOutcome,
-        PrototypeGetRequest, PrototypeReviewOutcome, PrototypeReviewRequest, PrototypeStatus,
-        RecallRequest, ReconcileOutcome, ReconcileRequest, RecordOutcome, RecordRequest,
-        ResumeBrief, ResumeRequest, RuntimeEvent, RuntimeObservation, RuntimeProjectionAudit,
-        RuntimeTraceGetRequest, RuntimeTraceListRequest, RuntimeWorkspaceRequest,
-        SecureCapabilityAudit, SecurityArtifactImport, SecurityAssessment,
-        SecurityAssessmentGetRequest, SecurityAssessmentListRequest, SecurityAssessmentOutcome,
-        SecurityCoverage, SecurityImportRequest, SessionDelegationDecisionOutcome,
+        OpenRequest, ProjectExport, RecallRequest, ReconcileOutcome, ReconcileRequest,
+        RecordOutcome, RecordRequest, ResumeBrief, ResumeRequest, RuntimeEvent, RuntimeObservation,
+        RuntimeProjectionAudit, RuntimeTraceGetRequest, RuntimeTraceListRequest,
+        RuntimeWorkspaceRequest, SessionDelegationDecisionOutcome,
         SessionDelegationDecisionRequest, SessionDelegationReportOutcome,
         SessionDelegationReportRequest, SessionDelegationStatus, SessionDelegationStatusRequest,
         TaskBriefOutcome, TaskBriefRequest, TaskCancelRequest, TaskClaimRequest,
@@ -308,208 +290,6 @@ impl Hub {
         self.store.audit_token_usage()
     }
 
-    pub fn register_capability(
-        &self,
-        request: &CapabilityRegisterRequest,
-    ) -> Result<CapabilityOutcome> {
-        self.store.register_capability(request)
-    }
-
-    pub fn search_capabilities(
-        &self,
-        request: &CapabilitySearchRequest,
-    ) -> Result<Vec<CapabilitySummary>> {
-        self.store.search_capabilities(request)
-    }
-
-    pub fn get_capability(&self, request: &CapabilityGetRequest) -> Result<CapabilityManifest> {
-        self.store.get_capability(request)
-    }
-
-    pub fn audit_secure_capabilities(&self) -> Result<SecureCapabilityAudit> {
-        self.store.audit_secure_capabilities()
-    }
-
-    pub fn create_experiment(
-        &self,
-        request: &ExperimentCreateRequest,
-    ) -> Result<ExperimentOutcome> {
-        self.store.create_experiment(request)
-    }
-
-    pub fn add_experiment_variant(
-        &self,
-        request: &ExperimentVariantAddRequest,
-    ) -> Result<ExperimentOutcome> {
-        self.store.add_experiment_variant(request)
-    }
-
-    pub fn add_experiment_measurement(
-        &self,
-        request: &ExperimentMeasurementAddRequest,
-    ) -> Result<ExperimentOutcome> {
-        self.store.add_experiment_measurement(request)
-    }
-
-    pub fn decide_experiment(
-        &self,
-        request: &ExperimentDecisionRequest,
-    ) -> Result<ExperimentOutcome> {
-        self.store.decide_experiment(request)
-    }
-
-    pub fn get_experiment(&self, request: &ExperimentGetRequest) -> Result<ExperimentPortfolio> {
-        self.store.get_experiment(request)
-    }
-
-    pub fn list_experiments(
-        &self,
-        request: &ExperimentListRequest,
-    ) -> Result<Vec<ExperimentSummary>> {
-        self.store.list_experiments(request)
-    }
-
-    pub fn import_codex_security(
-        &self,
-        request: &SecurityImportRequest,
-    ) -> Result<SecurityAssessmentOutcome> {
-        let (manifest_path, manifest, manifest_sha256) =
-            read_security_json(&request.manifest_path)?;
-        let (findings_path, findings, findings_sha256) =
-            read_security_json(&request.findings_path)?;
-        let (coverage_path, coverage, coverage_sha256) =
-            read_security_json(&request.coverage_path)?;
-        if let Some(scan_id) = manifest
-            .get("scanId")
-            .or_else(|| manifest.get("scan_id"))
-            .and_then(serde_json::Value::as_str)
-            && scan_id != request.source_scan_id
-        {
-            return Err(crate::store::Error::Conflict(
-                "security manifest scan identity does not match source_scan_id".to_owned(),
-            ));
-        }
-        let coverage_state = coverage
-            .get("completeness")
-            .or_else(|| coverage.pointer("/coverage/completeness"))
-            .and_then(serde_json::Value::as_str)
-            .map(|value| match value {
-                "complete" => SecurityCoverage::Complete,
-                "partial" => SecurityCoverage::Partial,
-                _ => SecurityCoverage::Unknown,
-            })
-            .unwrap_or(SecurityCoverage::Unknown);
-        let findings_array = findings
-            .as_array()
-            .or_else(|| {
-                findings
-                    .get("findings")
-                    .and_then(serde_json::Value::as_array)
-            })
-            .ok_or_else(|| {
-                crate::store::Error::Invalid(
-                    "security findings artifact must be an array or contain a findings array"
-                        .to_owned(),
-                )
-            })?;
-        let mut counts = [0_u32; 4];
-        for finding in findings_array {
-            if finding
-                .get("disposition")
-                .and_then(serde_json::Value::as_str)
-                .is_some_and(|value| value != "reportable")
-            {
-                continue;
-            }
-            match finding.get("severity").and_then(serde_json::Value::as_str) {
-                Some("critical") => counts[0] += 1,
-                Some("high") => counts[1] += 1,
-                Some("medium") => counts[2] += 1,
-                Some("low") => counts[3] += 1,
-                Some(value) => {
-                    return Err(crate::store::Error::Invalid(format!(
-                        "unsupported security finding severity {value}"
-                    )));
-                }
-                None => {
-                    return Err(crate::store::Error::Invalid(
-                        "every imported security finding requires a severity".to_owned(),
-                    ));
-                }
-            }
-        }
-        self.store
-            .import_security_assessment(&SecurityArtifactImport {
-                session_id: request.session_id.clone(),
-                provider_capability_id: request.provider_capability_id.clone(),
-                provider_version: request.provider_version.clone(),
-                source_scan_id: request.source_scan_id.clone(),
-                git_snapshot_id: request.git_snapshot_id.clone(),
-                coverage: coverage_state,
-                reportable_critical: counts[0],
-                reportable_high: counts[1],
-                reportable_medium: counts[2],
-                reportable_low: counts[3],
-                manifest_locator: manifest_path.to_string_lossy().into_owned(),
-                manifest_sha256,
-                findings_locator: findings_path.to_string_lossy().into_owned(),
-                findings_sha256,
-                coverage_locator: coverage_path.to_string_lossy().into_owned(),
-                coverage_sha256,
-                idempotency_key: request.idempotency_key.clone(),
-            })
-    }
-
-    pub fn get_security_assessment(
-        &self,
-        request: &SecurityAssessmentGetRequest,
-    ) -> Result<SecurityAssessment> {
-        self.store.get_security_assessment(request)
-    }
-
-    pub fn list_security_assessments(
-        &self,
-        request: &SecurityAssessmentListRequest,
-    ) -> Result<Vec<SecurityAssessment>> {
-        self.store.list_security_assessments(request)
-    }
-
-    pub fn create_deliberation(
-        &self,
-        request: &DeliberationCreateRequest,
-    ) -> Result<DeliberationOutcome> {
-        self.store.create_deliberation(request)
-    }
-
-    pub fn add_deliberation_node(
-        &self,
-        request: &DeliberationNodeAddRequest,
-    ) -> Result<DeliberationOutcome> {
-        self.store.add_deliberation_node(request)
-    }
-
-    pub fn record_deliberation_decision(
-        &self,
-        request: &DeliberationDecisionRequest,
-    ) -> Result<DeliberationOutcome> {
-        self.store.record_deliberation_decision(request)
-    }
-
-    pub fn get_deliberation(&self, request: &DeliberationGetRequest) -> Result<DeliberationGraph> {
-        self.store.get_deliberation(request)
-    }
-
-    pub fn list_deliberations(
-        &self,
-        request: &DeliberationListRequest,
-    ) -> Result<Vec<DeliberationSummary>> {
-        self.store.list_deliberations(request)
-    }
-
-    pub fn audit_deliberations(&self) -> Result<DeliberationAudit> {
-        self.store.audit_deliberations()
-    }
-
     pub fn record(&self, request: &RecordRequest) -> Result<RecordOutcome> {
         self.store.record(request)
     }
@@ -698,17 +478,6 @@ impl Hub {
         })
     }
 
-    pub fn record_prompt_trial(&self, request: &PromptTrialRequest) -> Result<PromptTrialOutcome> {
-        self.store.record_prompt_trial(request)
-    }
-
-    pub fn compare_prompt_trials(
-        &self,
-        request: &PromptComparisonRequest,
-    ) -> Result<PromptComparison> {
-        self.store.compare_prompt_trials(request)
-    }
-
     pub fn assess_delegation(
         &self,
         request: &DelegationDecisionRequest,
@@ -762,38 +531,6 @@ impl Hub {
         self.store.list_task_memory_uses(request)
     }
 
-    pub fn submit_improvement(
-        &self,
-        request: &ImprovementSubmitRequest,
-    ) -> Result<ImprovementOutcome> {
-        self.store.submit_improvement(request)
-    }
-
-    pub fn list_improvements(
-        &self,
-        request: &ImprovementListRequest,
-    ) -> Result<Vec<ImprovementRequest>> {
-        self.store.list_improvements(request)
-    }
-
-    pub fn create_prototype_brief(
-        &self,
-        request: &PrototypeBriefCreateRequest,
-    ) -> Result<PrototypeBriefOutcome> {
-        self.store.create_prototype_brief(request)
-    }
-
-    pub fn review_prototype(
-        &self,
-        request: &PrototypeReviewRequest,
-    ) -> Result<PrototypeReviewOutcome> {
-        self.store.review_prototype(request)
-    }
-
-    pub fn get_prototype(&self, request: &PrototypeGetRequest) -> Result<Option<PrototypeStatus>> {
-        self.store.get_prototype(request)
-    }
-
     pub fn list_tasks(&self, request: &TaskListRequest) -> Result<Vec<CoordinatedTask>> {
         self.store.list_tasks(request)
     }
@@ -809,29 +546,4 @@ impl Hub {
     pub fn cancel_task(&self, request: &TaskCancelRequest) -> Result<TaskOutcome> {
         self.store.cancel_task(request)
     }
-}
-
-fn read_security_json(raw_path: &str) -> Result<(PathBuf, serde_json::Value, String)> {
-    if raw_path.trim().is_empty() {
-        return Err(crate::store::Error::Invalid(
-            "security artifact path must not be empty".to_owned(),
-        ));
-    }
-    let path = Path::new(raw_path);
-    let metadata = fs::symlink_metadata(path)?;
-    if metadata.file_type().is_symlink() || !metadata.is_file() {
-        return Err(crate::store::Error::Invalid(
-            "security artifacts must be regular non-symlink files".to_owned(),
-        ));
-    }
-    if metadata.len() > 4 * 1024 * 1024 {
-        return Err(crate::store::Error::Invalid(
-            "security artifact exceeds the 4 MiB import limit".to_owned(),
-        ));
-    }
-    let canonical = fs::canonicalize(path)?;
-    let bytes = fs::read(&canonical)?;
-    let value = serde_json::from_slice(&bytes)?;
-    let digest = format!("{:x}", Sha256::digest(&bytes));
-    Ok((canonical, value, digest))
 }
