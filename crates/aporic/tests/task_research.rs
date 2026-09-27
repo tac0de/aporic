@@ -184,7 +184,7 @@ fn schema_24_upgrades_to_task_research_without_prior_items() {
     let connection = rusqlite::Connection::open(&db).unwrap();
     connection
         .execute_batch(
-            "DROP TABLE initiatives;
+            "DROP TABLE intakes; DROP TABLE initiatives;
              DROP TABLE task_research_items;
              DROP INDEX claims_subject_key;
              ALTER TABLE claims DROP COLUMN subject_key;
@@ -194,6 +194,6 @@ fn schema_24_upgrades_to_task_research_without_prior_items() {
         .unwrap();
     drop(connection);
     let upgraded = Hub::open(&db).unwrap();
-    assert_eq!(upgraded.stats().unwrap().schema_version, 28);
+    assert_eq!(upgraded.stats().unwrap().schema_version, 29);
     assert!(upgraded.audit_task_research().unwrap().consistent);
 }

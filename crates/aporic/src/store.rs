@@ -50,6 +50,7 @@ const SCHEMA: &str = include_str!("../../../migrations/0001_initial.sql");
 mod core_event_audit;
 mod delegation;
 mod initiative;
+mod intake;
 mod memory_use;
 mod research_link;
 mod task_brief;
@@ -81,7 +82,8 @@ const MIGRATION_25: &str = include_str!("../../../migrations/0025_task_research.
 const MIGRATION_26: &str = include_str!("../../../migrations/0026_claim_subject.sql");
 const MIGRATION_27: &str = include_str!("../../../migrations/0027_session_delegation.sql");
 const MIGRATION_28: &str = include_str!("../../../migrations/0028_initiatives.sql");
-const SCHEMA_VERSION: u32 = 28;
+const MIGRATION_29: &str = include_str!("../../../migrations/0029_intakes.sql");
+const SCHEMA_VERSION: u32 = 29;
 const MIGRATIONS: &[(u32, &str)] = &[
     (2, MIGRATION_2),
     (3, MIGRATION_3),
@@ -110,6 +112,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (26, MIGRATION_26),
     (27, MIGRATION_27),
     (28, MIGRATION_28),
+    (29, MIGRATION_29),
 ];
 
 #[derive(Debug, Error)]

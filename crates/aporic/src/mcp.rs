@@ -11,16 +11,17 @@ use crate::{
         DissentRequest, EvidenceRequest, ExecutionGetRequest, ExecutionListRequest,
         GitObserveRequest, GitSnapshotGetRequest, GitSnapshotListRequest,
         InitiativeArtifactRequest, InitiativePlanRequest, InitiativeStatusRequest,
-        InitiativeTaskLinkRequest, MemoryGetRequest, MemorySearchRequest, ModelRouteRequest,
-        OpenRequest, RecallRequest, ReconcileRequest, RecordRequest, RelatedWorkspaceRequest,
-        ResumeRequest, RuntimeTraceGetRequest, RuntimeTraceListRequest, RuntimeWorkspaceRequest,
-        SessionDelegationDecisionRequest, SessionDelegationReportRequest,
-        SessionDelegationStatusRequest, TaskBriefRequest, TaskCancelRequest, TaskClaimRequest,
-        TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskMemoryUseListRequest,
-        TaskMemoryUseRequest, TaskResearchAttachRequest, TaskResearchListRequest,
-        TaskWorkPacketRequest, TokenEfficiencyReportRequest, TokenUsageListRequest,
-        TokenUsageRecordRequest, WorkflowAdvanceRequest, WorkflowPlanRequest,
-        WorkflowStatusRequest, WorkflowStepRecordRequest, WorkflowStepsRequest,
+        InitiativeTaskLinkRequest, IntakeCreateRequest, IntakeGetRequest, MemoryGetRequest,
+        MemorySearchRequest, ModelRouteRequest, OpenRequest, RecallRequest, ReconcileRequest,
+        RecordRequest, RelatedWorkspaceRequest, ResumeRequest, RuntimeTraceGetRequest,
+        RuntimeTraceListRequest, RuntimeWorkspaceRequest, SessionDelegationDecisionRequest,
+        SessionDelegationReportRequest, SessionDelegationStatusRequest, TaskBriefRequest,
+        TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest,
+        TaskListRequest, TaskMemoryUseListRequest, TaskMemoryUseRequest, TaskResearchAttachRequest,
+        TaskResearchListRequest, TaskWorkPacketRequest, TokenEfficiencyReportRequest,
+        TokenUsageListRequest, TokenUsageRecordRequest, WorkflowAdvanceRequest,
+        WorkflowPlanRequest, WorkflowStatusRequest, WorkflowStepRecordRequest,
+        WorkflowStepsRequest,
     },
     research::{ResearchFetchRequest, ResearchGetRequest, ResearchSearchRequest},
 };
@@ -420,6 +421,23 @@ impl AporicMcp {
         Parameters(request): Parameters<TaskCreateRequest>,
     ) -> String {
         render(self.hub.create_task(&request))
+    }
+
+    #[tool(
+        description = "Record a small advisory intake linking a reported source project, existing reproduction evidence, and an Aporic task in the same project. Evidence grade is retained; no host action is authorized."
+    )]
+    async fn aporic_intake_create(
+        &self,
+        Parameters(request): Parameters<IntakeCreateRequest>,
+    ) -> String {
+        render(self.hub.create_intake(&request))
+    }
+
+    #[tool(
+        description = "Read an intake with the linked task's current status and the reproduction evidence grade."
+    )]
+    async fn aporic_intake_get(&self, Parameters(request): Parameters<IntakeGetRequest>) -> String {
+        render(self.hub.get_intake(&request))
     }
 
     #[tool(

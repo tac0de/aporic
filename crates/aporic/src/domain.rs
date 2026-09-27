@@ -1500,6 +1500,45 @@ pub struct TaskCreateRequest {
     pub idempotency_key: String,
 }
 
+/// A reported source-project identity linked to existing, typed evidence and a task.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct IntakeCreateRequest {
+    pub session_id: String,
+    pub source_project: String,
+    pub reproduction_evidence_id: String,
+    pub task_id: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct IntakeGetRequest {
+    pub workspace: String,
+    pub intake_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Intake {
+    pub intake_id: String,
+    pub source_project: String,
+    pub reproduction_evidence_id: String,
+    pub evidence_kind: EvidenceKind,
+    pub evidence_grade: EvidenceGrade,
+    pub evidence_locator: String,
+    pub evidence_summary: String,
+    pub evidence_sha256: String,
+    pub task_id: String,
+    pub task_status: TaskStatus,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IntakeOutcome {
+    pub intake: Intake,
+    pub duplicate: bool,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum WorkflowStage {

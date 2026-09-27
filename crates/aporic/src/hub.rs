@@ -14,16 +14,16 @@ use crate::{
         GitSnapshot, GitSnapshotAudit, GitSnapshotGetRequest, GitSnapshotListRequest,
         HookHealthReport, HubStats, InitiativeArtifactRequest, InitiativeOutcome,
         InitiativePlanRequest, InitiativeStatus, InitiativeStatusRequest,
-        InitiativeTaskLinkRequest, MemoryGetRequest, MemoryItem, MemoryProjectionAudit,
-        MemorySearchRequest, MemorySearchResult, ModelRoute, ModelRouteRequest, OpenOutcome,
-        OpenRequest, ProjectExport, RecallRequest, ReconcileOutcome, ReconcileRequest,
-        RecordOutcome, RecordRequest, ResumeBrief, ResumeRequest, RuntimeEvent, RuntimeObservation,
-        RuntimeProjectionAudit, RuntimeTraceGetRequest, RuntimeTraceListRequest,
-        RuntimeWorkspaceRequest, SessionDelegationDecisionOutcome,
-        SessionDelegationDecisionRequest, SessionDelegationReportOutcome,
-        SessionDelegationReportRequest, SessionDelegationStatus, SessionDelegationStatusRequest,
-        TaskBriefOutcome, TaskBriefRequest, TaskCancelRequest, TaskClaimRequest,
-        TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskMemoryUse,
+        InitiativeTaskLinkRequest, Intake, IntakeCreateRequest, IntakeGetRequest, IntakeOutcome,
+        MemoryGetRequest, MemoryItem, MemoryProjectionAudit, MemorySearchRequest,
+        MemorySearchResult, ModelRoute, ModelRouteRequest, OpenOutcome, OpenRequest, ProjectExport,
+        RecallRequest, ReconcileOutcome, ReconcileRequest, RecordOutcome, RecordRequest,
+        ResumeBrief, ResumeRequest, RuntimeEvent, RuntimeObservation, RuntimeProjectionAudit,
+        RuntimeTraceGetRequest, RuntimeTraceListRequest, RuntimeWorkspaceRequest,
+        SessionDelegationDecisionOutcome, SessionDelegationDecisionRequest,
+        SessionDelegationReportOutcome, SessionDelegationReportRequest, SessionDelegationStatus,
+        SessionDelegationStatusRequest, TaskBriefOutcome, TaskBriefRequest, TaskCancelRequest,
+        TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskMemoryUse,
         TaskMemoryUseListRequest, TaskMemoryUseOutcome, TaskMemoryUseRequest, TaskOutcome,
         TaskResearchAttachRequest, TaskResearchAudit, TaskResearchItem, TaskResearchListRequest,
         TaskResearchOutcome, TaskWorkPacket, TaskWorkPacketRequest, TokenEfficiencyReport,
@@ -424,6 +424,14 @@ impl Hub {
 
     pub fn create_task(&self, request: &TaskCreateRequest) -> Result<TaskOutcome> {
         self.store.create_task(request)
+    }
+
+    pub fn create_intake(&self, request: &IntakeCreateRequest) -> Result<IntakeOutcome> {
+        self.store.create_intake(request)
+    }
+
+    pub fn get_intake(&self, request: &IntakeGetRequest) -> Result<Intake> {
+        self.store.get_intake(request)
     }
 
     pub fn plan_workflow(&self, request: &WorkflowPlanRequest) -> Result<WorkflowOutcome> {

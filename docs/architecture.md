@@ -163,6 +163,15 @@ briefs/reviews, and related-workspace discovery. They are retired; existing
 tables and events remain available only through historical migration and raw
 event export.
 
+Schema v29 adds a small, separate intake record. It links a reported source
+project identifier, one existing file, command-result, or external-source
+reproduction evidence item, and one Aporic task in the same project. Creation
+is an append-only event with an idempotency key; the table indexes the link.
+Reads show the evidence grade and the task's current status. The source
+identifier is reported metadata, and neither the link nor a direct evidence
+grade proves that the reported problem was reproduced. The link is advisory
+and does not change task or host permissions.
+
 Schema v21 adds immutable task-memory-use links. During planning, a queued task
 may link up to eight active memories in its workspace to exact acceptance
 criteria, with a short intended action. The event and source link survive
