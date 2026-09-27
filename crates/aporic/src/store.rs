@@ -49,6 +49,7 @@ use crate::{
 const SCHEMA: &str = include_str!("../../../migrations/0001_initial.sql");
 mod core_event_audit;
 mod delegation;
+mod initiative;
 mod memory_use;
 mod research_link;
 mod task_brief;
@@ -79,7 +80,8 @@ const MIGRATION_24: &str = include_str!("../../../migrations/0024_prompt_trials.
 const MIGRATION_25: &str = include_str!("../../../migrations/0025_task_research.sql");
 const MIGRATION_26: &str = include_str!("../../../migrations/0026_claim_subject.sql");
 const MIGRATION_27: &str = include_str!("../../../migrations/0027_session_delegation.sql");
-const SCHEMA_VERSION: u32 = 27;
+const MIGRATION_28: &str = include_str!("../../../migrations/0028_initiatives.sql");
+const SCHEMA_VERSION: u32 = 28;
 const MIGRATIONS: &[(u32, &str)] = &[
     (2, MIGRATION_2),
     (3, MIGRATION_3),
@@ -107,6 +109,7 @@ const MIGRATIONS: &[(u32, &str)] = &[
     (25, MIGRATION_25),
     (26, MIGRATION_26),
     (27, MIGRATION_27),
+    (28, MIGRATION_28),
 ];
 
 #[derive(Debug, Error)]
@@ -3378,6 +3381,8 @@ impl Store {
                      SELECT session_id FROM sessions WHERE project_id = ?1
                  ) OR stream_id IN (
                      SELECT task_id FROM tasks WHERE project_id = ?1
+                 ) OR stream_id IN (
+                     SELECT initiative_id FROM initiatives WHERE project_id = ?1
                  ) OR stream_id IN (
                      SELECT execution_runs.run_id FROM execution_runs
                      JOIN sessions ON sessions.session_id = execution_runs.session_id

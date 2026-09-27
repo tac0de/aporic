@@ -1678,6 +1678,114 @@ pub struct WorkflowOutcome {
     pub duplicate: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct InitiativeRequirement {
+    pub requirement_id: String,
+    pub statement: String,
+    pub acceptance_criterion: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct InitiativePlanRequest {
+    pub session_id: String,
+    pub initiative_id: Option<String>,
+    pub revision_evidence_id: Option<String>,
+    pub objective: String,
+    pub target_user: String,
+    pub success_measure: String,
+    pub requirements: Vec<InitiativeRequirement>,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum InitiativeArtifactKind {
+    Planning,
+    Design,
+    Integration,
+    Release,
+}
+
+impl InitiativeArtifactKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Planning => "planning",
+            Self::Design => "design",
+            Self::Integration => "integration",
+            Self::Release => "release",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct InitiativeArtifactRequest {
+    pub session_id: String,
+    pub initiative_id: String,
+    pub kind: InitiativeArtifactKind,
+    pub evidence_id: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct InitiativeTaskLinkRequest {
+    pub session_id: String,
+    pub initiative_id: String,
+    pub requirement_id: String,
+    pub task_id: String,
+    pub idempotency_key: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct InitiativeStatusRequest {
+    pub workspace: String,
+    pub initiative_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InitiativePlan {
+    pub revision_id: String,
+    pub created_at_unix_ms: i64,
+    pub objective: String,
+    pub target_user: String,
+    pub success_measure: String,
+    pub requirements: Vec<InitiativeRequirement>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InitiativeArtifact {
+    pub kind: InitiativeArtifactKind,
+    pub evidence_id: String,
+    pub created_at_unix_ms: i64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InitiativeTaskLink {
+    pub requirement_id: String,
+    pub task_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InitiativeStatus {
+    pub initiative_id: String,
+    pub plan: InitiativePlan,
+    pub artifacts: Vec<InitiativeArtifact>,
+    pub task_links: Vec<InitiativeTaskLink>,
+    pub missing: Vec<String>,
+    pub ready_to_claim: bool,
+    pub advisory: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InitiativeOutcome {
+    pub status: InitiativeStatus,
+    pub duplicate: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct TaskListRequest {

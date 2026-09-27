@@ -6,6 +6,52 @@ ISO/IEC/IEEE 29148 and 12207, while allowing iteration. It is a task-scoped
 coordination contract, not a host permission gate. Aporic does not prevent a
 Codex agent from editing files or calling tools outside this workflow.
 
+## Product-initiative core
+
+The task workflow records the work needed to deliver one bounded task. A
+product initiative sits above those tasks to make the whole product delivery
+contract inspectable. Schema v28 indexes initiative ownership; append-only
+events hold each state revision.
+
+An initiative has a versioned plan with these required fields:
+
+| Field | Meaning |
+| --- | --- |
+| `objective` | The product change or problem the initiative intends to address. |
+| `target_user` | The user or operator whose situation the change addresses. |
+| `success_measure` | The observable result expected for that user or operator. |
+
+Each plan revision requires direct file evidence for planning, design,
+integration, and release. The core records presence and provenance without
+choosing a domain-specific document format. Integration evidence must follow
+linked task completion, and release evidence must follow integration evidence.
+
+Each requirement belongs to one plan revision and has a stable requirement ID,
+a statement, and an acceptance criterion. `aporic_initiative_task_link` connects
+it to same-project tasks with that exact acceptance criterion. Each linked task
+must complete its own advisory task workflow after the plan revision with a
+verified proof for the criterion.
+A task's completed state alone cannot establish that its requirement was satisfied.
+
+Initiative status is computed from the current plan revision. It reports gaps
+for absent required artifacts, requirements without linked tasks, linked tasks
+that are incomplete, and acceptance criteria without verified proofs. A
+revision requires reported user-statement evidence and clears artifact and
+task-link credit for the entire plan. Historical records
+remain append-only so a later status can explain why earlier credit is no
+longer current.
+
+Direct file evidence attests only that Aporic read particular bytes. It does
+not establish document quality, design suitability, integration correctness,
+or real-world user outcomes. Similarly, verified criterion proofs establish
+only the specific mechanically verified claim they bind. The initiative core
+must therefore report evidence and gaps without representing a product as
+complete beyond those observed facts.
+
+Like the task workflow, the initiative is advisory and fail-open. It constrains
+only Aporic's initiative-status and completion claims; it cannot block host
+edits, tool use, tests, releases, or other permissions.
+
 ## Stages
 
 `aporic_workflow_plan` records a full planning revision for an existing active

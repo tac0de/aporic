@@ -54,6 +54,14 @@ Advisory coordination:
   versioned general or UI procedure checks, concrete skips, and rework within
   those advisory stages.
 
+The generic product-initiative core keeps a versioned plan, requirements with
+stable IDs, links to the tasks that deliver them, and direct file evidence for
+planning, design, integration, and release. `aporic_initiative_plan`,
+`aporic_initiative_artifact_record`, `aporic_initiative_task_link`, and
+`aporic_initiative_status` expose its advisory contract. Status computes missing
+links, stale task credit, and verified acceptance-criterion proofs; a revision
+clears prior links and artifacts. See the [workflow gates](docs/workflow-gates.md).
+
 Design delivery in v0.21 uses a versioned repository manifest to connect
 references, a selected concept, design tokens and component specifications,
 implementation, and browser review. `aporic_design_validate` and

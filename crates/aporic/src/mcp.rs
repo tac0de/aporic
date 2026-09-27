@@ -9,17 +9,18 @@ use crate::{
         AccountabilityResolveRequest, ClaimRequest, CloseRequest, CommandSpecRequest,
         DelegationDecisionRequest, DelegationReportRequest, DelegationStatusRequest,
         DissentRequest, EvidenceRequest, ExecutionGetRequest, ExecutionListRequest,
-        GitObserveRequest, GitSnapshotGetRequest, GitSnapshotListRequest, MemoryGetRequest,
-        MemorySearchRequest, ModelRouteRequest, OpenRequest, RecallRequest, ReconcileRequest,
-        RecordRequest, RelatedWorkspaceRequest, ResumeRequest, RuntimeTraceGetRequest,
-        RuntimeTraceListRequest, RuntimeWorkspaceRequest, SessionDelegationDecisionRequest,
-        SessionDelegationReportRequest, SessionDelegationStatusRequest, TaskBriefRequest,
-        TaskCancelRequest, TaskClaimRequest, TaskCompleteRequest, TaskCreateRequest,
-        TaskListRequest, TaskMemoryUseListRequest, TaskMemoryUseRequest, TaskResearchAttachRequest,
-        TaskResearchListRequest, TaskWorkPacketRequest, TokenEfficiencyReportRequest,
-        TokenUsageListRequest, TokenUsageRecordRequest, WorkflowAdvanceRequest,
-        WorkflowPlanRequest, WorkflowStatusRequest, WorkflowStepRecordRequest,
-        WorkflowStepsRequest,
+        GitObserveRequest, GitSnapshotGetRequest, GitSnapshotListRequest,
+        InitiativeArtifactRequest, InitiativePlanRequest, InitiativeStatusRequest,
+        InitiativeTaskLinkRequest, MemoryGetRequest, MemorySearchRequest, ModelRouteRequest,
+        OpenRequest, RecallRequest, ReconcileRequest, RecordRequest, RelatedWorkspaceRequest,
+        ResumeRequest, RuntimeTraceGetRequest, RuntimeTraceListRequest, RuntimeWorkspaceRequest,
+        SessionDelegationDecisionRequest, SessionDelegationReportRequest,
+        SessionDelegationStatusRequest, TaskBriefRequest, TaskCancelRequest, TaskClaimRequest,
+        TaskCompleteRequest, TaskCreateRequest, TaskListRequest, TaskMemoryUseListRequest,
+        TaskMemoryUseRequest, TaskResearchAttachRequest, TaskResearchListRequest,
+        TaskWorkPacketRequest, TokenEfficiencyReportRequest, TokenUsageListRequest,
+        TokenUsageRecordRequest, WorkflowAdvanceRequest, WorkflowPlanRequest,
+        WorkflowStatusRequest, WorkflowStepRecordRequest, WorkflowStepsRequest,
     },
     research::{ResearchFetchRequest, ResearchGetRequest, ResearchSearchRequest},
 };
@@ -58,6 +59,46 @@ impl AporicMcp {
 
 #[tool_router]
 impl AporicMcp {
+    #[tool(
+        description = "Create or revise a versioned product initiative with bounded requirements. Revision requires reported user-statement evidence and clears prior links and artifact credit. Advisory only."
+    )]
+    async fn aporic_initiative_plan(
+        &self,
+        Parameters(request): Parameters<InitiativePlanRequest>,
+    ) -> String {
+        render(self.hub.plan_initiative(&request))
+    }
+
+    #[tool(
+        description = "Bind direct workspace-file evidence to an initiative's planning, design, integration, or release phase. File bytes do not prove semantic quality."
+    )]
+    async fn aporic_initiative_artifact_record(
+        &self,
+        Parameters(request): Parameters<InitiativeArtifactRequest>,
+    ) -> String {
+        render(self.hub.record_initiative_artifact(&request))
+    }
+
+    #[tool(
+        description = "Link a same-project task to an initiative requirement when its acceptance criterion matches exactly. A new link invalidates prior integration and release artifact credit."
+    )]
+    async fn aporic_initiative_task_link(
+        &self,
+        Parameters(request): Parameters<InitiativeTaskLinkRequest>,
+    ) -> String {
+        render(self.hub.link_initiative_task(&request))
+    }
+
+    #[tool(
+        description = "Read computed initiative gaps across artifact phases, linked tasks, and verified criterion proofs. Ready-to-claim is advisory, not proof of product quality."
+    )]
+    async fn aporic_initiative_status(
+        &self,
+        Parameters(request): Parameters<InitiativeStatusRequest>,
+    ) -> String {
+        render(self.hub.initiative_status(&request))
+    }
+
     #[tool(
         description = "Open an idempotent Aporic work session and return bounded context plus session delegation assessment status. Missing assessment is advisory; evaluate independent paths and material review for substantive work without requiring an Aporic task."
     )]

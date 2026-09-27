@@ -572,7 +572,10 @@ fn require_capacity(connection: &Connection, task_id: &str) -> Result<()> {
     Ok(())
 }
 
-fn read_status(connection: &Connection, task: &CoordinatedTask) -> Result<WorkflowStatus> {
+pub(super) fn read_status(
+    connection: &Connection,
+    task: &CoordinatedTask,
+) -> Result<WorkflowStatus> {
     let result: Option<String> = connection.query_row(
         "SELECT result_json FROM events WHERE stream_id = ?1 AND kind IN (?2, ?3, ?4) ORDER BY sequence DESC LIMIT 1",
         params![task.task_id, PLAN_EVENT, ADVANCE_EVENT, STEP_EVENT], |row| row.get(0),

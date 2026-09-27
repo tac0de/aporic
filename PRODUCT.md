@@ -33,7 +33,9 @@ saves.
 ## Current stage
 
 The product is in core hardening. The active surface centers on continuity,
-evidence, task and workflow records, bounded research, and local verification.
+evidence, task and workflow records, product-initiative traceability, bounded
+research, and local verification. Initiative readiness is an advisory evidence
+inventory, not a judgment that a product is fit for release.
 The current product question is:
 
 > Can a small local continuity and evidence core preserve current context,

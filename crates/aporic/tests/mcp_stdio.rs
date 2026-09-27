@@ -142,6 +142,7 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
         .into_iter()
         .map(|tool| tool.name.to_string())
         .collect::<Vec<_>>();
+    assert_eq!(tool_names.len(), 46, "default MCP surface changed");
     for required in [
         "aporic_open",
         "aporic_recall",
@@ -154,6 +155,10 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
         "aporic_task_work_packet",
         "aporic_workflow_plan",
         "aporic_workflow_advance",
+        "aporic_initiative_plan",
+        "aporic_initiative_artifact_record",
+        "aporic_initiative_task_link",
+        "aporic_initiative_status",
         "aporic_session_delegation_assess",
         "aporic_research_search",
         "aporic_design_validate",
@@ -226,6 +231,35 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
         .as_str()
         .expect("open result has a session id")
         .to_owned();
+
+    let initiative = call_json(
+        &client,
+        "aporic_initiative_plan",
+        json!({
+            "session_id": session_id,
+            "objective": "Track a product outcome",
+            "target_user": "Contributor",
+            "success_measure": "One verified scenario",
+            "requirements": [{
+                "requirement_id": "R1",
+                "statement": "Scenario works",
+                "acceptance_criterion": "Scenario verified"
+            }],
+            "idempotency_key": "mcp-initiative"
+        }),
+    )
+    .await?;
+    assert_eq!(initiative["ok"], true);
+    let initiative_id = initiative["result"]["status"]["initiative_id"]
+        .as_str()
+        .unwrap();
+    let initiative_status = call_json(
+        &client,
+        "aporic_initiative_status",
+        json!({"workspace": workspace, "initiative_id": initiative_id}),
+    )
+    .await?;
+    assert_eq!(initiative_status["result"]["ready_to_claim"], false);
 
     let stored = Store::open(&database)?.ingest_research_document(
         workspace.to_str().unwrap(),
@@ -575,6 +609,7 @@ async fn full_mcp_profile_is_explicit_and_reveals_optional_diagnostics()
         .into_iter()
         .map(|tool| tool.name.to_string())
         .collect::<Vec<_>>();
+    assert_eq!(names.len(), 60, "full MCP surface changed");
     assert!(names.iter().any(|name| name == "aporic_trace_list"));
     assert!(
         names

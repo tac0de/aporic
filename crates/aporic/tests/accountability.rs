@@ -214,7 +214,7 @@ fn repair_obligation_remains_visible_until_a_verified_repair_task_completes() {
 
     drop(hub);
     let restarted = Hub::open(area.path().join("aporic.sqlite3")).unwrap();
-    assert_eq!(restarted.stats().unwrap().schema_version, 27);
+    assert_eq!(restarted.stats().unwrap().schema_version, 28);
     let report = restarted
         .list_accountability_cases(&AccountabilityListRequest {
             workspace: workspace.to_string_lossy().into_owned(),
@@ -333,7 +333,8 @@ fn upgrades_schema_18_to_accountability_schema() {
     let connection = rusqlite::Connection::open(&database).unwrap();
     connection
         .execute_batch(
-            "DROP TABLE task_research_items;
+            "DROP TABLE initiatives;
+            DROP TABLE task_research_items;
             DROP TABLE prompt_trials;
             DROP TABLE task_brief_receipts;
             DROP TABLE government_terms;
@@ -350,6 +351,6 @@ fn upgrades_schema_18_to_accountability_schema() {
         .unwrap();
     drop(connection);
     let upgraded = Hub::open(&database).unwrap();
-    assert_eq!(upgraded.stats().unwrap().schema_version, 27);
+    assert_eq!(upgraded.stats().unwrap().schema_version, 28);
     assert!(upgraded.audit_accountability().unwrap().consistent);
 }

@@ -12,7 +12,9 @@ use crate::{
         EvidenceRequest, ExecutionFinish, ExecutionGetRequest, ExecutionListRequest,
         ExecutionOutcome, ExecutionReplayAudit, ExecutionRun, ExecutionStart, GitObserveRequest,
         GitSnapshot, GitSnapshotAudit, GitSnapshotGetRequest, GitSnapshotListRequest,
-        HookHealthReport, HubStats, MemoryGetRequest, MemoryItem, MemoryProjectionAudit,
+        HookHealthReport, HubStats, InitiativeArtifactRequest, InitiativeOutcome,
+        InitiativePlanRequest, InitiativeStatus, InitiativeStatusRequest,
+        InitiativeTaskLinkRequest, MemoryGetRequest, MemoryItem, MemoryProjectionAudit,
         MemorySearchRequest, MemorySearchResult, ModelRoute, ModelRouteRequest, OpenOutcome,
         OpenRequest, ProjectExport, RecallRequest, ReconcileOutcome, ReconcileRequest,
         RecordOutcome, RecordRequest, ResumeBrief, ResumeRequest, RuntimeEvent, RuntimeObservation,
@@ -69,6 +71,28 @@ impl Hub {
 
     pub fn resume(&self, request: &ResumeRequest) -> Result<ResumeBrief> {
         self.store.resume(request)
+    }
+
+    pub fn plan_initiative(&self, request: &InitiativePlanRequest) -> Result<InitiativeOutcome> {
+        self.store.plan_initiative(request)
+    }
+
+    pub fn record_initiative_artifact(
+        &self,
+        request: &InitiativeArtifactRequest,
+    ) -> Result<InitiativeOutcome> {
+        self.store.record_initiative_artifact(request)
+    }
+
+    pub fn link_initiative_task(
+        &self,
+        request: &InitiativeTaskLinkRequest,
+    ) -> Result<InitiativeOutcome> {
+        self.store.link_initiative_task(request)
+    }
+
+    pub fn initiative_status(&self, request: &InitiativeStatusRequest) -> Result<InitiativeStatus> {
+        self.store.initiative_status(request)
     }
 
     pub fn open_accountability_case(
