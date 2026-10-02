@@ -74,7 +74,7 @@ For material changes, select a distinct reviewer or record a concrete skip
 reason. This is advisory and never limits host tools or task completion. Use
 Codex's host collaboration tools to spawn agents; Aporic never spawns them.
 Give each host subagent a bounded scope, edit permission, expected result,
-explicit available model, and reasoning effort. Use Sol for ordinary
+explicit available model, and reasoning effort. Use `gpt-6.1-sol` for ordinary
 implementation and Astra for difficult or consequential analysis. Use a lighter
 model only for a clearly mechanical, low-impact task where delegation itself is
 worthwhile. When overriding the primary model, send a concise work packet with

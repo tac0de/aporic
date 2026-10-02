@@ -343,7 +343,10 @@ async fn rust_repair_lesson_requires_the_completed_tasks_cargo_test_receipt() {
     .unwrap();
     std::fs::write(&source, "pub fn answer() -> i32 { 42 }\n#[cfg(test)] mod tests { #[test] fn repaired() { assert_eq!(super::answer(), 42); } }\n").unwrap();
     let verified = hub.verify(&spec.spec_id).await.unwrap();
-    let claim_id = verified.verified_claim_id.unwrap();
+    let claim_id = verified
+        .verified_claim_id
+        .clone()
+        .unwrap_or_else(|| panic!("repaired fixture cargo test did not succeed: {verified:?}"));
     hub.complete_task(&TaskCompleteRequest {
         task_id,
         worker_id: "worker".into(),

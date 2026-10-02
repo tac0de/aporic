@@ -426,7 +426,7 @@ fn model_router_uses_luna_sol_and_astra_without_conferring_authority() {
         ambiguity_high: false,
         independent_review: false,
     });
-    assert_eq!(sol.model, "gpt-6-sol");
+    assert_eq!(sol.model, "gpt-6.1-sol");
 
     let astra = hub.route_model(&ModelRouteRequest {
         work_kind: WorkKind::Architecture,
@@ -436,7 +436,7 @@ fn model_router_uses_luna_sol_and_astra_without_conferring_authority() {
         independent_review: true,
     });
     assert_eq!(astra.model, "gpt-6-astra");
-    assert_eq!(astra.verifier_model.as_deref(), Some("gpt-6-sol"));
+    assert_eq!(astra.verifier_model.as_deref(), Some("gpt-6.1-sol"));
     assert!(
         astra
             .reasons

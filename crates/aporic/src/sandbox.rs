@@ -290,6 +290,10 @@ fn copy_host_environment(command: &mut Command) {
         "TEMP",
         "TMP",
         "USERPROFILE",
+        // MSVC compilation/linking needs the host's SDK search paths.
+        "INCLUDE",
+        "LIB",
+        "LIBPATH",
     ] {
         if let Some(value) = env::var_os(name) {
             command.env(name, value);

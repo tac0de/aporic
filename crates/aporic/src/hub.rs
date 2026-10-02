@@ -383,7 +383,7 @@ impl Hub {
             ("gpt-6-luna", "medium", "bounded_well_specified_work")
         } else {
             (
-                "gpt-6-sol",
+                "gpt-6.1-sol",
                 "high",
                 match request.work_kind {
                     WorkKind::Implementation => "default_complex_implementation",
@@ -393,7 +393,7 @@ impl Hub {
         };
         let verifier_model = request.independent_review.then(|| {
             if model == "gpt-6-astra" {
-                "gpt-6-sol"
+                "gpt-6.1-sol"
             } else {
                 "gpt-6-astra"
             }
