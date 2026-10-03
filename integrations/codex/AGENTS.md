@@ -91,7 +91,7 @@ task message does not select them. With the current Codex tool, use `fork_turns`
 of `"none"` or a bounded turn count when setting overrides, because full-history
 forks do not accept them. Distinguish configured defaults, requested selection,
 observed host metadata, and independently attested execution; thread metadata
-alone does not prove backend execution. See `docs/subagent-model-selection.md`.
+alone does not prove backend execution.
 Do not silently downgrade. The Aporic route table is advice, and the host may
 select a different model when task risk warrants it.
 After spawning, use `aporic_delegation_report` to record the actual host agent

@@ -1,411 +1,128 @@
-# Aporic hub architecture
+# Aporic architecture
 
-## Boundary
+## Boundaries
 
-The Aporic kernel and Aporic Hub have different lifecycles.
+Aporic is a modular Rust monolith in `crates/aporic`. The kernel module checks
+`canon/KERNEL.md`; domain, context and store code enforce the actual state
+invariants. The canon is not an executable state machine. MCP and Codex hooks
+are adapters, not an authorization boundary around host tools.
 
-- The kernel module verifies the exact behavioral constitution in
-  `canon/KERNEL.md`. The mechanically enforced invariants currently live in
-  the hub's domain, context, and store code; the canon is not an executable
-  state machine. Neither depends on a model for its checks.
-- The hub is evolving software that applies those invariants to projects,
-  sessions, tasks, decisions, typed evidence, epistemic claims, and agents.
-- MCP is an adapter. It does not become the domain model and does not by itself
-  form a security boundary around other host tools.
-
-## Implementation
-
-The implementation is one Rust package with internal `kernel`, `domain`,
-`context`, `store`, `hub`, `runner`, `git`, `git_process`,
-`bounded`, `recovery`, `hook`, and `mcp` modules. Package
-boundaries will be introduced only when an independently versioned contract or
-deployment unit exists.
+The host owns model execution, delegation and permissions. Aporic records
+advisory plans and observed outcomes. It does not dispatch agents, operate a
+remote service or publish products. See [PRODUCT.md](../PRODUCT.md).
 
 ```text
-Codex --stdio MCP--> mcp adapter --> hub services --> SQLite
-                                      |
-                                      +--> kernel invariants
-
-Codex lifecycle --JSON stdin--> fail-open hook --> bounded context + exposure receipt
-                                             \--> hashed runtime event + projections
-
-local CLI --> runner --> exact argv process --> hashed receipt --> SQLite
-
-local Git --fixed read-only argv--> git observer --> governance snapshot --> SQLite
-
-host/local counts --> provenance gate --> token usage receipt --> efficiency report
-
-Git snapshot + typed evidence --> public argument graph --> provisional decision
-                                      \--> open aporia + staleness report
-
+host --stdio MCP--> adapter --> hub/domain --> SQLite events + projections
+host lifecycle --JSON stdin--> fail-open hook --> context + hashed observations
+local CLI --> runner --> exact argv process --> execution receipt --> store
+repository files --> delivery validator --> dependency impact + current bindings
 ```
 
-Each Codex connection runs an inexpensive child process. Processes share one
-SQLite database in WAL mode. Each command opens a short connection and commits
-an event and its read projection in one immediate transaction.
+Separate MCP processes share a SQLite database in WAL mode. State-changing
+operations commit append-only events and their read projections atomically.
+Idempotency keys reject changed requests and return the original result for an
+exact retry. Runtime state lives in platform-native application data, outside
+the governed repository and Codex configuration.
 
-## Durable model
+## Durable state and evidence
 
-The hub stores projects, sessions, durable records, advisory tasks, typed
-evidence artifacts, epistemic claims, and events. Legacy records retain their
-explicit operational kind. New effect and verification assertions go through an
-epistemic gate:
+The store preserves projects, sessions, decisions, constraints, tasks, evidence,
+claims, handoffs and execution history. Read projections support bounded lookup;
+replay, audit and doctor checks detect inconsistencies. Database schema version
+30 includes all historical migrations required to open existing stores.
+Retired feature tables and raw events remain for compatibility, while their
+removed APIs do not return to the active surface.
 
-```text
-source -> evidence grade -> claim status -> criterion proof -> completion
-           direct            verified       exact match
-           reported          inferred       cannot complete
-           model_only        inferred       cannot complete
-```
+Evidence provenance is `direct`, `reported` or `model_only`. Claims distinguish
+observed, verified, inferred, assumed, intended and unknown states. Direct
+workspace-file read-back and successful local-runner receipts can support
+mechanical claims. Reported output and model assessment cannot independently
+establish verified task completion. Task criteria require matching verified
+proofs; unresolved material unknowns prevent completed session closure.
 
-Workspace files read and hashed by Aporic are direct. The local runner also
-creates direct execution receipts for immutable, pre-registered argv-based
-command specifications. It stores executable resolution, termination and exit
-status, stdout/stderr hashes and lengths, Git/worktree snapshots, and hashes for
-declared artifacts. Raw command output is not durable state. Successful receipts
-create one canonical verified claim; other terminal states do not.
+The local runner executes immutable registered program/argv specifications,
+records resolved executable metadata, exit state, bounded output hashes,
+Git/worktree snapshots and declared-file hashes. MCP can register and inspect
+checks but cannot execute them or submit runner receipts. The default host
+backend is not an OS sandbox. A required Linux `bubblewrap` check fails without
+execution credit when isolation cannot be established. Same-user database
+access remains outside this integrity boundary.
 
-The MCP boundary can register a specification and read run state, but cannot
-execute it or submit a receipt. The local CLI owns execution. A host-profile run
-is an integrity boundary inside the application, not an OS sandbox: a process
-running as the same user can still alter the database or workspace. A required
-Linux profile enters a `bubblewrap` namespace/mount boundary and must attest
-backend readiness before its result can become verified. A successful receipt
-still proves only the recorded process result and enforcement evidence, not test
-quality or remote effects.
+A receipt proves the captured process result, not semantic test adequacy or an
+external real-world effect. Free-text notes cannot assert a verified effect.
 
-The event log preserves accepted state transitions and idempotent results. Read
-tables provide bounded context without replaying the whole log on every tool
-call. Tests replay events independently and compare the result with projections.
+## Continuity and coordination
 
-The retired government, role-appointment, product-cell, and role-report tables
-remain in historical migrations so existing databases still open. Their write
-APIs and typed exports are removed. Project export retains their old events as
-raw event records, without treating those records as current assignments.
+[Begin/finish](core-flow.md) is the default bounded session lifecycle. Resume
+selects an unfinished task or fresh handoff without treating it as new
+authorization. Interrupted sessions and runs remain visibly incomplete until
+explicit continuation or reconciliation.
 
-Schema v7 adds a rebuildable `memory_items` projection, explicit relation edges,
-and a synchronized local FTS5 index. Active retrieval applies lifecycle and
-valid-time filters before deterministic class/rank/ID ordering. The source rows
-remain authoritative; the projection adds no permissions. Exposure receipts
-store selected IDs, byte counts, the policy digest, and installation-keyed HMACs
-for host session/turn correlation—never prompt or transcript contents.
+Memory projections classify records and preserve supersession and temporal
+validity. SQLite FTS5 retrieval is deterministic, byte-bounded and requires no
+embedding service or model call. Context prioritizes unresolved unknowns,
+current decisions and constraints, active tasks and supported claims. Objective
+and path overlap, recency and stable identifiers rank remaining candidates.
+Results disclose origin, influence class, selection reasons and omissions;
+model-authored text stays untrusted. Duplicate content is selected once.
 
-Schema v8 adds append-only `runtime_events` and a trigger-maintained
-`capability_observations` projection. Runtime rows keep bounded host/tool
-metadata, inferred capability and outcome classes, latency, byte counts, and
-installation-keyed HMACs for correlation and payload equality. They do not keep
-raw prompt, input, output, transcript, or assistant content. Tool events link to
-the latest exposure with identical project/session/turn HMACs. This is an
-observability relation, not evidence that recalled memory caused an outcome.
+Tasks preserve acceptance criteria, dependencies, scoped leases and cancellation.
+Workflow procedures and initiative links expose missing or stale evidence as
+advisory state. Task/session delegation assessments and reports distinguish a
+plan from an actual host agent run. Model routes are advice, not execution
+attestation. See [workflow gates](workflow-gates.md),
+[model routing](model-routing.md) and the [Codex bridge](../integrations/codex/AGENTS.md).
 
-Schema v9 adds append-only `git_snapshots`. Each row binds observed local Git
-metadata and deterministic governance findings to a SHA-256 digest. Changed
-paths are retained, but patches, blobs, commit messages, remote URLs, and signing
-keys are not. Snapshot digests detect accidental projection corruption; because
-the database remains writable by the same user, they are not a tamper-proof
-security boundary.
+## Repository delivery packages
 
-Schema v10 adds append-only `token_usage_receipts`. Each receipt keeps the
-counting source, input/output/reasoning counts, cached-input subset, context
-bytes, outcome status, verification reference, and a canonical digest. A
-verified outcome must resolve to matching Aporic-direct state in the same
-workspace. Reports aggregate measured counts separately from conservative byte
-upper bounds and unknowns. They expose measured tokens per verified success
-only when a measured verified denominator exists, and mark the overall report
-incomplete when estimates, unknown provenance, or unverified outcomes remain.
+[Product delivery](product-delivery.md) connects execution metadata and typed
+requirement/scenario/design/implementation/test dependencies. File references
+are bounded and workspace-contained. Focused briefs expose prerequisite closures
+and omissions; impact comparison propagates relevant changes to dependent checks.
 
-Schemas v11 and v12 introduced deliberation graphs, capability manifests,
-experiment portfolios, and imported security summaries. Those feature families
-are retired from the active product surface. Their historical migrations and
-events remain readable and exportable as raw records so existing databases can
-open without reinterpreting past records as current state.
+The pure validator inventories integrity and declared coverage. CLI/MCP reports
+also inspect runner-owned bindings. Local delivery execution captures pre/post
+inputs and fresh output, then appends a private binding only for a matching
+successful run. Public callers cannot manufacture that binding. Currentness
+checks use stored receipts and current bytes without a new mutable projection.
+General, web, web-game and web-platform profiles specify categories and explicit
+not-applicable reasons; category labels do not prove test adequacy.
 
-v0.13 deliberately leaves the database at schema v12 because stabilization adds
-no tables. Runtime boundaries now share streaming file hashing, bounded Git
-subprocess capture, lower-case portable-ASCII advisory write scopes, and fresh-destination
-restore. Backup retention remains an explicit CLI operation over a strict
-filename pattern.
+[Design delivery](design-delivery.md) separately inventories declared references,
+concepts, specification, implementation and browser-review files and hashes.
+Neither package judges usefulness, visual quality, gameplay or release readiness.
 
-Schema v13 adds verification sandbox profiles and receipt enforcement evidence.
-Checks can require Linux `bubblewrap`, network denial, and read-only or
-read-write workspace access. Required execution fails closed on unsupported
-platforms or backend/setup failure and cannot issue a verified claim without the
-in-sandbox readiness marker.
+## Observation and research
 
-Schema v18 adds source-scoped external research documents and append-only
-revisions with a separate FTS5 projection. Official API sync is explicit and
-local; MCP exposes only workspace-scoped search and current-document reads.
-Search results carry source URLs, fetch times, hashes, and an untrusted-content
-notice. The corpus never
-enters verified claims or authorization state.
+The optional hook correlates context exposure and runtime events through
+installation-keyed hashes. It stores bounded metadata and byte counts rather
+than raw prompts, tool input/output, transcripts or assistant messages.
+Tool/permission hooks and errors return `{}`; shadow dispositions do not enforce
+policy. Hook health can expose observed gaps but cannot prove complete coverage.
+Local OpenTelemetry-shaped exports do not transmit data.
 
-Schema v25 adds append-only task research items. Each item is scoped to a task
-and workspace, with an idempotent event, relevance note, source URL, digest,
-and provenance. Official-API items bind an immutable v18 revision; host-reported
-Reddit or LinkedIn observations store only a bounded excerpt and make no claim
-of API retrieval or independent verification. MCP exposes explicit task-scoped
-fetch, attach, and list operations. Fetch validates the task before the
-network call and remains host initiated; it never runs in the background.
-Doctor checks revision and task bindings and item digests. Export format v21
-includes the items. The records never enter verified claims or host policy.
+Fixed-argv Git observation records local commit-bound metadata without fetch,
+checkout, push, merge or approval. Remote tracking refs can be stale. Signature
+presence is not signer trust; snapshot digests are not tamper-proof attestation.
+Usage receipts keep reported counts, measured counts, conservative byte estimates
+and unknowns separate. Cached input remains a subset of input tokens.
 
-Schema v19 adds task-bound accountability cases as advisory repair obligations.
-The opening record is digest-bound and source evidence retains its grade; any
-assignee attribution remains reported. Plan revisions preserve model-authored
-causal hypotheses and prevention proposals in the append-only event stream.
-The latest plan links a later task in the same workspace. Resolution requires
-that task's existing verified criterion proofs, while the original failure and
-all plan revisions remain readable. Open cases are summarized on `aporic_open`
-and do not narrow host permissions or change authorization decisions.
+External research uses source-labelled immutable revisions and a separate FTS5
+corpus. Fetching is explicit; task attachments retain provenance and relevance.
+External text remains untrusted and cannot verify product behavior. Accountability
+and Rust repair records link failure evidence to later verified repairs without
+turning model-authored causal hypotheses into observed facts.
 
-Schema v20 introduced cross-workspace improvement intake, prototype
-briefs/reviews, and related-workspace discovery. They are retired; existing
-tables and events remain available only through historical migration and raw
-event export.
+## Verification
 
-Schema v29 adds a small, separate intake record. It links a reported source
-project identifier, one existing file, command-result, or external-source
-reproduction evidence item, and one Aporic task in the same project. Creation
-is an append-only event with an idempotency key; the table indexes the link.
-Reads show the evidence grade and the task's current status. The source
-identifier is reported metadata, and neither the link nor a direct evidence
-grade proves that the reported problem was reproduced. The link is advisory
-and does not change task or host permissions.
+Rust tests exercise restart/replay, idempotency, supported-schema migration,
+projection corruption, bounded context, supersession, advisory delegation,
+runner failure/isolation and delivery evidence freshness. Actual stdio MCP tests
+check the 58-tool core and 72-tool full surfaces. CI runs formatting, Clippy,
+workspace tests, dependency checks and coverage, with macOS/Windows tests and
+Linux sandbox checks.
 
-Schema v21 adds immutable task-memory-use links. During planning, a queued task
-may link up to eight active memories in its workspace to exact acceptance
-criteria, with a short intended action. The event and source link survive
-restart and export. Reads show the memory's current lifecycle and, after task
-completion, the criterion's verified claim. This establishes a planned use and
-a verified task criterion, not that the memory caused the outcome. The MCP
-surface neither enforces recalled text nor changes host permissions.
-
-Task-scoped delegation decisions and host-run reports are append-only events.
-Parallel work and independent review are assessed separately;
-each skipped path has a stated reason. Later reports identify host agents and
-selected models as reported observations. Work packets expose the bounded
-history and advisory gaps. These records never dispatch agents, attest host
-execution, or become task-completion and permission gates.
-
-Schema v27 adds session-scoped delegation decisions and host-run reports so
-ordinary `aporic_open` usage can surface a missing assessment without first
-creating a task contract. The session status shows the latest decision and
-reported execution separately. A task-scoped decision for a task opened in the
-session satisfies the session diagnostic without duplicating a decision.
-Assessment and reporting stay advisory and fail-open; neither the session
-status nor MCP server instructions can dispatch a host agent or override host
-permissions. The host adapter must explicitly call its own collaboration tool
-and report what actually ran.
-
-Schema v30 adds a bounded Rust repair pilot. An append-only case event links
-one active same-project task to a direct reproduction file and a direct file
-containing a matching rustc JSON error code. A local runner receipt for the
-named `rustc` command must match the diagnostic stderr hash, source path, and
-nonzero exit. The runner records a bounded source hash in its start event;
-that hash must match the reproduction evidence captured before the run. The
-file is rechecked at intake. The rustc version and edition are reported inputs. An optional
-external-source evidence item records a reference
-without promoting its contents to authority. A lesson event can be added once,
-after the repair task completes with a criterion proof backed by a successful
-post-intake `cargo test` receipt from the local runner. Exact diagnostic code,
-reported compiler version, edition, and project scope bound retrieval. The
-proposed rule, applicability, and counterexample remain reported advice; the
-receipt proves only that the specific command passed for the recorded workspace
-state. The pre-execution snapshot does not rule out concurrent file mutation
-during compilation, authenticate the host toolchain, or prove test adequacy.
-Aporic does not create patches, run commands through MCP, or grant host
-permissions through this workflow.
-
-Schema v23 adds append-only task-brief assembly receipts. A built-in, versioned
-template combines a task objective and exact acceptance criteria with a bounded
-selection from the existing context policy. The MCP response includes the
-advisory rendered brief, while the database and project export retain only the
-template/context policy digests, selected item IDs, brief digest and byte count.
-No raw hook prompt or rendered brief is added to durable state. Reusing a key
-after the selected source context changes is a conflict. The offline context
-evaluation suite reports fixed-fixture coverage, untrusted-item selection,
-authority-label preservation, byte budgets, and replay determinism; it does
-not measure model outcomes.
-
-Schema v24 introduced prompt-trial records linked to task briefs. Prompt trials
-are retired; their migrations and prior event records remain available through
-raw event export without retaining a current evaluation surface.
-
-Schema v26 adds an optional subject key to claims. New material unknowns need
-one; a resolving claim must cite the same key. For direct workspace-file
-claims, a supplied key must identify the canonical evidence file observed at
-registration. The current locator and digest are rechecked before a keyed
-claim is accepted, so retargeting a symlink cannot borrow another file's
-evidence. Historical evidence without a recorded canonical locator cannot
-establish a new keyed file claim. Historical unkeyed
-claims keep their prior resolution behavior and are not retroactively assigned
-subjects. Project export format v22 includes subject keys and observed canonical
-locators. The v26 migration normalizes historical supersession timestamps in
-the rebuildable memory projection before field-level auditing.
-
-The completion gate rejects superseded verified claims and reads a directly
-proved file again before accepting its observed canonical identity and digest.
-A successful command
-receipt still attests the registered command's result, not whether that command
-adequately tested a natural-language requirement. Task criteria currently use
-exact mechanical claim strings; semantic acceptance needs separate review.
-
-Recall candidate extraction uses the same material-unknown, constraint, and
-decision priority as final selection, including under the bounded candidate
-limit. Memory projection audit compares reconstructed source fields and FTS
-content, in addition to counts. CLI `doctor` reports core and extension health
-separately; an extension failure does not imply that continuity state is broken.
-These checks detect specified forms of corruption, not same-user database
-tampering or every historical replay discrepancy.
-
-## MCP surface
-
-- `aporic_open`: start an idempotent session and return recent context.
-- `aporic_recall`: retrieve a bounded project capsule.
-- `aporic_resume`: identify one unambiguous unfinished task or fresh handoff
-  for a new session, without treating prior text as authority.
-- `aporic_memory_search` and `aporic_memory_get`: inspect deterministic,
-  workspace-scoped memory without granting write or execution authority.
-- `aporic_record`: append one durable typed record.
-- `aporic_evidence_add`, `aporic_claim_assert`, and `aporic_dissent_assess`:
-  enforce the evidence, certainty, unknown, and counterargument gates.
-- `aporic_model_route`: return an advisory Astra/Sol/Luna route from typed task
-  signals.
-- `aporic_check_register`, `aporic_run_list`, and `aporic_run_get`: register
-  immutable checks and inspect verifiable execution history without exposing an
-  MCP execution capability.
-- `aporic_close`: complete or hand off a session.
-- `aporic_reconcile`: mark inactive sessions abandoned without converting them
-  into completed work.
-- `aporic_task_create`, `aporic_task_list`, `aporic_task_claim`,
-  `aporic_task_complete`, and `aporic_task_cancel`: maintain advisory task
-  contracts, dependency gates, non-overlapping write leases, and
-  criterion-by-criterion verified proofs.
-- `aporic_workflow_plan`, `aporic_workflow_advance`, and
-  `aporic_workflow_status`: preserve iterative task planning revisions and
-  reject unsupported advisory stage transitions; see `docs/workflow-gates.md`.
-- `aporic_task_memory_apply` and `aporic_task_memory_list`: connect an active
-  memory to a task criterion during planning, then inspect its current lifecycle
-  and the criterion's completion proof.
-- `aporic_task_work_packet`: combine one existing task, its planned memory uses,
-  and a typed advisory worker/reviewer model route for a Codex host to inspect
-  before delegation. The packet is read-only and never dispatches an agent.
-- `aporic_task_brief`: assemble a versioned bounded advisory brief and record a
-  content-free receipt, without dispatching an agent or changing host instructions.
-- `aporic_related_workspaces`: inspect metadata for explicitly configured local
-  roots and return historical candidates without cross-project mutation.
-
-The task-memory workflow is: search or recall current workspace memory, create
-a task with a concrete acceptance criterion, link a relevant memory and intended
-action before claiming the task, then complete the criterion with the existing
-verified-claim proof. A later list call shows both the planned application and
-the proof, while exposing if the linked memory has since been superseded. An
-unlinked task remains valid for callers with no relevant memory. Linkage is a
-reported plan, and criterion verification does not measure causal benefit; that
-requires a separate paired outcome evaluation.
-- `aporic_accountability_open`, `aporic_accountability_plan`,
-  `aporic_accountability_resolve`, and `aporic_accountability_list`: preserve
-  evidence-labelled failure reports and repair obligations without changing
-  host permissions or treating model reflection as verification.
-- `aporic_trace_list`, `aporic_trace_get`, `aporic_capability_report`, and
-  `aporic_hook_health`: inspect runtime observations, inferred capability
-  projections, and observable hook gaps without exposing a control surface.
-- `aporic_git_observe`, `aporic_git_snapshot_list`, and
-  `aporic_git_snapshot_get`: capture and inspect local commit-bound Git evidence
-  without fetch, checkout, commit, push, PR, review, or merge capabilities.
-- `aporic_token_usage_record`, `aporic_token_usage_list`, and
-  `aporic_token_efficiency_report`: append and inspect provenance-labelled usage
-  without calling a model API or converting estimates into exact counts.
-
-Recall excludes records and claims superseded by newer state. Its selector
-combines unresolved material unknowns, active constraints and decisions, active
-tasks, verified/observed claims, handoffs, and other recent records under a
-fixed item and UTF-8 content-byte budget. Objective and focus-path token overlap
-only rank items within the higher-level safety priority; recency and stable IDs
-make ties deterministic. Each item exposes its origin, influence class, and
-selection reasons. Historical effect/verification links remain readable, but
-new writes use the typed gate.
-
-After ranking, identical content is selected once and lower-priority duplicates
-are omitted. Context budgets disclose candidate, duplicate, oversized, and
-item-limit counts. The conservative input-token upper bound equals selected
-UTF-8 bytes; its source label prevents consumers from mistaking it for a
-provider tokenizer count.
-
-The Codex hook adapter appends no raw hook payload. Opening the local store may
-still initialize or migrate its schema. For session and prompt events, it uses a
-submitted prompt only as an in-memory relevance query, emits model-visible text
-inside JSON data records under a data-not-instructions header, and records a
-privacy-preserving exposure receipt. For all recognized lifecycle events it
-records privacy-minimized runtime metadata and hashes. Tool and permission hooks
-always return an empty JSON object. Errors also return `{}`. The adapter does not
-block tools, request permissions, invoke models, or modify Codex configuration.
-
-Shadow disposition is a deterministic counterfactual classification. Even
-`would_deny` is a recorded observation and has no enforcement path. Hook health
-compares pre/terminal tool pairs, duplicate fingerprints, and unknown event,
-capability, or schema values. It can reveal evidence of incomplete observation;
-it cannot prove completeness, so `coverage_proven` is always false. The CLI can emit local OpenTelemetry-shaped JSON
-with 128-bit trace IDs and 64-bit span IDs, but does not transmit it.
-
-Tool failures are returned as visible tool-level errors. Protocol errors are
-reserved for malformed MCP requests that cannot be routed or decoded.
-
-## Automated evaluation
-
-`frontier_failures` is a deterministic simulation suite for five recurrent
-model failures: context loss after restart, stale decision reuse, unsupported
-completion, duplicate work, and orphaned sessions. It is a regression contract,
-not evidence that every natural-language model behavior is solved.
-
-`coordination_failures` injects dependency violations, overlapping write scopes,
-unsupported completion, duplicate task objectives, and expired leases.
-`long_horizon` repeats decision revision, restart, lease, and completion cycles
-to detect accumulating stale state.
-
-`epistemic_gate` injects unsupported certainty, unresolved unknowns, irrelevant
-dissent, and model-routing boundary cases.
-
-`verifiable_execution` simulates success, non-zero exit, timeout, missing
-artifacts, path traversal, duplicate registration, concurrent execution, retry,
-task proof binding, interrupted-run reconciliation, export, and event replay.
-
-`context_runtime` simulates migration, deterministic budget enforcement,
-supersession, unknown/task retention, memory-injection labeling, fail-open hook
-behavior, and non-persistence of sensitive lifecycle fields.
-
-`memory_lifecycle` exercises FTS retrieval, explicit temporal supersession,
-untrusted-by-default text, bounded Hook output, HMAC-only exposure correlation,
-and projection/FTS consistency. `eval memory` adds an offline fixed-trace check
-for stale exclusion, gotcha retention, unknown preservation, determinism, and
-zero poison authority escalation.
-
-`runtime_trace` exercises v7 migration, HMAC correlation, memory-exposure
-association, payload non-retention, capability projection, shadow-policy
-non-enforcement, gap/duplicate/schema detection, trace lookup, and content-free
-export. `eval runtime` adds a fixed offline adversarial trace and asserts no
-blocking, raw payload retention, network export, or model/API invocation.
-
-`git_governance` exercises v8 migration, immutable observation, ref validation,
-sensitive-path detection, append-only lookup, and digest consistency against
-real temporary repositories. `eval git` fixes six adversarial governance states
-and asserts zero Git mutation, approval, network, or model/API calls.
-
-`token_efficiency` exercises v9 migration, provenance validation, idempotent
-append-only receipts, direct verification binding, cache/input separation,
-digest corruption detection, export, deterministic context deduplication, and
-unknown retention. `eval tokens` compares a duplicate-bearing byte baseline
-with the bounded selector and explicitly emits no exact token claim from byte
-estimates.
-
-Historical migrations for retired feature families are covered by compatibility
-tests that ensure existing databases still open and their event history remains
-exportable without recreating an active API.
-
-## Later growth
-
-Actual agent dispatch, event-driven waiting, remote transports, remote-effect
-verification, stronger cgroup/seccomp/VM isolation, PR automation,
-protected-ref enforcement, and merge queues are later layers. The current task,
-lease, Git snapshot, and finding records are advisory state only and do not make
-the continuity loop depend on a worker runtime or grant repository authority.
+Deterministic offline evaluations test the grader and selector contracts. They
+make no model calls and do not establish model quality, owner-time savings or
+causal product improvement. Meaningful browser/product acceptance still requires
+appropriate host-run checks and observation.

@@ -1,3 +1,0 @@
-   Compiling aporic v0.25.0 (/private/tmp/aporic-restore-e2e-v1/grade-treatment/crates/aporic)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.63s
-     Running tests/recovery.rs (/private/tmp/aporic-restore-e2e-v1/grader-target/debug/deps/recovery-99f81c7a96438ed1)

@@ -29,7 +29,3 @@ cargo build --release --locked
 Identity reports the compiled package version, deterministic source digest, observed Git HEAD/dirty state, compiler version, and schema version. The digest covers source, build script, manifests/lock, migrations and kernel input. It is an observation, not an attestation. The previous MCP handshake version was hard-coded: an old displayed number alone did not prove a stale binary. Handshake version now uses the compiled package version and begin exposes full runtime identity.
 
 Replacing a release file does not replace an already-running MCP process. Restart/reconnect the host MCP server, then inspect begin's runtime digest. `release validate` checks the executable against current checkout inputs; it does not prove the host connected to that executable. The configured absolute release executable avoids `cargo run` on each tool call. The default advisory implementation route is `gpt-6.1-sol`; the host owns actual model selection.
-
-## Evidence
-
-The [operational trials](../benchmarks/core-flow-v1/REPORT.md) record two actual repository improvements across two durable sessions each, plus a small direct stdio probe. These are continuity and mechanical checks, not a paired model-quality or net-latency experiment. Host tokens and record-authoring effort were not isolated. A reduction in lifecycle calls is directly observable; a general task-time benefit still needs the frozen paired instrument pilot described in [core operating cost](core-ops-cost.md).
