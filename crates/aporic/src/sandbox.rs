@@ -294,6 +294,16 @@ fn copy_host_environment(command: &mut Command) {
         "INCLUDE",
         "LIB",
         "LIBPATH",
+        // Preserve VS/SDK discovery roots and toolchain context so Rust
+        // does not fall back to an unrelated link.exe on PATH.
+        "ProgramFiles",
+        "ProgramFiles(x86)",
+        "VCINSTALLDIR",
+        "VSINSTALLDIR",
+        "VSCMD_ARG_TGT_ARCH",
+        "VCToolsVersion",
+        "WindowsSdkDir",
+        "WindowsSDKVersion",
     ] {
         if let Some(value) = env::var_os(name) {
             command.env(name, value);

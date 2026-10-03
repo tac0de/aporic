@@ -387,6 +387,14 @@ async fn rust_repair_lesson_requires_the_completed_tasks_cargo_test_receipt() {
             "INCLUDE",
             "LIB",
             "LIBPATH",
+            "ProgramFiles",
+            "ProgramFiles(x86)",
+            "VCINSTALLDIR",
+            "VSINSTALLDIR",
+            "VSCMD_ARG_TGT_ARCH",
+            "VCToolsVersion",
+            "WindowsSdkDir",
+            "WindowsSDKVersion",
         ] {
             if let Some(value) = std::env::var_os(name) {
                 command.env(name, value);
