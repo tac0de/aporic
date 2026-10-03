@@ -9,6 +9,117 @@ use rmcp::{
 use serde_json::{Map, Value, json};
 
 #[tokio::test]
+async fn delivery_tools_preserve_manifest_evidence_across_stdio_restart()
+-> Result<(), Box<dyn Error>> {
+    fn copy_tree(from: &std::path::Path, to: &std::path::Path) -> std::io::Result<()> {
+        std::fs::create_dir_all(to)?;
+        for entry in std::fs::read_dir(from)? {
+            let entry = entry?;
+            let path = entry.path();
+            let target = to.join(entry.file_name());
+            if path.is_dir() {
+                copy_tree(&path, &target)?;
+            } else {
+                std::fs::copy(path, target)?;
+            }
+        }
+        Ok(())
+    }
+    let area = tempfile::tempdir()?;
+    let workspace = area.path().join("workspace");
+    std::fs::create_dir(&workspace)?;
+    let repository = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    copy_tree(
+        &repository.join("examples/product-delivery"),
+        &workspace.join("examples/product-delivery"),
+    )?;
+    let database = area.path().join("db.sqlite3");
+    let client = start_server(&database).await?;
+    let opened=call_json(&client,"aporic_open",json!({"workspace":workspace,"objective":"Delivery protocol probe","idempotency_key":"delivery-open"})).await?;
+    let sid = opened["result"]["session_id"].as_str().unwrap().to_owned();
+    let manifest = "examples/product-delivery/web_game/manifest.json";
+    let profiles = call_json(
+        &client,
+        "aporic_delivery_profiles",
+        json!({"profile_id":"web_game","version":1}),
+    )
+    .await?;
+    assert_eq!(profiles["ok"], true);
+    assert!(
+        profiles["result"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|c| c["id"] == "web_game.save")
+    );
+    let invalid_profile = call_json(
+        &client,
+        "aporic_delivery_profiles",
+        json!({"profile_id":"web_game","version":99}),
+    )
+    .await?;
+    assert_eq!(invalid_profile["ok"], false);
+    let validation = call_json(
+        &client,
+        "aporic_delivery_validate",
+        json!({"workspace":workspace,"manifest":manifest}),
+    )
+    .await?;
+    assert_eq!(validation["ok"], true);
+    assert_eq!(validation["result"]["valid"], false);
+    assert!(
+        validation["result"]["checks"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|c| c["execution_verified"] == false)
+    );
+    let local: Value = serde_json::from_slice(&std::fs::read(workspace.join(manifest))?)?;
+    let focus = local["checks"][0]["test_id"].as_str().unwrap();
+    let brief=call_json(&client,"aporic_delivery_brief",json!({"workspace":workspace,"manifest":manifest,"focus_ids":[focus],"max_nodes":32,"max_bytes":8192})).await?;
+    assert_eq!(brief["ok"], true);
+    assert!(
+        brief["result"]["text"]
+            .as_str()
+            .unwrap()
+            .contains("commands")
+    );
+    let impact = call_json(
+        &client,
+        "aporic_delivery_impact",
+        json!({"workspace":workspace,"previous":manifest,"current":manifest}),
+    )
+    .await?;
+    assert_eq!(impact["ok"], true);
+    assert!(
+        impact["result"]["preserved_check_ids"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    let arguments =
+        json!({"session_id":sid,"manifest":manifest,"idempotency_key":"delivery-register"});
+    let first = call_json(&client, "aporic_delivery_register", arguments.clone()).await?;
+    assert_eq!(first["ok"], true);
+    let evidence_id = first["result"]["evidence"]["evidence_id"].clone();
+    client.cancel().await?;
+    let client = start_server(&database).await?;
+    let retry = call_json(&client, "aporic_delivery_register", arguments).await?;
+    assert_eq!(retry["ok"], true);
+    assert_eq!(retry["result"]["duplicate"], true);
+    assert_eq!(retry["result"]["evidence"]["evidence_id"], evidence_id);
+    let invalid = call_json(
+        &client,
+        "aporic_delivery_validate",
+        json!({"workspace":workspace,"manifest":"../escape.json"}),
+    )
+    .await?;
+    assert_eq!(invalid["ok"], false);
+    client.cancel().await?;
+    Ok(())
+}
+
+#[tokio::test]
 async fn session_delegation_is_available_without_creating_a_task() -> Result<(), Box<dyn Error>> {
     let area = tempfile::tempdir()?;
     let workspace = area.path().join("workspace");
@@ -142,8 +253,13 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
         .into_iter()
         .map(|tool| tool.name.to_string())
         .collect::<Vec<_>>();
-    assert_eq!(tool_names.len(), 53, "default MCP surface changed");
+    assert_eq!(tool_names.len(), 58, "default MCP surface changed");
     for required in [
+        "aporic_delivery_validate",
+        "aporic_delivery_impact",
+        "aporic_delivery_brief",
+        "aporic_delivery_register",
+        "aporic_delivery_profiles",
         "aporic_begin",
         "aporic_finish",
         "aporic_open",
@@ -616,7 +732,7 @@ async fn full_mcp_profile_is_explicit_and_reveals_optional_diagnostics()
         .into_iter()
         .map(|tool| tool.name.to_string())
         .collect::<Vec<_>>();
-    assert_eq!(names.len(), 67, "full MCP surface changed");
+    assert_eq!(names.len(), 72, "full MCP surface changed");
     assert!(names.iter().any(|name| name == "aporic_trace_list"));
     assert!(
         names

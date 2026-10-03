@@ -1,0 +1,1709 @@
+{
+  "schema_version": 1,
+  "project_id": "example-web_game",
+  "revision": "declarative-v1",
+  "execution": {
+    "stack": [
+      "Rust product logic",
+      "Browser presentation adapter"
+    ],
+    "architecture": [
+      "Rust state model behind a browser event adapter"
+    ],
+    "commands": {
+      "product_contract": [
+        "cargo",
+        "test",
+        "--manifest-path",
+        "product/Cargo.toml",
+        "--test",
+        "delivery_contract"
+      ]
+    },
+    "supported_environments": [
+      "Chromium and Firefox; exact versions to be recorded before verification",
+      "320px and 1440px viewport targets"
+    ],
+    "config_refs": [
+      "PRODUCT_ENV",
+      "ASSET_BASE_URL"
+    ],
+    "constraints": [
+      "Fixture only; product command and adapter must be implemented before execution credit",
+      "No release or deployment automation"
+    ],
+    "quality_targets": [
+      "Game frame target: 16.7 ms at declared representative workload",
+      "Keyboard access to all primary controls"
+    ]
+  },
+  "profiles": [
+    {
+      "id": "web_game",
+      "version": 1,
+      "not_applicable": []
+    }
+  ],
+  "nodes": [
+    {
+      "id": "planning",
+      "kind": "planning",
+      "description": "web_game planning declaration",
+      "depends_on": [],
+      "file": {
+        "path": "examples/product-delivery/web_game/architecture.md",
+        "sha256": "934e6122cbf2608b1cf31808d9f11542fa768fbc615071b169d158c96054479b"
+      }
+    },
+    {
+      "id": "source",
+      "kind": "source",
+      "description": "web_game source declaration",
+      "depends_on": [],
+      "file": {
+        "path": "examples/product-delivery/web_game/source.rs",
+        "sha256": "562cbcaba0c8ce988638ecda1f78b189643ffb336e2f93596dfd206bc6cb7e84"
+      }
+    },
+    {
+      "id": "dependency",
+      "kind": "dependency",
+      "description": "web_game dependency declaration",
+      "depends_on": [],
+      "file": {
+        "path": "examples/product-delivery/web_game/dependencies.md",
+        "sha256": "66458657f56986c5e355455144ac1eb9bbfe90aa8a6c41bbacae1d0af95db4ae"
+      }
+    },
+    {
+      "id": "asset",
+      "kind": "asset",
+      "description": "web_game asset declaration",
+      "depends_on": [],
+      "file": {
+        "path": "examples/product-delivery/web_game/assets.md",
+        "sha256": "0319d67821bfd8155c0abbda245a714baf4fa6654df4b333a8a0f4ea52140bf9"
+      }
+    },
+    {
+      "id": "build",
+      "kind": "build",
+      "description": "web_game build declaration",
+      "depends_on": [],
+      "file": {
+        "path": "examples/product-delivery/web_game/build.md",
+        "sha256": "a18812f6913cc1a2eed3272f04fec852d79bf0e10ea1184088c519066d2f4783"
+      }
+    },
+    {
+      "id": "environment",
+      "kind": "environment",
+      "description": "web_game environment declaration",
+      "depends_on": [],
+      "file": {
+        "path": "examples/product-delivery/web_game/environment.md",
+        "sha256": "9e3da90ac2761fdad2555ad09582979f82388a4fa12f939083437a9a49d9b78c"
+      }
+    },
+    {
+      "id": "general-execution-requirement",
+      "kind": "requirement",
+      "description": "Recover the documented execution method",
+      "depends_on": []
+    },
+    {
+      "id": "general-execution-scenario",
+      "kind": "scenario",
+      "description": "Exercise general.execution",
+      "depends_on": [
+        "general-execution-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "general-execution-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_game product in a supported environment"
+        ],
+        "actions": [
+          "Build with the declared toolchain and supported configuration; report a missing dependency without corrupting local state."
+        ],
+        "expected": [
+          "Build with the declared toolchain and supported configuration; report a missing dependency without corrupting local state."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "general-execution-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for general.execution",
+      "depends_on": [
+        "general-execution-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/general-execution.md",
+        "sha256": "a73bf23cde7d02692e44999c0d1490b893f3f9ce8e2251231bd3249e6762382d"
+      }
+    },
+    {
+      "id": "general-execution-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for general.execution; source model is partial",
+      "depends_on": [
+        "general-execution-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "general-execution-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for general.execution",
+      "depends_on": [
+        "general-execution-implementation",
+        "general-execution-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/general-execution.md",
+        "sha256": "a73bf23cde7d02692e44999c0d1490b893f3f9ce8e2251231bd3249e6762382d"
+      }
+    },
+    {
+      "id": "general-traceability-requirement",
+      "kind": "requirement",
+      "description": "Trace every product requirement through a reproducible scenario",
+      "depends_on": []
+    },
+    {
+      "id": "general-traceability-scenario",
+      "kind": "scenario",
+      "description": "Exercise general.traceability",
+      "depends_on": [
+        "general-traceability-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "general-traceability-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_game product in a supported environment"
+        ],
+        "actions": [
+          "Resolve the requirement, scenario, design, implementation and test links; a missing link reports incomplete delivery."
+        ],
+        "expected": [
+          "Resolve the requirement, scenario, design, implementation and test links; a missing link reports incomplete delivery."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "general-traceability-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for general.traceability",
+      "depends_on": [
+        "general-traceability-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/general-traceability.md",
+        "sha256": "3a392a001b47e141f8eaafda46db523472d3d09aa500d6d17143a91b8a9cd424"
+      }
+    },
+    {
+      "id": "general-traceability-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for general.traceability; source model is partial",
+      "depends_on": [
+        "general-traceability-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "general-traceability-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for general.traceability",
+      "depends_on": [
+        "general-traceability-implementation",
+        "general-traceability-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/general-traceability.md",
+        "sha256": "3a392a001b47e141f8eaafda46db523472d3d09aa500d6d17143a91b8a9cd424"
+      }
+    },
+    {
+      "id": "general-verification-requirement",
+      "kind": "requirement",
+      "description": "Preserve only current, execution-bound check credit",
+      "depends_on": []
+    },
+    {
+      "id": "general-verification-scenario",
+      "kind": "scenario",
+      "description": "Exercise general.verification",
+      "depends_on": [
+        "general-verification-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "general-verification-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_game product in a supported environment"
+        ],
+        "actions": [
+          "Compare full prerequisite fingerprints and command specification; altered source or replaced result invalidates the old check."
+        ],
+        "expected": [
+          "Compare full prerequisite fingerprints and command specification; altered source or replaced result invalidates the old check."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "general-verification-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for general.verification",
+      "depends_on": [
+        "general-verification-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/general-verification.md",
+        "sha256": "367794c4d60026e00e266096f0b11d1d054a6d05865a83789e84a1c12a461977"
+      }
+    },
+    {
+      "id": "general-verification-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for general.verification; source model is partial",
+      "depends_on": [
+        "general-verification-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "general-verification-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for general.verification",
+      "depends_on": [
+        "general-verification-implementation",
+        "general-verification-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/general-verification.md",
+        "sha256": "367794c4d60026e00e266096f0b11d1d054a6d05865a83789e84a1c12a461977"
+      }
+    },
+    {
+      "id": "general-recovery-requirement",
+      "kind": "requirement",
+      "description": "Recover predictably from an interrupted operation",
+      "depends_on": []
+    },
+    {
+      "id": "general-recovery-scenario",
+      "kind": "scenario",
+      "description": "Exercise general.recovery",
+      "depends_on": [
+        "general-recovery-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "general-recovery-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_game product in a supported environment"
+        ],
+        "actions": [
+          "Interrupt the active operation; preserve the prior valid state and present an observable retry or recovery outcome."
+        ],
+        "expected": [
+          "Interrupt the active operation; preserve the prior valid state and present an observable retry or recovery outcome."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "general-recovery-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for general.recovery",
+      "depends_on": [
+        "general-recovery-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/general-recovery.md",
+        "sha256": "74b98aa95292ddb1dd4362190c042b45223d3e42cb199e76568f46d27738fc56"
+      }
+    },
+    {
+      "id": "general-recovery-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for general.recovery; source model is partial",
+      "depends_on": [
+        "general-recovery-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "general-recovery-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for general.recovery",
+      "depends_on": [
+        "general-recovery-implementation",
+        "general-recovery-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/general-recovery.md",
+        "sha256": "74b98aa95292ddb1dd4362190c042b45223d3e42cb199e76568f46d27738fc56"
+      }
+    },
+    {
+      "id": "web-accessibility-requirement",
+      "kind": "requirement",
+      "description": "Operate all primary interactions with a keyboard",
+      "depends_on": []
+    },
+    {
+      "id": "web-accessibility-scenario",
+      "kind": "scenario",
+      "description": "Exercise web.accessibility",
+      "depends_on": [
+        "web-accessibility-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web-accessibility-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_game product in a supported environment"
+        ],
+        "actions": [
+          "Tab through controls, activate with Enter or Space and dismiss overlays; focus and accessible names remain usable."
+        ],
+        "expected": [
+          "Tab through controls, activate with Enter or Space and dismiss overlays; focus and accessible names remain usable."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web-accessibility-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web.accessibility",
+      "depends_on": [
+        "web-accessibility-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web-accessibility.md",
+        "sha256": "b52b3fea0614ec62e1a7a0c75326ecaa52a01f83d3720bd6872fd0f7cf1707dc"
+      }
+    },
+    {
+      "id": "web-accessibility-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web.accessibility; source model is partial",
+      "depends_on": [
+        "web-accessibility-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web-accessibility-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web.accessibility",
+      "depends_on": [
+        "web-accessibility-implementation",
+        "web-accessibility-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web-accessibility.md",
+        "sha256": "b52b3fea0614ec62e1a7a0c75326ecaa52a01f83d3720bd6872fd0f7cf1707dc"
+      }
+    },
+    {
+      "id": "web-responsive-requirement",
+      "kind": "requirement",
+      "description": "Use the interface at supported viewport sizes",
+      "depends_on": []
+    },
+    {
+      "id": "web-responsive-scenario",
+      "kind": "scenario",
+      "description": "Exercise web.responsive",
+      "depends_on": [
+        "web-responsive-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web-responsive-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_game product in a supported environment"
+        ],
+        "actions": [
+          "Visit narrow and wide viewports with zoom; primary controls remain reachable and content reflows."
+        ],
+        "expected": [
+          "Visit narrow and wide viewports with zoom; primary controls remain reachable and content reflows."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web-responsive-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web.responsive",
+      "depends_on": [
+        "web-responsive-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web-responsive.md",
+        "sha256": "8d175f4f827ad07580e3c0d90b572dab02991e8f03108a71aa79a81a50d23bf8"
+      }
+    },
+    {
+      "id": "web-responsive-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web.responsive; source model is partial",
+      "depends_on": [
+        "web-responsive-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web-responsive-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web.responsive",
+      "depends_on": [
+        "web-responsive-implementation",
+        "web-responsive-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web-responsive.md",
+        "sha256": "8d175f4f827ad07580e3c0d90b572dab02991e8f03108a71aa79a81a50d23bf8"
+      }
+    },
+    {
+      "id": "web-browser_compatibility-requirement",
+      "kind": "requirement",
+      "description": "Support declared browser capabilities",
+      "depends_on": []
+    },
+    {
+      "id": "web-browser_compatibility-scenario",
+      "kind": "scenario",
+      "description": "Exercise web.browser_compatibility",
+      "depends_on": [
+        "web-browser_compatibility-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web-browser_compatibility-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_game product in a supported environment"
+        ],
+        "actions": [
+          "Exercise supported browsers and unavailable optional capabilities; either the operation works or a clear fallback is shown."
+        ],
+        "expected": [
+          "Exercise supported browsers and unavailable optional capabilities; either the operation works or a clear fallback is shown."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web-browser_compatibility-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web.browser_compatibility",
+      "depends_on": [
+        "web-browser_compatibility-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web-browser_compatibility.md",
+        "sha256": "5855ca125422306db898c11c4e8f678dfe5c7ab5fdc65f95d577a3bd4eefb512"
+      }
+    },
+    {
+      "id": "web-browser_compatibility-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web.browser_compatibility; source model is partial",
+      "depends_on": [
+        "web-browser_compatibility-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web-browser_compatibility-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web.browser_compatibility",
+      "depends_on": [
+        "web-browser_compatibility-implementation",
+        "web-browser_compatibility-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web-browser_compatibility.md",
+        "sha256": "5855ca125422306db898c11c4e8f678dfe5c7ab5fdc65f95d577a3bd4eefb512"
+      }
+    },
+    {
+      "id": "web-security-requirement",
+      "kind": "requirement",
+      "description": "Handle untrusted content across declared trust boundaries",
+      "depends_on": []
+    },
+    {
+      "id": "web-security-scenario",
+      "kind": "scenario",
+      "description": "Exercise web.security",
+      "depends_on": [
+        "web-security-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web-security-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_game product in a supported environment"
+        ],
+        "actions": [
+          "Submit adversarial display text and malformed input; data remains inert and privileged changes remain unavailable."
+        ],
+        "expected": [
+          "Submit adversarial display text and malformed input; data remains inert and privileged changes remain unavailable."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web-security-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web.security",
+      "depends_on": [
+        "web-security-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web-security.md",
+        "sha256": "e2079de48ff58a3eafda8ae85e0bc338799cebafa14a7b6d936fe4120254780c"
+      }
+    },
+    {
+      "id": "web-security-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web.security; source model is partial",
+      "depends_on": [
+        "web-security-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web-security-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web.security",
+      "depends_on": [
+        "web-security-implementation",
+        "web-security-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web-security.md",
+        "sha256": "e2079de48ff58a3eafda8ae85e0bc338799cebafa14a7b6d936fe4120254780c"
+      }
+    },
+    {
+      "id": "web-network_failure-requirement",
+      "kind": "requirement",
+      "description": "Recover after a network request fails",
+      "depends_on": []
+    },
+    {
+      "id": "web-network_failure-scenario",
+      "kind": "scenario",
+      "description": "Exercise web.network_failure",
+      "depends_on": [
+        "web-network_failure-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web-network_failure-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_game product in a supported environment"
+        ],
+        "actions": [
+          "Disconnect, timeout and reconnect during a request; an observable error permits retry without losing valid prior state."
+        ],
+        "expected": [
+          "Disconnect, timeout and reconnect during a request; an observable error permits retry without losing valid prior state."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web-network_failure-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web.network_failure",
+      "depends_on": [
+        "web-network_failure-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web-network_failure.md",
+        "sha256": "ddc23a81cbf99591b66b6b75d6b7edc960d4c56f1d5a6298043e4a822470e1de"
+      }
+    },
+    {
+      "id": "web-network_failure-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web.network_failure; source model is partial",
+      "depends_on": [
+        "web-network_failure-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web-network_failure-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web.network_failure",
+      "depends_on": [
+        "web-network_failure-implementation",
+        "web-network_failure-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web-network_failure.md",
+        "sha256": "ddc23a81cbf99591b66b6b75d6b7edc960d4c56f1d5a6298043e4a822470e1de"
+      }
+    },
+    {
+      "id": "web-loading_empty-requirement",
+      "kind": "requirement",
+      "description": "Represent loading and empty outcomes clearly",
+      "depends_on": []
+    },
+    {
+      "id": "web-loading_empty-scenario",
+      "kind": "scenario",
+      "description": "Exercise web.loading_empty",
+      "depends_on": [
+        "web-loading_empty-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web-loading_empty-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_game product in a supported environment"
+        ],
+        "actions": [
+          "Open without data, await delayed data and receive an empty result; status is visible and the next valid action remains available."
+        ],
+        "expected": [
+          "Open without data, await delayed data and receive an empty result; status is visible and the next valid action remains available."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web-loading_empty-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web.loading_empty",
+      "depends_on": [
+        "web-loading_empty-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web-loading_empty.md",
+        "sha256": "6cb2d9f941201d4ccb9f36de371e01efd440e44665deeaaa84e9579298c10c65"
+      }
+    },
+    {
+      "id": "web-loading_empty-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web.loading_empty; source model is partial",
+      "depends_on": [
+        "web-loading_empty-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web-loading_empty-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web.loading_empty",
+      "depends_on": [
+        "web-loading_empty-implementation",
+        "web-loading_empty-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web-loading_empty.md",
+        "sha256": "6cb2d9f941201d4ccb9f36de371e01efd440e44665deeaaa84e9579298c10c65"
+      }
+    },
+    {
+      "id": "web_game-state-requirement",
+      "kind": "requirement",
+      "description": "Start, advance, finish and restart a game session",
+      "depends_on": []
+    },
+    {
+      "id": "web_game-state-scenario",
+      "kind": "scenario",
+      "description": "Exercise web_game.state",
+      "depends_on": [
+        "web_game-state-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web_game-state-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_game product in a supported environment"
+        ],
+        "actions": [
+          "Advance through menu, playing and finished states; restart clears transient score without duplicating a session."
+        ],
+        "expected": [
+          "Advance through menu, playing and finished states; restart clears transient score without duplicating a session."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web_game-state-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web_game.state",
+      "depends_on": [
+        "web_game-state-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web_game-state.md",
+        "sha256": "e44a4321ff16b6b406dd1de22f25c96edf37467272e3854095da851525cb9c13"
+      }
+    },
+    {
+      "id": "web_game-state-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web_game.state; source model is partial",
+      "depends_on": [
+        "web_game-state-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web_game-state-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web_game.state",
+      "depends_on": [
+        "web_game-state-implementation",
+        "web_game-state-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web_game-state.md",
+        "sha256": "e44a4321ff16b6b406dd1de22f25c96edf37467272e3854095da851525cb9c13"
+      }
+    },
+    {
+      "id": "web_game-input-requirement",
+      "kind": "requirement",
+      "description": "Resolve repeated, ordered and lost-focus input predictably",
+      "depends_on": []
+    },
+    {
+      "id": "web_game-input-scenario",
+      "kind": "scenario",
+      "description": "Exercise web_game.input",
+      "depends_on": [
+        "web_game-input-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web_game-input-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_game product in a supported environment"
+        ],
+        "actions": [
+          "Hold and repeat movement keys, combine inputs and lose focus; no stuck input survives the focus transition."
+        ],
+        "expected": [
+          "Hold and repeat movement keys, combine inputs and lose focus; no stuck input survives the focus transition."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web_game-input-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web_game.input",
+      "depends_on": [
+        "web_game-input-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web_game-input.md",
+        "sha256": "66dd751bd46b90be3362b8af555bce9c26b890812e424308e5d1b9173501d295"
+      }
+    },
+    {
+      "id": "web_game-input-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web_game.input; source model is partial",
+      "depends_on": [
+        "web_game-input-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web_game-input-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web_game.input",
+      "depends_on": [
+        "web_game-input-implementation",
+        "web_game-input-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web_game-input.md",
+        "sha256": "66dd751bd46b90be3362b8af555bce9c26b890812e424308e5d1b9173501d295"
+      }
+    },
+    {
+      "id": "web_game-save-requirement",
+      "kind": "requirement",
+      "description": "Restore a versioned saved session safely",
+      "depends_on": []
+    },
+    {
+      "id": "web_game-save-scenario",
+      "kind": "scenario",
+      "description": "Exercise web_game.save",
+      "depends_on": [
+        "web_game-save-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web_game-save-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_game product in a supported environment"
+        ],
+        "actions": [
+          "Round-trip score and checkpoint; reject corrupt or unsupported-version saves and retain the last valid checkpoint."
+        ],
+        "expected": [
+          "Round-trip score and checkpoint; reject corrupt or unsupported-version saves and retain the last valid checkpoint."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web_game-save-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web_game.save",
+      "depends_on": [
+        "web_game-save-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web_game-save.md",
+        "sha256": "d2dbfd7b10aaffa66f9a8b0a77fd33c14555f513c2e07353679a9d32678f49f3"
+      }
+    },
+    {
+      "id": "web_game-save-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web_game.save; source model is partial",
+      "depends_on": [
+        "web_game-save-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web_game-save-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web_game.save",
+      "depends_on": [
+        "web_game-save-implementation",
+        "web_game-save-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web_game-save.md",
+        "sha256": "d2dbfd7b10aaffa66f9a8b0a77fd33c14555f513c2e07353679a9d32678f49f3"
+      }
+    },
+    {
+      "id": "web_game-time-requirement",
+      "kind": "requirement",
+      "description": "Keep game simulation time correct across pauses",
+      "depends_on": []
+    },
+    {
+      "id": "web_game-time-scenario",
+      "kind": "scenario",
+      "description": "Exercise web_game.time",
+      "depends_on": [
+        "web_game-time-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web_game-time-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_game product in a supported environment"
+        ],
+        "actions": [
+          "Advance the simulation, pause and resume with a large elapsed gap; paused time does not advance the game."
+        ],
+        "expected": [
+          "Advance the simulation, pause and resume with a large elapsed gap; paused time does not advance the game."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web_game-time-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web_game.time",
+      "depends_on": [
+        "web_game-time-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web_game-time.md",
+        "sha256": "c808c3a5f39a50380d652127d5f5cb2453990ef7996b3837b0e34e5269c7bb18"
+      }
+    },
+    {
+      "id": "web_game-time-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web_game.time; source model is partial",
+      "depends_on": [
+        "web_game-time-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web_game-time-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web_game.time",
+      "depends_on": [
+        "web_game-time-implementation",
+        "web_game-time-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web_game-time.md",
+        "sha256": "c808c3a5f39a50380d652127d5f5cb2453990ef7996b3837b0e34e5269c7bb18"
+      }
+    },
+    {
+      "id": "web_game-visibility-requirement",
+      "kind": "requirement",
+      "description": "Suspend play while hidden and recover on return",
+      "depends_on": []
+    },
+    {
+      "id": "web_game-visibility-scenario",
+      "kind": "scenario",
+      "description": "Exercise web_game.visibility",
+      "depends_on": [
+        "web_game-visibility-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web_game-visibility-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_game product in a supported environment"
+        ],
+        "actions": [
+          "Hide the page mid-frame and return; simulation stays paused until resume and held inputs are cleared."
+        ],
+        "expected": [
+          "Hide the page mid-frame and return; simulation stays paused until resume and held inputs are cleared."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web_game-visibility-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web_game.visibility",
+      "depends_on": [
+        "web_game-visibility-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web_game-visibility.md",
+        "sha256": "8cbd8320f2a34611174b76475969f401a3642ad6b5ac5c317e6f23c5c1aecbef"
+      }
+    },
+    {
+      "id": "web_game-visibility-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web_game.visibility; source model is partial",
+      "depends_on": [
+        "web_game-visibility-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web_game-visibility-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web_game.visibility",
+      "depends_on": [
+        "web_game-visibility-implementation",
+        "web_game-visibility-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web_game-visibility.md",
+        "sha256": "8cbd8320f2a34611174b76475969f401a3642ad6b5ac5c317e6f23c5c1aecbef"
+      }
+    },
+    {
+      "id": "web_game-audio-requirement",
+      "kind": "requirement",
+      "description": "Respect playback consent, mute and suspension",
+      "depends_on": []
+    },
+    {
+      "id": "web_game-audio-scenario",
+      "kind": "scenario",
+      "description": "Exercise web_game.audio",
+      "depends_on": [
+        "web_game-audio-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web_game-audio-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_game product in a supported environment"
+        ],
+        "actions": [
+          "Start without user interaction, grant interaction, mute and suspend; playback follows the user gesture and mute state."
+        ],
+        "expected": [
+          "Start without user interaction, grant interaction, mute and suspend; playback follows the user gesture and mute state."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web_game-audio-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web_game.audio",
+      "depends_on": [
+        "web_game-audio-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web_game-audio.md",
+        "sha256": "fb84de87f9bfb9986123fc1ef1b0da009c5c8d36c4ffd44a560a4efe11c32338"
+      }
+    },
+    {
+      "id": "web_game-audio-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web_game.audio; source model is partial",
+      "depends_on": [
+        "web_game-audio-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web_game-audio-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web_game.audio",
+      "depends_on": [
+        "web_game-audio-implementation",
+        "web_game-audio-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web_game-audio.md",
+        "sha256": "fb84de87f9bfb9986123fc1ef1b0da009c5c8d36c4ffd44a560a4efe11c32338"
+      }
+    },
+    {
+      "id": "web_game-performance-requirement",
+      "kind": "requirement",
+      "description": "Keep frame and resource use within declared budgets",
+      "depends_on": []
+    },
+    {
+      "id": "web_game-performance-scenario",
+      "kind": "scenario",
+      "description": "Exercise web_game.performance",
+      "depends_on": [
+        "web_game-performance-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web_game-performance-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_game product in a supported environment"
+        ],
+        "actions": [
+          "Exercise representative active objects and asset loads; record frame timing and memory against the declared workload budget."
+        ],
+        "expected": [
+          "Exercise representative active objects and asset loads; record frame timing and memory against the declared workload budget."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web_game-performance-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web_game.performance",
+      "depends_on": [
+        "web_game-performance-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web_game-performance.md",
+        "sha256": "36d6c1ab6079c5b28bf85b22dcf838246a093f9d0dbb7fe4186cdf7c9fa1547a"
+      }
+    },
+    {
+      "id": "web_game-performance-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web_game.performance; source model is partial",
+      "depends_on": [
+        "web_game-performance-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web_game-performance-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web_game.performance",
+      "depends_on": [
+        "web_game-performance-implementation",
+        "web_game-performance-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_game/web_game-performance.md",
+        "sha256": "36d6c1ab6079c5b28bf85b22dcf838246a093f9d0dbb7fe4186cdf7c9fa1547a"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "id": "check-general-execution",
+      "scenario_ids": [
+        "general-execution-scenario"
+      ],
+      "test_id": "general-execution-test",
+      "command_id": "product_contract",
+      "categories": [
+        "general.execution"
+      ],
+      "input_sha256": {
+        "asset": "abc4bfd8ec27b00ad4290d0514a3b1d0508bbe1c53ce65f7111a88a9f927ea15",
+        "build": "35e22655d4c868362e643baca23556c8e7229d4911edf60e00f9362781b8dd98",
+        "dependency": "ae42e59dc5ced57681cd89e26c53208c366bf9f8440d8ea81417c2f0b829584b",
+        "environment": "e110496d693346e9a54f302de1eef8c2681653961ca3f53917c0d76014c8ddf6",
+        "general-execution-design": "ce3f681b42a24cb5e2a08a6c6c5fc9daaf23001c14dfc9bcbde0434b1bd0ddc8",
+        "general-execution-implementation": "447942ef9ad70785788856fadbc46267e27ed304039fd0ce4d11282c5b6f00a8",
+        "general-execution-requirement": "6527b157c6a6f4ee07dc15cb443089d383951ccd1f91a7f5b1f18bbd86715cd8",
+        "general-execution-scenario": "540d7dcfd6199f2a17bece06c177e6ea3e10c4cab9e8623088d94670a4a07ac6",
+        "general-execution-test": "1ec02c45bda9cc66fec6ed31c2de353409c5867cea9056486d307a8e7ad7931c",
+        "planning": "91dff6b7362363f2dea77286232394af46a792911c00d90284c5f1c67f43c1ac",
+        "source": "2f3bc2032f731b8c616ef392a59c5489022eee91458f5ef0ab4bb9c79985b9ee"
+      }
+    },
+    {
+      "id": "check-general-traceability",
+      "scenario_ids": [
+        "general-traceability-scenario"
+      ],
+      "test_id": "general-traceability-test",
+      "command_id": "product_contract",
+      "categories": [
+        "general.traceability"
+      ],
+      "input_sha256": {
+        "asset": "abc4bfd8ec27b00ad4290d0514a3b1d0508bbe1c53ce65f7111a88a9f927ea15",
+        "build": "35e22655d4c868362e643baca23556c8e7229d4911edf60e00f9362781b8dd98",
+        "dependency": "ae42e59dc5ced57681cd89e26c53208c366bf9f8440d8ea81417c2f0b829584b",
+        "environment": "e110496d693346e9a54f302de1eef8c2681653961ca3f53917c0d76014c8ddf6",
+        "general-traceability-design": "406bb5a84624e557c602c169b47ab4b3604086d3bca0e762da10917536aee5c2",
+        "general-traceability-implementation": "60a7afd0b649570e9f35d604391afa4644eb1ebddf3cc3ebd7cc9f1dcafeb250",
+        "general-traceability-requirement": "85ee8b0978e84ed59f1fed47a3b37d8ef168553be6f3b8f8edb8c004ca13decb",
+        "general-traceability-scenario": "8c442319056c89ad8d8a0a9d20adf9351aa344a3b36dae2ca0fda9a7534dde6f",
+        "general-traceability-test": "389f09fe80e89487622030b5c2dd2996e10a422ba86c5d3c20b6353429328be7",
+        "planning": "91dff6b7362363f2dea77286232394af46a792911c00d90284c5f1c67f43c1ac",
+        "source": "2f3bc2032f731b8c616ef392a59c5489022eee91458f5ef0ab4bb9c79985b9ee"
+      }
+    },
+    {
+      "id": "check-general-verification",
+      "scenario_ids": [
+        "general-verification-scenario"
+      ],
+      "test_id": "general-verification-test",
+      "command_id": "product_contract",
+      "categories": [
+        "general.verification"
+      ],
+      "input_sha256": {
+        "asset": "abc4bfd8ec27b00ad4290d0514a3b1d0508bbe1c53ce65f7111a88a9f927ea15",
+        "build": "35e22655d4c868362e643baca23556c8e7229d4911edf60e00f9362781b8dd98",
+        "dependency": "ae42e59dc5ced57681cd89e26c53208c366bf9f8440d8ea81417c2f0b829584b",
+        "environment": "e110496d693346e9a54f302de1eef8c2681653961ca3f53917c0d76014c8ddf6",
+        "general-verification-design": "b4de501c62231e2c7c908863a3af9ab4f9b844f05cccfa9c5633058adfc80028",
+        "general-verification-implementation": "928b349e754050a4742fc0146162a04a2e3d8039af792150255ee9fec18c83fa",
+        "general-verification-requirement": "a63fefe901ef8fe2146e4d2eba02347474d8d97f9332cb02d28ebc5e6991901a",
+        "general-verification-scenario": "2dbc80c9e32b1f6635252e231f736056aa88a9c211a7c7d6489c4fd33e901996",
+        "general-verification-test": "e9ca585f9c92e4a1b83c358a0229591cd9a8166a336c63da7b17c9939db3c905",
+        "planning": "91dff6b7362363f2dea77286232394af46a792911c00d90284c5f1c67f43c1ac",
+        "source": "2f3bc2032f731b8c616ef392a59c5489022eee91458f5ef0ab4bb9c79985b9ee"
+      }
+    },
+    {
+      "id": "check-general-recovery",
+      "scenario_ids": [
+        "general-recovery-scenario"
+      ],
+      "test_id": "general-recovery-test",
+      "command_id": "product_contract",
+      "categories": [
+        "general.recovery"
+      ],
+      "input_sha256": {
+        "asset": "abc4bfd8ec27b00ad4290d0514a3b1d0508bbe1c53ce65f7111a88a9f927ea15",
+        "build": "35e22655d4c868362e643baca23556c8e7229d4911edf60e00f9362781b8dd98",
+        "dependency": "ae42e59dc5ced57681cd89e26c53208c366bf9f8440d8ea81417c2f0b829584b",
+        "environment": "e110496d693346e9a54f302de1eef8c2681653961ca3f53917c0d76014c8ddf6",
+        "general-recovery-design": "70f7afe319b0ac5e20be695913a009581a77c2f7d4fdd2ac510b141b77d92790",
+        "general-recovery-implementation": "dbd23c49c578dcbffa0248f9ba3bbffd1ae63f953ef50bf47f5d8902953e8f05",
+        "general-recovery-requirement": "8e0490c13718867af35c21e77536e5e228a95b71188b8bdb7c95c4d696ad5cda",
+        "general-recovery-scenario": "6ca31c69fc9f22fc1cc663a6c47053b406ec60df13373a9fdb4394628446288f",
+        "general-recovery-test": "9b78edd23a0cde5f93ae52be5345a7466b2513da0836f4c0b0e1e3a98fe49a84",
+        "planning": "91dff6b7362363f2dea77286232394af46a792911c00d90284c5f1c67f43c1ac",
+        "source": "2f3bc2032f731b8c616ef392a59c5489022eee91458f5ef0ab4bb9c79985b9ee"
+      }
+    },
+    {
+      "id": "check-web-accessibility",
+      "scenario_ids": [
+        "web-accessibility-scenario"
+      ],
+      "test_id": "web-accessibility-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web.accessibility"
+      ],
+      "input_sha256": {
+        "asset": "abc4bfd8ec27b00ad4290d0514a3b1d0508bbe1c53ce65f7111a88a9f927ea15",
+        "build": "35e22655d4c868362e643baca23556c8e7229d4911edf60e00f9362781b8dd98",
+        "dependency": "ae42e59dc5ced57681cd89e26c53208c366bf9f8440d8ea81417c2f0b829584b",
+        "environment": "e110496d693346e9a54f302de1eef8c2681653961ca3f53917c0d76014c8ddf6",
+        "planning": "91dff6b7362363f2dea77286232394af46a792911c00d90284c5f1c67f43c1ac",
+        "source": "2f3bc2032f731b8c616ef392a59c5489022eee91458f5ef0ab4bb9c79985b9ee",
+        "web-accessibility-design": "e3199bb9d1fc15cc248569aa6b7f34c712f0b5acd8fcf0b6ea38421923fe6f38",
+        "web-accessibility-implementation": "846c5d1526f550f833cf5d50675e978443ec82636fb6510b9d590f426284e775",
+        "web-accessibility-requirement": "28adbea6678370f3d333fa54b301eb309403d15e791f1d5dc3ba7aa5e4c6c78e",
+        "web-accessibility-scenario": "6c94c2b3eb0d0299549d82b08fbd6033d30504256abb7af67489159ef2900ba2",
+        "web-accessibility-test": "64f56473ad5112aa89b80f3d7f98df775451105dba068565cbfaaa7d8148b584"
+      }
+    },
+    {
+      "id": "check-web-responsive",
+      "scenario_ids": [
+        "web-responsive-scenario"
+      ],
+      "test_id": "web-responsive-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web.responsive"
+      ],
+      "input_sha256": {
+        "asset": "abc4bfd8ec27b00ad4290d0514a3b1d0508bbe1c53ce65f7111a88a9f927ea15",
+        "build": "35e22655d4c868362e643baca23556c8e7229d4911edf60e00f9362781b8dd98",
+        "dependency": "ae42e59dc5ced57681cd89e26c53208c366bf9f8440d8ea81417c2f0b829584b",
+        "environment": "e110496d693346e9a54f302de1eef8c2681653961ca3f53917c0d76014c8ddf6",
+        "planning": "91dff6b7362363f2dea77286232394af46a792911c00d90284c5f1c67f43c1ac",
+        "source": "2f3bc2032f731b8c616ef392a59c5489022eee91458f5ef0ab4bb9c79985b9ee",
+        "web-responsive-design": "e38928572c629cf6d56f23ca1d9077f096907031214c12f86e471bce399dc4ed",
+        "web-responsive-implementation": "41876cb38870c69aebe58c2ad741a496cd7ed40e10fd77838a93fb8e7f45a824",
+        "web-responsive-requirement": "690e1c08030b8694d1dfca41cb994d46fb58f4c2251003387cb92c84b30c1eeb",
+        "web-responsive-scenario": "380c97cd5b461d76f58bc9f2857f8eff31b19b685cbe6d74e697f1ccc046d513",
+        "web-responsive-test": "3d36be9895dc2642dcb86cdaba5edbc5e9ef596e6b13f53cb7948b60baf4980c"
+      }
+    },
+    {
+      "id": "check-web-browser_compatibility",
+      "scenario_ids": [
+        "web-browser_compatibility-scenario"
+      ],
+      "test_id": "web-browser_compatibility-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web.browser_compatibility"
+      ],
+      "input_sha256": {
+        "asset": "abc4bfd8ec27b00ad4290d0514a3b1d0508bbe1c53ce65f7111a88a9f927ea15",
+        "build": "35e22655d4c868362e643baca23556c8e7229d4911edf60e00f9362781b8dd98",
+        "dependency": "ae42e59dc5ced57681cd89e26c53208c366bf9f8440d8ea81417c2f0b829584b",
+        "environment": "e110496d693346e9a54f302de1eef8c2681653961ca3f53917c0d76014c8ddf6",
+        "planning": "91dff6b7362363f2dea77286232394af46a792911c00d90284c5f1c67f43c1ac",
+        "source": "2f3bc2032f731b8c616ef392a59c5489022eee91458f5ef0ab4bb9c79985b9ee",
+        "web-browser_compatibility-design": "da967cf7f1070ceee2469ddae8d70b97e007f1a880d5054cae2d65149a862651",
+        "web-browser_compatibility-implementation": "68b447295d67023e3442d99a7a36cbd9cf4e54475619a264bdf7a24467864c43",
+        "web-browser_compatibility-requirement": "f1db16c7608c1307e5ae9e18363f877e146c7c6cd32349be242d81100ab5c4f5",
+        "web-browser_compatibility-scenario": "34cd41c042563c86f3432cdfe16b7d601e68c1297a68e5cdefc9d5fd7343c4e1",
+        "web-browser_compatibility-test": "83665b844ceb161e8eb888737ab1a7b9fad0c9da8a9f2cd93ad29ee03c3697b8"
+      }
+    },
+    {
+      "id": "check-web-security",
+      "scenario_ids": [
+        "web-security-scenario"
+      ],
+      "test_id": "web-security-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web.security"
+      ],
+      "input_sha256": {
+        "asset": "abc4bfd8ec27b00ad4290d0514a3b1d0508bbe1c53ce65f7111a88a9f927ea15",
+        "build": "35e22655d4c868362e643baca23556c8e7229d4911edf60e00f9362781b8dd98",
+        "dependency": "ae42e59dc5ced57681cd89e26c53208c366bf9f8440d8ea81417c2f0b829584b",
+        "environment": "e110496d693346e9a54f302de1eef8c2681653961ca3f53917c0d76014c8ddf6",
+        "planning": "91dff6b7362363f2dea77286232394af46a792911c00d90284c5f1c67f43c1ac",
+        "source": "2f3bc2032f731b8c616ef392a59c5489022eee91458f5ef0ab4bb9c79985b9ee",
+        "web-security-design": "ad0d4410952cfbcd262e8a1ef68813974a7581a676f7c719f56b5222cbdebf4e",
+        "web-security-implementation": "92be23fec721e28d2b77e05c43e87ef457c4838d676618e044996687e2324e6c",
+        "web-security-requirement": "628bf3fe1272d6740002544feebad2a7f9e140aac3a57f139c96e0614d78438d",
+        "web-security-scenario": "9cdbf353e8332b8ec427fb70d7a578ed4b7172846e098908361d4df2e7ce46c8",
+        "web-security-test": "5dac1eb9384dd9635000acdb874da4d7e33838f2b9aa503b7c22925426f0155b"
+      }
+    },
+    {
+      "id": "check-web-network_failure",
+      "scenario_ids": [
+        "web-network_failure-scenario"
+      ],
+      "test_id": "web-network_failure-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web.network_failure"
+      ],
+      "input_sha256": {
+        "asset": "abc4bfd8ec27b00ad4290d0514a3b1d0508bbe1c53ce65f7111a88a9f927ea15",
+        "build": "35e22655d4c868362e643baca23556c8e7229d4911edf60e00f9362781b8dd98",
+        "dependency": "ae42e59dc5ced57681cd89e26c53208c366bf9f8440d8ea81417c2f0b829584b",
+        "environment": "e110496d693346e9a54f302de1eef8c2681653961ca3f53917c0d76014c8ddf6",
+        "planning": "91dff6b7362363f2dea77286232394af46a792911c00d90284c5f1c67f43c1ac",
+        "source": "2f3bc2032f731b8c616ef392a59c5489022eee91458f5ef0ab4bb9c79985b9ee",
+        "web-network_failure-design": "33d0e3337d8dc9f20f69b68cc60b40aee0e30a50beb1271c99b22e83b409faf1",
+        "web-network_failure-implementation": "08320a80e02ed766353daf40ac0dce29b3ee2e3680010f4393dd1f42c2f95f74",
+        "web-network_failure-requirement": "9e861fbf1bb441f3cf82c3eb0d187a7c5267ebb649710d86280b5a05a84e4836",
+        "web-network_failure-scenario": "95276e9408e542a6b17a168b62dd9b5a93196293147351ac2eb5528db6a62e74",
+        "web-network_failure-test": "88181f6e0ca317ca779dc6235863688cf1c7418aefdd9a86a48af6a851b94256"
+      }
+    },
+    {
+      "id": "check-web-loading_empty",
+      "scenario_ids": [
+        "web-loading_empty-scenario"
+      ],
+      "test_id": "web-loading_empty-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web.loading_empty"
+      ],
+      "input_sha256": {
+        "asset": "abc4bfd8ec27b00ad4290d0514a3b1d0508bbe1c53ce65f7111a88a9f927ea15",
+        "build": "35e22655d4c868362e643baca23556c8e7229d4911edf60e00f9362781b8dd98",
+        "dependency": "ae42e59dc5ced57681cd89e26c53208c366bf9f8440d8ea81417c2f0b829584b",
+        "environment": "e110496d693346e9a54f302de1eef8c2681653961ca3f53917c0d76014c8ddf6",
+        "planning": "91dff6b7362363f2dea77286232394af46a792911c00d90284c5f1c67f43c1ac",
+        "source": "2f3bc2032f731b8c616ef392a59c5489022eee91458f5ef0ab4bb9c79985b9ee",
+        "web-loading_empty-design": "0fbdc2dbec46ca8550654caa150701291d5bec7a99504b81088f4ae1c622ca4a",
+        "web-loading_empty-implementation": "b6dd40e88d21134f5a97151cede5ebc117ca78f2b0cd718ab0a55f38c1269056",
+        "web-loading_empty-requirement": "3ff1af2592e67daf339ef6ee43dec5143543b32e749f7075171024c6bee6a8b4",
+        "web-loading_empty-scenario": "77cb9054427d90aa5496c77d1ed61bef21c380228d66fb3542b2c9911d230253",
+        "web-loading_empty-test": "c3ea855a4f68f905b42996adea5fc824df9dcca970091fa931048aff918ec31f"
+      }
+    },
+    {
+      "id": "check-web_game-state",
+      "scenario_ids": [
+        "web_game-state-scenario"
+      ],
+      "test_id": "web_game-state-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web_game.state"
+      ],
+      "input_sha256": {
+        "asset": "abc4bfd8ec27b00ad4290d0514a3b1d0508bbe1c53ce65f7111a88a9f927ea15",
+        "build": "35e22655d4c868362e643baca23556c8e7229d4911edf60e00f9362781b8dd98",
+        "dependency": "ae42e59dc5ced57681cd89e26c53208c366bf9f8440d8ea81417c2f0b829584b",
+        "environment": "e110496d693346e9a54f302de1eef8c2681653961ca3f53917c0d76014c8ddf6",
+        "planning": "91dff6b7362363f2dea77286232394af46a792911c00d90284c5f1c67f43c1ac",
+        "source": "2f3bc2032f731b8c616ef392a59c5489022eee91458f5ef0ab4bb9c79985b9ee",
+        "web_game-state-design": "0478fa7892630ef57e1606ce7617a9d5f3035537a405d97418bea8f5a261cc81",
+        "web_game-state-implementation": "4fbff0bf6e8d10d24da851c0e0ee15c29c1693e63e21944875b126a2819e53d8",
+        "web_game-state-requirement": "97de3a5f0b772e2fb2e7429e2ad584d1c1e17a98bf25771b94e24593e5b53336",
+        "web_game-state-scenario": "602d0452f274347540cab87d4e0e23a5889f5535da8fde119509ff808bc39c03",
+        "web_game-state-test": "40fe55c13b8ed3aba91138493e4419f346cfc21a59a2ce90aca74eba6774704b"
+      }
+    },
+    {
+      "id": "check-web_game-input",
+      "scenario_ids": [
+        "web_game-input-scenario"
+      ],
+      "test_id": "web_game-input-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web_game.input"
+      ],
+      "input_sha256": {
+        "asset": "abc4bfd8ec27b00ad4290d0514a3b1d0508bbe1c53ce65f7111a88a9f927ea15",
+        "build": "35e22655d4c868362e643baca23556c8e7229d4911edf60e00f9362781b8dd98",
+        "dependency": "ae42e59dc5ced57681cd89e26c53208c366bf9f8440d8ea81417c2f0b829584b",
+        "environment": "e110496d693346e9a54f302de1eef8c2681653961ca3f53917c0d76014c8ddf6",
+        "planning": "91dff6b7362363f2dea77286232394af46a792911c00d90284c5f1c67f43c1ac",
+        "source": "2f3bc2032f731b8c616ef392a59c5489022eee91458f5ef0ab4bb9c79985b9ee",
+        "web_game-input-design": "4cc418e15fad18bdaca9b6ff91971cb4ce9607acb7ed55a6ea65f7c56e9634e3",
+        "web_game-input-implementation": "2ef0221937132ce03ca810a795fd82482da5cc75c93110e175ed030f372e0117",
+        "web_game-input-requirement": "21b30a338d93b8d3c843247e2324f14510cd31f9c7e3928b131604abe8cdfc49",
+        "web_game-input-scenario": "81ded2fa9fab05fb227b54ba983fb597baba85c6e56120f66d4c1533586f965a",
+        "web_game-input-test": "c4806b0cf9c30611aed7316d1db6fa289e3389e018aa828e62507eec5cfce659"
+      }
+    },
+    {
+      "id": "check-web_game-save",
+      "scenario_ids": [
+        "web_game-save-scenario"
+      ],
+      "test_id": "web_game-save-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web_game.save"
+      ],
+      "input_sha256": {
+        "asset": "abc4bfd8ec27b00ad4290d0514a3b1d0508bbe1c53ce65f7111a88a9f927ea15",
+        "build": "35e22655d4c868362e643baca23556c8e7229d4911edf60e00f9362781b8dd98",
+        "dependency": "ae42e59dc5ced57681cd89e26c53208c366bf9f8440d8ea81417c2f0b829584b",
+        "environment": "e110496d693346e9a54f302de1eef8c2681653961ca3f53917c0d76014c8ddf6",
+        "planning": "91dff6b7362363f2dea77286232394af46a792911c00d90284c5f1c67f43c1ac",
+        "source": "2f3bc2032f731b8c616ef392a59c5489022eee91458f5ef0ab4bb9c79985b9ee",
+        "web_game-save-design": "6056023d52ffe84e5aa015742633829c1a517868c90e7d77e965f5e32df9ad43",
+        "web_game-save-implementation": "362f69b0aa2b4409425fe37d031b4c044bdfdf3150ca4c1d14ea62442c59a695",
+        "web_game-save-requirement": "b997c8d45cce3dc3cfe9d6acfd3c8f9f0515954fb9eac4782a716507ed9be5f4",
+        "web_game-save-scenario": "90aab88eb448aef5494c933ca9b9ca87fad2aa6a12ac49bd1a24e17eb329bba2",
+        "web_game-save-test": "7672b074f1a5179a215d1662c3e920de7e878e2d580b85995a8277b5255cb108"
+      }
+    },
+    {
+      "id": "check-web_game-time",
+      "scenario_ids": [
+        "web_game-time-scenario"
+      ],
+      "test_id": "web_game-time-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web_game.time"
+      ],
+      "input_sha256": {
+        "asset": "abc4bfd8ec27b00ad4290d0514a3b1d0508bbe1c53ce65f7111a88a9f927ea15",
+        "build": "35e22655d4c868362e643baca23556c8e7229d4911edf60e00f9362781b8dd98",
+        "dependency": "ae42e59dc5ced57681cd89e26c53208c366bf9f8440d8ea81417c2f0b829584b",
+        "environment": "e110496d693346e9a54f302de1eef8c2681653961ca3f53917c0d76014c8ddf6",
+        "planning": "91dff6b7362363f2dea77286232394af46a792911c00d90284c5f1c67f43c1ac",
+        "source": "2f3bc2032f731b8c616ef392a59c5489022eee91458f5ef0ab4bb9c79985b9ee",
+        "web_game-time-design": "add125493ecbd244e3f4119520ce210ea90a34f1444fa4c70176f571fed26c04",
+        "web_game-time-implementation": "43f459984c550c64420afbaff5729e267a49f645a3e6c165d742c87d3ea1a9af",
+        "web_game-time-requirement": "e85c70130ce112e928f47760aba94f8d44ab6563379cbdaf3c22cf1fe2b3249a",
+        "web_game-time-scenario": "3944965a740031bc49c1aeba80a0bf644753718a199abfffad1474287e3d3e23",
+        "web_game-time-test": "ff6c74967bd3c3a480d3e0b1725b51ba7bc6ab59a5113c93a161762ddafab40e"
+      }
+    },
+    {
+      "id": "check-web_game-visibility",
+      "scenario_ids": [
+        "web_game-visibility-scenario"
+      ],
+      "test_id": "web_game-visibility-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web_game.visibility"
+      ],
+      "input_sha256": {
+        "asset": "abc4bfd8ec27b00ad4290d0514a3b1d0508bbe1c53ce65f7111a88a9f927ea15",
+        "build": "35e22655d4c868362e643baca23556c8e7229d4911edf60e00f9362781b8dd98",
+        "dependency": "ae42e59dc5ced57681cd89e26c53208c366bf9f8440d8ea81417c2f0b829584b",
+        "environment": "e110496d693346e9a54f302de1eef8c2681653961ca3f53917c0d76014c8ddf6",
+        "planning": "91dff6b7362363f2dea77286232394af46a792911c00d90284c5f1c67f43c1ac",
+        "source": "2f3bc2032f731b8c616ef392a59c5489022eee91458f5ef0ab4bb9c79985b9ee",
+        "web_game-visibility-design": "8547b2f3a607dc80c59f92608be9caca6865be81c5f1c3bfb216e89ee70d207a",
+        "web_game-visibility-implementation": "825162d0a27415c58ef8d8aa8cbd589a4893d536599d84f251de443ae123022d",
+        "web_game-visibility-requirement": "2fefc070455f120c597f469dce83929080bd444b2886f150baf9dca86b8102fc",
+        "web_game-visibility-scenario": "95c76d7bdc87379f9dcfa72aa5486601f3e3bd8ea2efb0090ade2f9f3bc1272c",
+        "web_game-visibility-test": "442476dd4772bda7c80b9134f317a054d9eac0b0528ed99a1831f55d93be8651"
+      }
+    },
+    {
+      "id": "check-web_game-audio",
+      "scenario_ids": [
+        "web_game-audio-scenario"
+      ],
+      "test_id": "web_game-audio-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web_game.audio"
+      ],
+      "input_sha256": {
+        "asset": "abc4bfd8ec27b00ad4290d0514a3b1d0508bbe1c53ce65f7111a88a9f927ea15",
+        "build": "35e22655d4c868362e643baca23556c8e7229d4911edf60e00f9362781b8dd98",
+        "dependency": "ae42e59dc5ced57681cd89e26c53208c366bf9f8440d8ea81417c2f0b829584b",
+        "environment": "e110496d693346e9a54f302de1eef8c2681653961ca3f53917c0d76014c8ddf6",
+        "planning": "91dff6b7362363f2dea77286232394af46a792911c00d90284c5f1c67f43c1ac",
+        "source": "2f3bc2032f731b8c616ef392a59c5489022eee91458f5ef0ab4bb9c79985b9ee",
+        "web_game-audio-design": "c5a38f8f0533dde7b4a8154ebef349c906dac980836b8351ddb7b4a94c798374",
+        "web_game-audio-implementation": "9129c4c9a4df9bbc069a83c556e87d211eece06f5297bce0bcde4ce098ec9724",
+        "web_game-audio-requirement": "4c917ec7a4128b2d1551e902b6ff2c4b75dfba44f83fc71d50a3a7de263b1753",
+        "web_game-audio-scenario": "ae000eaa772346b463060b4e91d21c63fcba3698fd9d5631f25548b22032d6d0",
+        "web_game-audio-test": "00ff3f5e1f10302132b06487d8a7107c34bf69488c2a87509490ee4751e112b8"
+      }
+    },
+    {
+      "id": "check-web_game-performance",
+      "scenario_ids": [
+        "web_game-performance-scenario"
+      ],
+      "test_id": "web_game-performance-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web_game.performance"
+      ],
+      "input_sha256": {
+        "asset": "abc4bfd8ec27b00ad4290d0514a3b1d0508bbe1c53ce65f7111a88a9f927ea15",
+        "build": "35e22655d4c868362e643baca23556c8e7229d4911edf60e00f9362781b8dd98",
+        "dependency": "ae42e59dc5ced57681cd89e26c53208c366bf9f8440d8ea81417c2f0b829584b",
+        "environment": "e110496d693346e9a54f302de1eef8c2681653961ca3f53917c0d76014c8ddf6",
+        "planning": "91dff6b7362363f2dea77286232394af46a792911c00d90284c5f1c67f43c1ac",
+        "source": "2f3bc2032f731b8c616ef392a59c5489022eee91458f5ef0ab4bb9c79985b9ee",
+        "web_game-performance-design": "7304aba8ea427cff1677bd2c133fab4d3fe3bcddafbbf41d839aa0ee7622f88d",
+        "web_game-performance-implementation": "275fa596c66eab12112832379d0a795e135aa5501635034e7eadcf0fb42919c3",
+        "web_game-performance-requirement": "cfb69fe993939768236ddd3c7764127f3f00db8e9af0b909fd2c0117fceb4579",
+        "web_game-performance-scenario": "05b5a41c139ff42370f6668efafa56b3b63273b7e6dbdcecbf97a014b3f8a5d8",
+        "web_game-performance-test": "32ec43a088e26051f54f13ea5d5f996a8e8b9bf28293fe7525992842a8bea441"
+      }
+    }
+  ]
+}

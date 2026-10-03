@@ -7,6 +7,121 @@ use rmcp::{ServiceExt, transport::stdio};
 async fn main() -> Result<(), Box<dyn Error>> {
     let arguments = std::env::args().skip(1).collect::<Vec<_>>();
     match arguments.as_slice() {
+        [
+            delivery,
+            validate,
+            workspace_flag,
+            workspace,
+            manifest_flag,
+            manifest,
+        ] if delivery == "delivery"
+            && validate == "validate"
+            && workspace_flag == "--workspace"
+            && manifest_flag == "--manifest" =>
+        {
+            let hub = Hub::open(default_database_path()?)?;
+            let report = aporic::delivery_receipts::validate(
+                &hub,
+                &aporic::delivery::DeliveryValidateRequest {
+                    workspace: workspace.clone(),
+                    manifest: manifest.clone(),
+                },
+            )?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+            if report.valid {
+                Ok(())
+            } else {
+                Err("delivery has unresolved evidence or coverage gaps".into())
+            }
+        }
+        [
+            delivery,
+            impact,
+            workspace_flag,
+            workspace,
+            previous_flag,
+            previous,
+            current_flag,
+            current,
+        ] if delivery == "delivery"
+            && impact == "impact"
+            && workspace_flag == "--workspace"
+            && previous_flag == "--previous"
+            && current_flag == "--current" =>
+        {
+            let hub = Hub::open(default_database_path()?)?;
+            let report = aporic::delivery_receipts::impact(
+                &hub,
+                &aporic::delivery::DeliveryImpactRequest {
+                    workspace: workspace.clone(),
+                    previous: previous.clone(),
+                    current: current.clone(),
+                },
+            )?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+            Ok(())
+        }
+        [
+            delivery,
+            brief,
+            workspace_flag,
+            workspace,
+            manifest_flag,
+            manifest,
+            focus_flag,
+            focus,
+        ] if delivery == "delivery"
+            && brief == "brief"
+            && workspace_flag == "--workspace"
+            && manifest_flag == "--manifest"
+            && focus_flag == "--focus" =>
+        {
+            let report = aporic::delivery::brief(&aporic::delivery::DeliveryBriefRequest {
+                workspace: workspace.clone(),
+                manifest: manifest.clone(),
+                focus_ids: vec![focus.clone()],
+                max_nodes: 32,
+                max_bytes: 8192,
+            })?;
+            println!("{}", serde_json::to_string_pretty(&report)?);
+            Ok(())
+        }
+        [
+            delivery,
+            verify,
+            workspace_flag,
+            workspace,
+            manifest_flag,
+            manifest,
+            check_flag,
+            check_id,
+            spec_flag,
+            spec_id,
+        ] if delivery == "delivery"
+            && verify == "verify"
+            && workspace_flag == "--workspace"
+            && manifest_flag == "--manifest"
+            && check_flag == "--check"
+            && spec_flag == "--spec" =>
+        {
+            let hub = Hub::open(default_database_path()?)?;
+            let result = aporic::delivery_receipts::verify(
+                &hub,
+                &aporic::delivery_receipts::DeliveryVerifyRequest {
+                    workspace: workspace.clone(),
+                    manifest: manifest.clone(),
+                    check_id: check_id.clone(),
+                    spec_id: spec_id.clone(),
+                },
+            )
+            .await?;
+            println!("{}", serde_json::to_string_pretty(&result)?);
+            if result.bound {
+                Ok(())
+            } else {
+                Err("delivery execution did not establish a current binding".into())
+            }
+        }
         [command] if command == "doctor" => doctor(),
         [command] if command == "identity" => identity(),
         [release, validate, checkout_flag, checkout]
@@ -124,7 +239,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         _ => {
             eprintln!(
-                "usage: aporic doctor | aporic identity | aporic release validate --checkout PATH | aporic design validate --workspace PATH --manifest RELATIVE_PATH | aporic backup --to PATH | aporic backup prune --dir DIR --keep COUNT | aporic restore --dry-run PATH | aporic restore --from BACKUP --to DATABASE | aporic research sync --workspace PATH --source github|stackoverflow --query TEXT | aporic export --workspace PATH | aporic trace export --workspace PATH | aporic git inspect --workspace PATH | aporic tokens report --workspace PATH | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic eval context | aporic eval memory | aporic eval runtime | aporic eval git | aporic eval tokens | aporic executions reconcile --stale-after SECONDS | aporic hook codex | aporic mcp serve --stdio [--profile full]"
+                "usage: aporic delivery validate --workspace PATH --manifest REL | aporic delivery brief --workspace PATH --manifest REL --focus ID | aporic delivery impact --workspace PATH --previous REL --current REL | aporic delivery verify --workspace PATH --manifest REL --check ID --spec SPEC_ID | aporic doctor | aporic identity | aporic release validate --checkout PATH | aporic design validate --workspace PATH --manifest RELATIVE_PATH | aporic backup --to PATH | aporic backup prune --dir DIR --keep COUNT | aporic restore --dry-run PATH | aporic restore --from BACKUP --to DATABASE | aporic research sync --workspace PATH --source github|stackoverflow --query TEXT | aporic export --workspace PATH | aporic trace export --workspace PATH | aporic git inspect --workspace PATH | aporic tokens report --workspace PATH | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic eval context | aporic eval memory | aporic eval runtime | aporic eval git | aporic eval tokens | aporic executions reconcile --stale-after SECONDS | aporic hook codex | aporic mcp serve --stdio [--profile full]"
             );
             std::process::exit(2);
         }

@@ -1,5 +1,13 @@
 # Aporic
 
+Product delivery packages connect project execution methods, requirements,
+scenarios, implementation and version-bound local check evidence. See
+[the delivery guide](docs/product-delivery.md),
+[the PRD/technical contract](docs/product-delivery-plan.md), and
+[webgame/platform examples](examples/product-delivery/README.md).
+Subagent host defaults and explicit model selection are documented in
+[model selection](docs/subagent-model-selection.md).
+
 Aporic is a local-first agent-system hub whose practical objective is to reduce
 the time its owner spends restating context, coordinating independent work, and
 correcting unsupported completion claims.

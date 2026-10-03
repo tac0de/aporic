@@ -1,5 +1,5 @@
 use std::{
-    fs::File,
+    fs::{File, OpenOptions},
     io::{self, Read},
     path::Path,
 };
@@ -15,12 +15,30 @@ pub(crate) const MAX_RECEIPT_ARTIFACTS: usize = 64;
 pub(crate) const MAX_HOOK_INPUT_BYTES: u64 = 1024 * 1024;
 pub(crate) const MAX_GIT_OUTPUT_BYTES: usize = 2 * 1024 * 1024;
 
+/// Nonblocking open prevents a replaced FIFO from hanging a read-only check.
+pub(crate) fn open_regular_file(path: &Path, description: &str) -> Result<File> {
+    let mut options = OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NONBLOCK);
+    }
+    let file = options.open(path)?;
+    if !file.metadata()?.is_file() {
+        return Err(Error::Invalid(format!(
+            "{description} must be a regular file"
+        )));
+    }
+    Ok(file)
+}
+
 pub(crate) fn sha256_file_bounded(
     path: &Path,
     max_bytes: u64,
     description: &str,
 ) -> Result<(String, u64)> {
-    let mut file = File::open(path)?;
+    let mut file = open_regular_file(path, description)?;
     let metadata = file.metadata()?;
     if !metadata.is_file() {
         return Err(Error::Invalid(format!(

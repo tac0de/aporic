@@ -254,7 +254,7 @@ fn kill_process_group(pid: Option<u32>) {
 #[cfg(not(unix))]
 fn kill_process_group(_pid: Option<u32>) {}
 
-fn resolve_executable(program: &str, cwd: &Path) -> Option<String> {
+pub(crate) fn resolve_executable(program: &str, cwd: &Path) -> Option<String> {
     let path = Path::new(program);
     if path.components().count() > 1 {
         let candidate = if path.is_absolute() {

@@ -3,6 +3,9 @@
 pub mod brief;
 pub mod context;
 pub mod core_flow;
+pub mod delivery;
+pub mod delivery_profiles;
+pub mod delivery_receipts;
 pub mod design;
 pub mod discovery;
 pub mod domain;

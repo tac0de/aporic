@@ -1,0 +1,1521 @@
+{
+  "schema_version": 1,
+  "project_id": "example-web_platform",
+  "revision": "declarative-v1",
+  "execution": {
+    "stack": [
+      "Rust product logic",
+      "Browser presentation adapter"
+    ],
+    "architecture": [
+      "Rust state model behind a browser event adapter"
+    ],
+    "commands": {
+      "product_contract": [
+        "cargo",
+        "test",
+        "--manifest-path",
+        "product/Cargo.toml",
+        "--test",
+        "delivery_contract"
+      ]
+    },
+    "supported_environments": [
+      "Chromium and Firefox; exact versions to be recorded before verification",
+      "320px and 1440px viewport targets"
+    ],
+    "config_refs": [
+      "PRODUCT_ENV",
+      "ASSET_BASE_URL"
+    ],
+    "constraints": [
+      "Fixture only; product command and adapter must be implemented before execution credit",
+      "No release or deployment automation"
+    ],
+    "quality_targets": [
+      "No lost writes or duplicate effects across retries and version conflicts",
+      "Keyboard access to all primary controls"
+    ]
+  },
+  "profiles": [
+    {
+      "id": "web_platform",
+      "version": 1,
+      "not_applicable": []
+    }
+  ],
+  "nodes": [
+    {
+      "id": "planning",
+      "kind": "planning",
+      "description": "web_platform planning declaration",
+      "depends_on": [],
+      "file": {
+        "path": "examples/product-delivery/web_platform/architecture.md",
+        "sha256": "fb164d70bb554d2f4e7a37a05997d9dc5d1e2a9264e97f6e2c5d2ca98c9d10af"
+      }
+    },
+    {
+      "id": "source",
+      "kind": "source",
+      "description": "web_platform source declaration",
+      "depends_on": [],
+      "file": {
+        "path": "examples/product-delivery/web_platform/source.rs",
+        "sha256": "b03263b5633666ff47a3081e6037280b67d339c0900d16897e03d59e427f2f5f"
+      }
+    },
+    {
+      "id": "dependency",
+      "kind": "dependency",
+      "description": "web_platform dependency declaration",
+      "depends_on": [],
+      "file": {
+        "path": "examples/product-delivery/web_platform/dependencies.md",
+        "sha256": "66458657f56986c5e355455144ac1eb9bbfe90aa8a6c41bbacae1d0af95db4ae"
+      }
+    },
+    {
+      "id": "asset",
+      "kind": "asset",
+      "description": "web_platform asset declaration",
+      "depends_on": [],
+      "file": {
+        "path": "examples/product-delivery/web_platform/assets.md",
+        "sha256": "0319d67821bfd8155c0abbda245a714baf4fa6654df4b333a8a0f4ea52140bf9"
+      }
+    },
+    {
+      "id": "build",
+      "kind": "build",
+      "description": "web_platform build declaration",
+      "depends_on": [],
+      "file": {
+        "path": "examples/product-delivery/web_platform/build.md",
+        "sha256": "a18812f6913cc1a2eed3272f04fec852d79bf0e10ea1184088c519066d2f4783"
+      }
+    },
+    {
+      "id": "environment",
+      "kind": "environment",
+      "description": "web_platform environment declaration",
+      "depends_on": [],
+      "file": {
+        "path": "examples/product-delivery/web_platform/environment.md",
+        "sha256": "9e3da90ac2761fdad2555ad09582979f82388a4fa12f939083437a9a49d9b78c"
+      }
+    },
+    {
+      "id": "general-execution-requirement",
+      "kind": "requirement",
+      "description": "Recover the documented execution method",
+      "depends_on": []
+    },
+    {
+      "id": "general-execution-scenario",
+      "kind": "scenario",
+      "description": "Exercise general.execution",
+      "depends_on": [
+        "general-execution-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "general-execution-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_platform product in a supported environment"
+        ],
+        "actions": [
+          "Build with the declared toolchain and supported configuration; report a missing dependency without corrupting local state."
+        ],
+        "expected": [
+          "Build with the declared toolchain and supported configuration; report a missing dependency without corrupting local state."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "general-execution-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for general.execution",
+      "depends_on": [
+        "general-execution-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/general-execution.md",
+        "sha256": "b2cfb346d1fb905dbd68c728a72496e228af63b1d483df4b697ebb7d8e2be25c"
+      }
+    },
+    {
+      "id": "general-execution-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for general.execution; source model is partial",
+      "depends_on": [
+        "general-execution-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "general-execution-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for general.execution",
+      "depends_on": [
+        "general-execution-implementation",
+        "general-execution-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/general-execution.md",
+        "sha256": "b2cfb346d1fb905dbd68c728a72496e228af63b1d483df4b697ebb7d8e2be25c"
+      }
+    },
+    {
+      "id": "general-traceability-requirement",
+      "kind": "requirement",
+      "description": "Trace every product requirement through a reproducible scenario",
+      "depends_on": []
+    },
+    {
+      "id": "general-traceability-scenario",
+      "kind": "scenario",
+      "description": "Exercise general.traceability",
+      "depends_on": [
+        "general-traceability-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "general-traceability-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_platform product in a supported environment"
+        ],
+        "actions": [
+          "Resolve the requirement, scenario, design, implementation and test links; a missing link reports incomplete delivery."
+        ],
+        "expected": [
+          "Resolve the requirement, scenario, design, implementation and test links; a missing link reports incomplete delivery."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "general-traceability-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for general.traceability",
+      "depends_on": [
+        "general-traceability-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/general-traceability.md",
+        "sha256": "6ad7aa83d54c1507705fc33bf6fb71578345a6ee6d7272959d5dea8c432d0529"
+      }
+    },
+    {
+      "id": "general-traceability-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for general.traceability; source model is partial",
+      "depends_on": [
+        "general-traceability-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "general-traceability-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for general.traceability",
+      "depends_on": [
+        "general-traceability-implementation",
+        "general-traceability-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/general-traceability.md",
+        "sha256": "6ad7aa83d54c1507705fc33bf6fb71578345a6ee6d7272959d5dea8c432d0529"
+      }
+    },
+    {
+      "id": "general-verification-requirement",
+      "kind": "requirement",
+      "description": "Preserve only current, execution-bound check credit",
+      "depends_on": []
+    },
+    {
+      "id": "general-verification-scenario",
+      "kind": "scenario",
+      "description": "Exercise general.verification",
+      "depends_on": [
+        "general-verification-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "general-verification-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_platform product in a supported environment"
+        ],
+        "actions": [
+          "Compare full prerequisite fingerprints and command specification; altered source or replaced result invalidates the old check."
+        ],
+        "expected": [
+          "Compare full prerequisite fingerprints and command specification; altered source or replaced result invalidates the old check."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "general-verification-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for general.verification",
+      "depends_on": [
+        "general-verification-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/general-verification.md",
+        "sha256": "25afc50968a902a62472730f647b9ff23f4eca90b06027fafd29ba750164876c"
+      }
+    },
+    {
+      "id": "general-verification-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for general.verification; source model is partial",
+      "depends_on": [
+        "general-verification-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "general-verification-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for general.verification",
+      "depends_on": [
+        "general-verification-implementation",
+        "general-verification-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/general-verification.md",
+        "sha256": "25afc50968a902a62472730f647b9ff23f4eca90b06027fafd29ba750164876c"
+      }
+    },
+    {
+      "id": "general-recovery-requirement",
+      "kind": "requirement",
+      "description": "Recover predictably from an interrupted operation",
+      "depends_on": []
+    },
+    {
+      "id": "general-recovery-scenario",
+      "kind": "scenario",
+      "description": "Exercise general.recovery",
+      "depends_on": [
+        "general-recovery-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "general-recovery-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_platform product in a supported environment"
+        ],
+        "actions": [
+          "Interrupt the active operation; preserve the prior valid state and present an observable retry or recovery outcome."
+        ],
+        "expected": [
+          "Interrupt the active operation; preserve the prior valid state and present an observable retry or recovery outcome."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "general-recovery-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for general.recovery",
+      "depends_on": [
+        "general-recovery-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/general-recovery.md",
+        "sha256": "24a3bb6b8c00acfb0c82009a73a1986e7bc1e049feec8dc227e77e411118064a"
+      }
+    },
+    {
+      "id": "general-recovery-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for general.recovery; source model is partial",
+      "depends_on": [
+        "general-recovery-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "general-recovery-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for general.recovery",
+      "depends_on": [
+        "general-recovery-implementation",
+        "general-recovery-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/general-recovery.md",
+        "sha256": "24a3bb6b8c00acfb0c82009a73a1986e7bc1e049feec8dc227e77e411118064a"
+      }
+    },
+    {
+      "id": "web-accessibility-requirement",
+      "kind": "requirement",
+      "description": "Operate all primary interactions with a keyboard",
+      "depends_on": []
+    },
+    {
+      "id": "web-accessibility-scenario",
+      "kind": "scenario",
+      "description": "Exercise web.accessibility",
+      "depends_on": [
+        "web-accessibility-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web-accessibility-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_platform product in a supported environment"
+        ],
+        "actions": [
+          "Tab through controls, activate with Enter or Space and dismiss overlays; focus and accessible names remain usable."
+        ],
+        "expected": [
+          "Tab through controls, activate with Enter or Space and dismiss overlays; focus and accessible names remain usable."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web-accessibility-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web.accessibility",
+      "depends_on": [
+        "web-accessibility-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/web-accessibility.md",
+        "sha256": "fd363f6171bb2010feb75c0be57d94a6796ef499bd95b22d835b58d825957a93"
+      }
+    },
+    {
+      "id": "web-accessibility-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web.accessibility; source model is partial",
+      "depends_on": [
+        "web-accessibility-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web-accessibility-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web.accessibility",
+      "depends_on": [
+        "web-accessibility-implementation",
+        "web-accessibility-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/web-accessibility.md",
+        "sha256": "fd363f6171bb2010feb75c0be57d94a6796ef499bd95b22d835b58d825957a93"
+      }
+    },
+    {
+      "id": "web-responsive-requirement",
+      "kind": "requirement",
+      "description": "Use the interface at supported viewport sizes",
+      "depends_on": []
+    },
+    {
+      "id": "web-responsive-scenario",
+      "kind": "scenario",
+      "description": "Exercise web.responsive",
+      "depends_on": [
+        "web-responsive-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web-responsive-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_platform product in a supported environment"
+        ],
+        "actions": [
+          "Visit narrow and wide viewports with zoom; primary controls remain reachable and content reflows."
+        ],
+        "expected": [
+          "Visit narrow and wide viewports with zoom; primary controls remain reachable and content reflows."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web-responsive-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web.responsive",
+      "depends_on": [
+        "web-responsive-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/web-responsive.md",
+        "sha256": "baa1a8aba01d10463d57dac9abc35af656de2613cbd4a6691fa19aba61664b9c"
+      }
+    },
+    {
+      "id": "web-responsive-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web.responsive; source model is partial",
+      "depends_on": [
+        "web-responsive-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web-responsive-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web.responsive",
+      "depends_on": [
+        "web-responsive-implementation",
+        "web-responsive-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/web-responsive.md",
+        "sha256": "baa1a8aba01d10463d57dac9abc35af656de2613cbd4a6691fa19aba61664b9c"
+      }
+    },
+    {
+      "id": "web-browser_compatibility-requirement",
+      "kind": "requirement",
+      "description": "Support declared browser capabilities",
+      "depends_on": []
+    },
+    {
+      "id": "web-browser_compatibility-scenario",
+      "kind": "scenario",
+      "description": "Exercise web.browser_compatibility",
+      "depends_on": [
+        "web-browser_compatibility-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web-browser_compatibility-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_platform product in a supported environment"
+        ],
+        "actions": [
+          "Exercise supported browsers and unavailable optional capabilities; either the operation works or a clear fallback is shown."
+        ],
+        "expected": [
+          "Exercise supported browsers and unavailable optional capabilities; either the operation works or a clear fallback is shown."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web-browser_compatibility-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web.browser_compatibility",
+      "depends_on": [
+        "web-browser_compatibility-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/web-browser_compatibility.md",
+        "sha256": "2672178c753a0ab4dcff7c3746bb4015aba958b0470635fb85a618582f1f8909"
+      }
+    },
+    {
+      "id": "web-browser_compatibility-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web.browser_compatibility; source model is partial",
+      "depends_on": [
+        "web-browser_compatibility-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web-browser_compatibility-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web.browser_compatibility",
+      "depends_on": [
+        "web-browser_compatibility-implementation",
+        "web-browser_compatibility-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/web-browser_compatibility.md",
+        "sha256": "2672178c753a0ab4dcff7c3746bb4015aba958b0470635fb85a618582f1f8909"
+      }
+    },
+    {
+      "id": "web-security-requirement",
+      "kind": "requirement",
+      "description": "Handle untrusted content across declared trust boundaries",
+      "depends_on": []
+    },
+    {
+      "id": "web-security-scenario",
+      "kind": "scenario",
+      "description": "Exercise web.security",
+      "depends_on": [
+        "web-security-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web-security-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_platform product in a supported environment"
+        ],
+        "actions": [
+          "Submit adversarial display text and malformed input; data remains inert and privileged changes remain unavailable."
+        ],
+        "expected": [
+          "Submit adversarial display text and malformed input; data remains inert and privileged changes remain unavailable."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web-security-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web.security",
+      "depends_on": [
+        "web-security-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/web-security.md",
+        "sha256": "7c66ae4fe57fb4f361e93883a477aac8e0cf656ffc0ddb866801f183c4d4d78b"
+      }
+    },
+    {
+      "id": "web-security-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web.security; source model is partial",
+      "depends_on": [
+        "web-security-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web-security-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web.security",
+      "depends_on": [
+        "web-security-implementation",
+        "web-security-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/web-security.md",
+        "sha256": "7c66ae4fe57fb4f361e93883a477aac8e0cf656ffc0ddb866801f183c4d4d78b"
+      }
+    },
+    {
+      "id": "web-network_failure-requirement",
+      "kind": "requirement",
+      "description": "Recover after a network request fails",
+      "depends_on": []
+    },
+    {
+      "id": "web-network_failure-scenario",
+      "kind": "scenario",
+      "description": "Exercise web.network_failure",
+      "depends_on": [
+        "web-network_failure-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web-network_failure-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_platform product in a supported environment"
+        ],
+        "actions": [
+          "Disconnect, timeout and reconnect during a request; an observable error permits retry without losing valid prior state."
+        ],
+        "expected": [
+          "Disconnect, timeout and reconnect during a request; an observable error permits retry without losing valid prior state."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web-network_failure-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web.network_failure",
+      "depends_on": [
+        "web-network_failure-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/web-network_failure.md",
+        "sha256": "818ec7eedd261919460dbcc28f39fab8bf8b7977b201d2dfbb410a8709f2b6f9"
+      }
+    },
+    {
+      "id": "web-network_failure-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web.network_failure; source model is partial",
+      "depends_on": [
+        "web-network_failure-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web-network_failure-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web.network_failure",
+      "depends_on": [
+        "web-network_failure-implementation",
+        "web-network_failure-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/web-network_failure.md",
+        "sha256": "818ec7eedd261919460dbcc28f39fab8bf8b7977b201d2dfbb410a8709f2b6f9"
+      }
+    },
+    {
+      "id": "web-loading_empty-requirement",
+      "kind": "requirement",
+      "description": "Represent loading and empty outcomes clearly",
+      "depends_on": []
+    },
+    {
+      "id": "web-loading_empty-scenario",
+      "kind": "scenario",
+      "description": "Exercise web.loading_empty",
+      "depends_on": [
+        "web-loading_empty-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web-loading_empty-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_platform product in a supported environment"
+        ],
+        "actions": [
+          "Open without data, await delayed data and receive an empty result; status is visible and the next valid action remains available."
+        ],
+        "expected": [
+          "Open without data, await delayed data and receive an empty result; status is visible and the next valid action remains available."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web-loading_empty-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web.loading_empty",
+      "depends_on": [
+        "web-loading_empty-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/web-loading_empty.md",
+        "sha256": "2b74be33bc58cb8ab9d979b7d1c7d2981f5debb8bb0ca73e544526fb4ea898e8"
+      }
+    },
+    {
+      "id": "web-loading_empty-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web.loading_empty; source model is partial",
+      "depends_on": [
+        "web-loading_empty-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web-loading_empty-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web.loading_empty",
+      "depends_on": [
+        "web-loading_empty-implementation",
+        "web-loading_empty-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/web-loading_empty.md",
+        "sha256": "2b74be33bc58cb8ab9d979b7d1c7d2981f5debb8bb0ca73e544526fb4ea898e8"
+      }
+    },
+    {
+      "id": "web_platform-permissions-requirement",
+      "kind": "requirement",
+      "description": "Restrict updates to authorized actors and resources",
+      "depends_on": []
+    },
+    {
+      "id": "web_platform-permissions-scenario",
+      "kind": "scenario",
+      "description": "Exercise web_platform.permissions",
+      "depends_on": [
+        "web_platform-permissions-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web_platform-permissions-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_platform product in a supported environment"
+        ],
+        "actions": [
+          "Attempt cross-tenant and read-only updates; denied operations leave the resource unchanged."
+        ],
+        "expected": [
+          "Attempt cross-tenant and read-only updates; denied operations leave the resource unchanged."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web_platform-permissions-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web_platform.permissions",
+      "depends_on": [
+        "web_platform-permissions-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/web_platform-permissions.md",
+        "sha256": "13c8032044e5282bfe36d0d853e4f3b1a1125d8e326512a8122f6cc8f103f258"
+      }
+    },
+    {
+      "id": "web_platform-permissions-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web_platform.permissions; source model is partial",
+      "depends_on": [
+        "web_platform-permissions-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web_platform-permissions-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web_platform.permissions",
+      "depends_on": [
+        "web_platform-permissions-implementation",
+        "web_platform-permissions-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/web_platform-permissions.md",
+        "sha256": "13c8032044e5282bfe36d0d853e4f3b1a1125d8e326512a8122f6cc8f103f258"
+      }
+    },
+    {
+      "id": "web_platform-integrity-requirement",
+      "kind": "requirement",
+      "description": "Preserve resource invariants across failed writes",
+      "depends_on": []
+    },
+    {
+      "id": "web_platform-integrity-scenario",
+      "kind": "scenario",
+      "description": "Exercise web_platform.integrity",
+      "depends_on": [
+        "web_platform-integrity-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web_platform-integrity-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_platform product in a supported environment"
+        ],
+        "actions": [
+          "Submit invalid values and interrupt a multi-field update; reject invalid state and retain a complete prior version."
+        ],
+        "expected": [
+          "Submit invalid values and interrupt a multi-field update; reject invalid state and retain a complete prior version."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web_platform-integrity-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web_platform.integrity",
+      "depends_on": [
+        "web_platform-integrity-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/web_platform-integrity.md",
+        "sha256": "3de13bc905dad8d08fcf1e71c4c93a2269b92c705fb46d2174c7335c389c44d5"
+      }
+    },
+    {
+      "id": "web_platform-integrity-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web_platform.integrity; source model is partial",
+      "depends_on": [
+        "web_platform-integrity-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web_platform-integrity-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web_platform.integrity",
+      "depends_on": [
+        "web_platform-integrity-implementation",
+        "web_platform-integrity-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/web_platform-integrity.md",
+        "sha256": "3de13bc905dad8d08fcf1e71c4c93a2269b92c705fb46d2174c7335c389c44d5"
+      }
+    },
+    {
+      "id": "web_platform-idempotency-requirement",
+      "kind": "requirement",
+      "description": "Apply a repeated operation exactly once",
+      "depends_on": []
+    },
+    {
+      "id": "web_platform-idempotency-scenario",
+      "kind": "scenario",
+      "description": "Exercise web_platform.idempotency",
+      "depends_on": [
+        "web_platform-idempotency-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web_platform-idempotency-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_platform product in a supported environment"
+        ],
+        "actions": [
+          "Retry the same operation key after a timeout; return the original result and do not duplicate the side effect."
+        ],
+        "expected": [
+          "Retry the same operation key after a timeout; return the original result and do not duplicate the side effect."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web_platform-idempotency-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web_platform.idempotency",
+      "depends_on": [
+        "web_platform-idempotency-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/web_platform-idempotency.md",
+        "sha256": "7e738a48c129cd514b054342184f126e0d51b0acf5ed961379563209f4ffd50b"
+      }
+    },
+    {
+      "id": "web_platform-idempotency-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web_platform.idempotency; source model is partial",
+      "depends_on": [
+        "web_platform-idempotency-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web_platform-idempotency-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web_platform.idempotency",
+      "depends_on": [
+        "web_platform-idempotency-implementation",
+        "web_platform-idempotency-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/web_platform-idempotency.md",
+        "sha256": "7e738a48c129cd514b054342184f126e0d51b0acf5ed961379563209f4ffd50b"
+      }
+    },
+    {
+      "id": "web_platform-concurrency-requirement",
+      "kind": "requirement",
+      "description": "Resolve simultaneous updates without lost writes",
+      "depends_on": []
+    },
+    {
+      "id": "web_platform-concurrency-scenario",
+      "kind": "scenario",
+      "description": "Exercise web_platform.concurrency",
+      "depends_on": [
+        "web_platform-concurrency-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web_platform-concurrency-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_platform product in a supported environment"
+        ],
+        "actions": [
+          "Submit updates against the same version; accept one, report a conflict for the other and support a refreshed retry."
+        ],
+        "expected": [
+          "Submit updates against the same version; accept one, report a conflict for the other and support a refreshed retry."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web_platform-concurrency-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web_platform.concurrency",
+      "depends_on": [
+        "web_platform-concurrency-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/web_platform-concurrency.md",
+        "sha256": "5600ba76363ac7c26b400d7b210acbd76ffed3939bf6a8f183db0ff17b759e7c"
+      }
+    },
+    {
+      "id": "web_platform-concurrency-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web_platform.concurrency; source model is partial",
+      "depends_on": [
+        "web_platform-concurrency-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web_platform-concurrency-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web_platform.concurrency",
+      "depends_on": [
+        "web_platform-concurrency-implementation",
+        "web_platform-concurrency-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/web_platform-concurrency.md",
+        "sha256": "5600ba76363ac7c26b400d7b210acbd76ffed3939bf6a8f183db0ff17b759e7c"
+      }
+    },
+    {
+      "id": "web_platform-integration_failure-requirement",
+      "kind": "requirement",
+      "description": "Degrade predictably when an external service fails",
+      "depends_on": []
+    },
+    {
+      "id": "web_platform-integration_failure-scenario",
+      "kind": "scenario",
+      "description": "Exercise web_platform.integration_failure",
+      "depends_on": [
+        "web_platform-integration_failure-requirement"
+      ],
+      "scenario": {
+        "requirements": [
+          "web_platform-integration_failure-requirement"
+        ],
+        "preconditions": [
+          "Initialized web_platform product in a supported environment"
+        ],
+        "actions": [
+          "Receive timeout, malformed payload and server error from the integration; preserve local invariants and expose retryable status."
+        ],
+        "expected": [
+          "Receive timeout, malformed payload and server error from the integration; preserve local invariants and expose retryable status."
+        ],
+        "failure_recovery": [
+          "Preserve prior valid state and offer an observable recovery action."
+        ]
+      }
+    },
+    {
+      "id": "web_platform-integration_failure-design",
+      "kind": "design",
+      "description": "Observable state and recovery design for web_platform.integration_failure",
+      "depends_on": [
+        "web_platform-integration_failure-scenario",
+        "planning"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/web_platform-integration_failure.md",
+        "sha256": "f5745edc171a05e80779a2ca1cadf7f0691e03b0465c204d2b6e003bc6498c50"
+      }
+    },
+    {
+      "id": "web_platform-integration_failure-implementation",
+      "kind": "implementation",
+      "description": "Declared implementation scope for web_platform.integration_failure; source model is partial",
+      "depends_on": [
+        "web_platform-integration_failure-design",
+        "source",
+        "dependency",
+        "asset",
+        "build",
+        "environment"
+      ]
+    },
+    {
+      "id": "web_platform-integration_failure-test",
+      "kind": "test",
+      "description": "Unexecuted assertion contract for web_platform.integration_failure",
+      "depends_on": [
+        "web_platform-integration_failure-implementation",
+        "web_platform-integration_failure-scenario"
+      ],
+      "file": {
+        "path": "examples/product-delivery/web_platform/web_platform-integration_failure.md",
+        "sha256": "f5745edc171a05e80779a2ca1cadf7f0691e03b0465c204d2b6e003bc6498c50"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "id": "check-general-execution",
+      "scenario_ids": [
+        "general-execution-scenario"
+      ],
+      "test_id": "general-execution-test",
+      "command_id": "product_contract",
+      "categories": [
+        "general.execution"
+      ],
+      "input_sha256": {
+        "asset": "584f328052bc069306c6ffa18f68716199a2951cff466019d4d3d753c62fd270",
+        "build": "f898866b8f37cc3c2408e76a31f21fb63ba7d0bcdb8ab8a5fb359ba146a4a10c",
+        "dependency": "8e4e77c02795ff8da0d561d5f27f9a26160272baaa5315d667a7dbf95976492d",
+        "environment": "17924e3e3e1f9701b75b9f23598a89b952dec087106e13e48e425b2d2b5469e5",
+        "general-execution-design": "0c14a9490b9aa60edaab95e66949feacee525fc4bd8b8266e3917a118df48786",
+        "general-execution-implementation": "447942ef9ad70785788856fadbc46267e27ed304039fd0ce4d11282c5b6f00a8",
+        "general-execution-requirement": "6527b157c6a6f4ee07dc15cb443089d383951ccd1f91a7f5b1f18bbd86715cd8",
+        "general-execution-scenario": "2d24b4f930d2c46ee47ea891e815eafee574b3e295d7f58da7bb4ad097508f5c",
+        "general-execution-test": "0e2c7a109ddbabcbf8be948e239dd3d581deb52dc40d0286313ccc3cba234982",
+        "planning": "62e704ade0166aac9f532e9d9036d5e852d4dd72e39de4dc96e891d4be141055",
+        "source": "d2ced1ae5e694e3f508abf74dce14a5205a8e73a5b28f69f0a41a59a15c7b353"
+      }
+    },
+    {
+      "id": "check-general-traceability",
+      "scenario_ids": [
+        "general-traceability-scenario"
+      ],
+      "test_id": "general-traceability-test",
+      "command_id": "product_contract",
+      "categories": [
+        "general.traceability"
+      ],
+      "input_sha256": {
+        "asset": "584f328052bc069306c6ffa18f68716199a2951cff466019d4d3d753c62fd270",
+        "build": "f898866b8f37cc3c2408e76a31f21fb63ba7d0bcdb8ab8a5fb359ba146a4a10c",
+        "dependency": "8e4e77c02795ff8da0d561d5f27f9a26160272baaa5315d667a7dbf95976492d",
+        "environment": "17924e3e3e1f9701b75b9f23598a89b952dec087106e13e48e425b2d2b5469e5",
+        "general-traceability-design": "c553811b0c071fde5a104a579b1ff3482df60c5b68b7fe7ca5b85f19e7db8caf",
+        "general-traceability-implementation": "60a7afd0b649570e9f35d604391afa4644eb1ebddf3cc3ebd7cc9f1dcafeb250",
+        "general-traceability-requirement": "85ee8b0978e84ed59f1fed47a3b37d8ef168553be6f3b8f8edb8c004ca13decb",
+        "general-traceability-scenario": "841e52c9537ed09441bc93809f5dc91c8f794e8c2c3d41bb4d1efc5acf82b374",
+        "general-traceability-test": "b5a75339df33ea001a42091dcdeed3286ccc2287afa5cae2c7f72b7bcb9c39db",
+        "planning": "62e704ade0166aac9f532e9d9036d5e852d4dd72e39de4dc96e891d4be141055",
+        "source": "d2ced1ae5e694e3f508abf74dce14a5205a8e73a5b28f69f0a41a59a15c7b353"
+      }
+    },
+    {
+      "id": "check-general-verification",
+      "scenario_ids": [
+        "general-verification-scenario"
+      ],
+      "test_id": "general-verification-test",
+      "command_id": "product_contract",
+      "categories": [
+        "general.verification"
+      ],
+      "input_sha256": {
+        "asset": "584f328052bc069306c6ffa18f68716199a2951cff466019d4d3d753c62fd270",
+        "build": "f898866b8f37cc3c2408e76a31f21fb63ba7d0bcdb8ab8a5fb359ba146a4a10c",
+        "dependency": "8e4e77c02795ff8da0d561d5f27f9a26160272baaa5315d667a7dbf95976492d",
+        "environment": "17924e3e3e1f9701b75b9f23598a89b952dec087106e13e48e425b2d2b5469e5",
+        "general-verification-design": "36de4f8d6275686f6db270f018befd5bd401751e3e093004d5c0f4c8cdd94443",
+        "general-verification-implementation": "928b349e754050a4742fc0146162a04a2e3d8039af792150255ee9fec18c83fa",
+        "general-verification-requirement": "a63fefe901ef8fe2146e4d2eba02347474d8d97f9332cb02d28ebc5e6991901a",
+        "general-verification-scenario": "eb970d29969318de9219c1931228a5bb3704330be31cc3ebded0f905da9e7780",
+        "general-verification-test": "0b38f37830444ef7b9125c95d3b2108afd9d8026aae3542bef9b76cbbb59738d",
+        "planning": "62e704ade0166aac9f532e9d9036d5e852d4dd72e39de4dc96e891d4be141055",
+        "source": "d2ced1ae5e694e3f508abf74dce14a5205a8e73a5b28f69f0a41a59a15c7b353"
+      }
+    },
+    {
+      "id": "check-general-recovery",
+      "scenario_ids": [
+        "general-recovery-scenario"
+      ],
+      "test_id": "general-recovery-test",
+      "command_id": "product_contract",
+      "categories": [
+        "general.recovery"
+      ],
+      "input_sha256": {
+        "asset": "584f328052bc069306c6ffa18f68716199a2951cff466019d4d3d753c62fd270",
+        "build": "f898866b8f37cc3c2408e76a31f21fb63ba7d0bcdb8ab8a5fb359ba146a4a10c",
+        "dependency": "8e4e77c02795ff8da0d561d5f27f9a26160272baaa5315d667a7dbf95976492d",
+        "environment": "17924e3e3e1f9701b75b9f23598a89b952dec087106e13e48e425b2d2b5469e5",
+        "general-recovery-design": "c6d8203db4698fa6eb09d3da69c8e2feb8daa06ad356d157f8aaafe709355ae1",
+        "general-recovery-implementation": "dbd23c49c578dcbffa0248f9ba3bbffd1ae63f953ef50bf47f5d8902953e8f05",
+        "general-recovery-requirement": "8e0490c13718867af35c21e77536e5e228a95b71188b8bdb7c95c4d696ad5cda",
+        "general-recovery-scenario": "7ec2c13075ec754dbeb72c3fc987ab9c1d729d0be654699d898dbe58f1aa0c36",
+        "general-recovery-test": "cf0a28223e889b98781bae7307f60f0ed84504624ee9629c4e33956a7a80f603",
+        "planning": "62e704ade0166aac9f532e9d9036d5e852d4dd72e39de4dc96e891d4be141055",
+        "source": "d2ced1ae5e694e3f508abf74dce14a5205a8e73a5b28f69f0a41a59a15c7b353"
+      }
+    },
+    {
+      "id": "check-web-accessibility",
+      "scenario_ids": [
+        "web-accessibility-scenario"
+      ],
+      "test_id": "web-accessibility-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web.accessibility"
+      ],
+      "input_sha256": {
+        "asset": "584f328052bc069306c6ffa18f68716199a2951cff466019d4d3d753c62fd270",
+        "build": "f898866b8f37cc3c2408e76a31f21fb63ba7d0bcdb8ab8a5fb359ba146a4a10c",
+        "dependency": "8e4e77c02795ff8da0d561d5f27f9a26160272baaa5315d667a7dbf95976492d",
+        "environment": "17924e3e3e1f9701b75b9f23598a89b952dec087106e13e48e425b2d2b5469e5",
+        "planning": "62e704ade0166aac9f532e9d9036d5e852d4dd72e39de4dc96e891d4be141055",
+        "source": "d2ced1ae5e694e3f508abf74dce14a5205a8e73a5b28f69f0a41a59a15c7b353",
+        "web-accessibility-design": "797f4c8d951d1e30f697d5322fd16effffb6dbed7d2976d24008664a2a909db2",
+        "web-accessibility-implementation": "846c5d1526f550f833cf5d50675e978443ec82636fb6510b9d590f426284e775",
+        "web-accessibility-requirement": "28adbea6678370f3d333fa54b301eb309403d15e791f1d5dc3ba7aa5e4c6c78e",
+        "web-accessibility-scenario": "155583f3c46229bcd95241c23693be4b0cd29b4212a44d829706c73b1fefadf3",
+        "web-accessibility-test": "46ed3e74fa962c35816cc3785375674c346390b676aba833b59fe5d2723772aa"
+      }
+    },
+    {
+      "id": "check-web-responsive",
+      "scenario_ids": [
+        "web-responsive-scenario"
+      ],
+      "test_id": "web-responsive-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web.responsive"
+      ],
+      "input_sha256": {
+        "asset": "584f328052bc069306c6ffa18f68716199a2951cff466019d4d3d753c62fd270",
+        "build": "f898866b8f37cc3c2408e76a31f21fb63ba7d0bcdb8ab8a5fb359ba146a4a10c",
+        "dependency": "8e4e77c02795ff8da0d561d5f27f9a26160272baaa5315d667a7dbf95976492d",
+        "environment": "17924e3e3e1f9701b75b9f23598a89b952dec087106e13e48e425b2d2b5469e5",
+        "planning": "62e704ade0166aac9f532e9d9036d5e852d4dd72e39de4dc96e891d4be141055",
+        "source": "d2ced1ae5e694e3f508abf74dce14a5205a8e73a5b28f69f0a41a59a15c7b353",
+        "web-responsive-design": "dd748aff545a2c07d2d0c879b09cb511c12f3c01dea1962fb4038cd4960d8e7a",
+        "web-responsive-implementation": "41876cb38870c69aebe58c2ad741a496cd7ed40e10fd77838a93fb8e7f45a824",
+        "web-responsive-requirement": "690e1c08030b8694d1dfca41cb994d46fb58f4c2251003387cb92c84b30c1eeb",
+        "web-responsive-scenario": "c85f9d7f91b3a8062ccf5f71e1cc2b024a1a962e26499c629f8c5f49b9608aef",
+        "web-responsive-test": "fd28ef54dd4401b03e1b03b456f1ac3c9c6c0f675f98f101fd8f2b3eaf0f2dc7"
+      }
+    },
+    {
+      "id": "check-web-browser_compatibility",
+      "scenario_ids": [
+        "web-browser_compatibility-scenario"
+      ],
+      "test_id": "web-browser_compatibility-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web.browser_compatibility"
+      ],
+      "input_sha256": {
+        "asset": "584f328052bc069306c6ffa18f68716199a2951cff466019d4d3d753c62fd270",
+        "build": "f898866b8f37cc3c2408e76a31f21fb63ba7d0bcdb8ab8a5fb359ba146a4a10c",
+        "dependency": "8e4e77c02795ff8da0d561d5f27f9a26160272baaa5315d667a7dbf95976492d",
+        "environment": "17924e3e3e1f9701b75b9f23598a89b952dec087106e13e48e425b2d2b5469e5",
+        "planning": "62e704ade0166aac9f532e9d9036d5e852d4dd72e39de4dc96e891d4be141055",
+        "source": "d2ced1ae5e694e3f508abf74dce14a5205a8e73a5b28f69f0a41a59a15c7b353",
+        "web-browser_compatibility-design": "dbf9ec8921c9c197224b980fe1db6a65c413ccbc6b03babf8eda5370cace3250",
+        "web-browser_compatibility-implementation": "68b447295d67023e3442d99a7a36cbd9cf4e54475619a264bdf7a24467864c43",
+        "web-browser_compatibility-requirement": "f1db16c7608c1307e5ae9e18363f877e146c7c6cd32349be242d81100ab5c4f5",
+        "web-browser_compatibility-scenario": "e825550eafbda0cc249f3e6bf77ae0134cb43cf64bc133fc9b3431b6ccdcf605",
+        "web-browser_compatibility-test": "614b58f2e1fec1409fea22a326ee4192eb1b880bb3d348faa8cc90db606ba723"
+      }
+    },
+    {
+      "id": "check-web-security",
+      "scenario_ids": [
+        "web-security-scenario"
+      ],
+      "test_id": "web-security-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web.security"
+      ],
+      "input_sha256": {
+        "asset": "584f328052bc069306c6ffa18f68716199a2951cff466019d4d3d753c62fd270",
+        "build": "f898866b8f37cc3c2408e76a31f21fb63ba7d0bcdb8ab8a5fb359ba146a4a10c",
+        "dependency": "8e4e77c02795ff8da0d561d5f27f9a26160272baaa5315d667a7dbf95976492d",
+        "environment": "17924e3e3e1f9701b75b9f23598a89b952dec087106e13e48e425b2d2b5469e5",
+        "planning": "62e704ade0166aac9f532e9d9036d5e852d4dd72e39de4dc96e891d4be141055",
+        "source": "d2ced1ae5e694e3f508abf74dce14a5205a8e73a5b28f69f0a41a59a15c7b353",
+        "web-security-design": "1f0b48798f00c6ac15fbd8e74bc150ea83aa366c1a2b5e7735ede49773c51d7e",
+        "web-security-implementation": "92be23fec721e28d2b77e05c43e87ef457c4838d676618e044996687e2324e6c",
+        "web-security-requirement": "628bf3fe1272d6740002544feebad2a7f9e140aac3a57f139c96e0614d78438d",
+        "web-security-scenario": "c28291b507e83f32844d734c7ae97dc88da34f3ba282a2af8d9462f730d9d809",
+        "web-security-test": "6b052ce58179d54ca7d9a380aa9a2830d587e140b1cacc6868ebf9af4920a482"
+      }
+    },
+    {
+      "id": "check-web-network_failure",
+      "scenario_ids": [
+        "web-network_failure-scenario"
+      ],
+      "test_id": "web-network_failure-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web.network_failure"
+      ],
+      "input_sha256": {
+        "asset": "584f328052bc069306c6ffa18f68716199a2951cff466019d4d3d753c62fd270",
+        "build": "f898866b8f37cc3c2408e76a31f21fb63ba7d0bcdb8ab8a5fb359ba146a4a10c",
+        "dependency": "8e4e77c02795ff8da0d561d5f27f9a26160272baaa5315d667a7dbf95976492d",
+        "environment": "17924e3e3e1f9701b75b9f23598a89b952dec087106e13e48e425b2d2b5469e5",
+        "planning": "62e704ade0166aac9f532e9d9036d5e852d4dd72e39de4dc96e891d4be141055",
+        "source": "d2ced1ae5e694e3f508abf74dce14a5205a8e73a5b28f69f0a41a59a15c7b353",
+        "web-network_failure-design": "5ae48494bbb8a23be46db37b804f88a148b6699daaced82e22429241a51fb8b9",
+        "web-network_failure-implementation": "08320a80e02ed766353daf40ac0dce29b3ee2e3680010f4393dd1f42c2f95f74",
+        "web-network_failure-requirement": "9e861fbf1bb441f3cf82c3eb0d187a7c5267ebb649710d86280b5a05a84e4836",
+        "web-network_failure-scenario": "6eba52fac840ad7da41427d034b3676fa9437fd416f14cb8649de6fc36f116cb",
+        "web-network_failure-test": "480b9673d0e858e31b45371b84b07da7fc1c03a5ddcc29306f766ded8b338a8a"
+      }
+    },
+    {
+      "id": "check-web-loading_empty",
+      "scenario_ids": [
+        "web-loading_empty-scenario"
+      ],
+      "test_id": "web-loading_empty-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web.loading_empty"
+      ],
+      "input_sha256": {
+        "asset": "584f328052bc069306c6ffa18f68716199a2951cff466019d4d3d753c62fd270",
+        "build": "f898866b8f37cc3c2408e76a31f21fb63ba7d0bcdb8ab8a5fb359ba146a4a10c",
+        "dependency": "8e4e77c02795ff8da0d561d5f27f9a26160272baaa5315d667a7dbf95976492d",
+        "environment": "17924e3e3e1f9701b75b9f23598a89b952dec087106e13e48e425b2d2b5469e5",
+        "planning": "62e704ade0166aac9f532e9d9036d5e852d4dd72e39de4dc96e891d4be141055",
+        "source": "d2ced1ae5e694e3f508abf74dce14a5205a8e73a5b28f69f0a41a59a15c7b353",
+        "web-loading_empty-design": "4a30c58c6e9d58aead9b724039a3a130ecf43e2eaf905de7d3036b70216c4f43",
+        "web-loading_empty-implementation": "b6dd40e88d21134f5a97151cede5ebc117ca78f2b0cd718ab0a55f38c1269056",
+        "web-loading_empty-requirement": "3ff1af2592e67daf339ef6ee43dec5143543b32e749f7075171024c6bee6a8b4",
+        "web-loading_empty-scenario": "f791296cb89a69183321376226f593201c2aa0e3de9859283118b760253867c5",
+        "web-loading_empty-test": "e3a46c15985f2630f32b729b7a9683a7699a9d8f1f684ca9efbf29dafbdf576d"
+      }
+    },
+    {
+      "id": "check-web_platform-permissions",
+      "scenario_ids": [
+        "web_platform-permissions-scenario"
+      ],
+      "test_id": "web_platform-permissions-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web_platform.permissions"
+      ],
+      "input_sha256": {
+        "asset": "584f328052bc069306c6ffa18f68716199a2951cff466019d4d3d753c62fd270",
+        "build": "f898866b8f37cc3c2408e76a31f21fb63ba7d0bcdb8ab8a5fb359ba146a4a10c",
+        "dependency": "8e4e77c02795ff8da0d561d5f27f9a26160272baaa5315d667a7dbf95976492d",
+        "environment": "17924e3e3e1f9701b75b9f23598a89b952dec087106e13e48e425b2d2b5469e5",
+        "planning": "62e704ade0166aac9f532e9d9036d5e852d4dd72e39de4dc96e891d4be141055",
+        "source": "d2ced1ae5e694e3f508abf74dce14a5205a8e73a5b28f69f0a41a59a15c7b353",
+        "web_platform-permissions-design": "7e10da98532cebfcaabbb51919c0ac18ec6493d397147168e62203773f58e0c9",
+        "web_platform-permissions-implementation": "41d5b08cb08a356522786281ed96df2796b6c1fa9d48c6de0ac6998e675d00c5",
+        "web_platform-permissions-requirement": "853db113cf9ad4b9469e5c0c807adeebf7133d8f2cbd108bde99d4beac6d97d7",
+        "web_platform-permissions-scenario": "7af5a61c19fc9c6c2cb115cd90757b7381045d47d077bf3019d539454f635fdf",
+        "web_platform-permissions-test": "bd227df0298a6135a35bf53d484c6073792787a97948e71eed48cc26813a47d7"
+      }
+    },
+    {
+      "id": "check-web_platform-integrity",
+      "scenario_ids": [
+        "web_platform-integrity-scenario"
+      ],
+      "test_id": "web_platform-integrity-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web_platform.integrity"
+      ],
+      "input_sha256": {
+        "asset": "584f328052bc069306c6ffa18f68716199a2951cff466019d4d3d753c62fd270",
+        "build": "f898866b8f37cc3c2408e76a31f21fb63ba7d0bcdb8ab8a5fb359ba146a4a10c",
+        "dependency": "8e4e77c02795ff8da0d561d5f27f9a26160272baaa5315d667a7dbf95976492d",
+        "environment": "17924e3e3e1f9701b75b9f23598a89b952dec087106e13e48e425b2d2b5469e5",
+        "planning": "62e704ade0166aac9f532e9d9036d5e852d4dd72e39de4dc96e891d4be141055",
+        "source": "d2ced1ae5e694e3f508abf74dce14a5205a8e73a5b28f69f0a41a59a15c7b353",
+        "web_platform-integrity-design": "a2731896c804ed63d7aef476687f6fd92c0df650871b35b3cd8d83d5e393d89b",
+        "web_platform-integrity-implementation": "45761783093eeb398b733b0959cc89cc78801e5db20b86999993d4dd1e75a09a",
+        "web_platform-integrity-requirement": "045f1dc232402bb1520f554ac9decf73eb074de98e6ea96e549ab5bc34ff1d3b",
+        "web_platform-integrity-scenario": "04f5da55a74224492755f3f1ab91f2c9b1766e91e244936291646cb7ca413cbc",
+        "web_platform-integrity-test": "2e2270a7fae3bc40970cca37e205e3aad4f53c377b0eaeef75289ec00e613ed8"
+      }
+    },
+    {
+      "id": "check-web_platform-idempotency",
+      "scenario_ids": [
+        "web_platform-idempotency-scenario"
+      ],
+      "test_id": "web_platform-idempotency-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web_platform.idempotency"
+      ],
+      "input_sha256": {
+        "asset": "584f328052bc069306c6ffa18f68716199a2951cff466019d4d3d753c62fd270",
+        "build": "f898866b8f37cc3c2408e76a31f21fb63ba7d0bcdb8ab8a5fb359ba146a4a10c",
+        "dependency": "8e4e77c02795ff8da0d561d5f27f9a26160272baaa5315d667a7dbf95976492d",
+        "environment": "17924e3e3e1f9701b75b9f23598a89b952dec087106e13e48e425b2d2b5469e5",
+        "planning": "62e704ade0166aac9f532e9d9036d5e852d4dd72e39de4dc96e891d4be141055",
+        "source": "d2ced1ae5e694e3f508abf74dce14a5205a8e73a5b28f69f0a41a59a15c7b353",
+        "web_platform-idempotency-design": "c985eb4c73f40c48b0e2197ce40469f37b75cab2a1fb966809f0746375b14a52",
+        "web_platform-idempotency-implementation": "1fa36abdc81c24090ffbec3d56e55f7a7cd5519c7bb1f9de2e0d24e659b9bb0a",
+        "web_platform-idempotency-requirement": "62ad2bac021e2e3cf4eafe4401efca67a22d1892cea536683a38943bc91f19f9",
+        "web_platform-idempotency-scenario": "770c833b41c8bf546fbf0765a89ce2db3241e031e49635644cf267e98a6e325e",
+        "web_platform-idempotency-test": "e6b139871a1fdb1d6f99153d95527f6f20be8cf60594638296d0d157d5f51b75"
+      }
+    },
+    {
+      "id": "check-web_platform-concurrency",
+      "scenario_ids": [
+        "web_platform-concurrency-scenario"
+      ],
+      "test_id": "web_platform-concurrency-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web_platform.concurrency"
+      ],
+      "input_sha256": {
+        "asset": "584f328052bc069306c6ffa18f68716199a2951cff466019d4d3d753c62fd270",
+        "build": "f898866b8f37cc3c2408e76a31f21fb63ba7d0bcdb8ab8a5fb359ba146a4a10c",
+        "dependency": "8e4e77c02795ff8da0d561d5f27f9a26160272baaa5315d667a7dbf95976492d",
+        "environment": "17924e3e3e1f9701b75b9f23598a89b952dec087106e13e48e425b2d2b5469e5",
+        "planning": "62e704ade0166aac9f532e9d9036d5e852d4dd72e39de4dc96e891d4be141055",
+        "source": "d2ced1ae5e694e3f508abf74dce14a5205a8e73a5b28f69f0a41a59a15c7b353",
+        "web_platform-concurrency-design": "1ed6c29ace754fa36201fff956618c8049e5d81dee9be440a3b9df2eb5d9f196",
+        "web_platform-concurrency-implementation": "f052097cda94682734aeb8ab8983d4115b1f86a039ff09902092fd16f0cb074e",
+        "web_platform-concurrency-requirement": "cb5f3f9bec98c615bacbeb11d80e0cfc03fec8a9dcf75c3e11d835c59028387b",
+        "web_platform-concurrency-scenario": "ffbd86e659c505cbdfda77d52c39c7221313f41819aea0c8a1897976c02d7a1d",
+        "web_platform-concurrency-test": "7e53a6ed87b5e12f36d8b67065c5a3b6b208f98bdd5eb71daed15b684af67df5"
+      }
+    },
+    {
+      "id": "check-web_platform-integration_failure",
+      "scenario_ids": [
+        "web_platform-integration_failure-scenario"
+      ],
+      "test_id": "web_platform-integration_failure-test",
+      "command_id": "product_contract",
+      "categories": [
+        "web_platform.integration_failure"
+      ],
+      "input_sha256": {
+        "asset": "584f328052bc069306c6ffa18f68716199a2951cff466019d4d3d753c62fd270",
+        "build": "f898866b8f37cc3c2408e76a31f21fb63ba7d0bcdb8ab8a5fb359ba146a4a10c",
+        "dependency": "8e4e77c02795ff8da0d561d5f27f9a26160272baaa5315d667a7dbf95976492d",
+        "environment": "17924e3e3e1f9701b75b9f23598a89b952dec087106e13e48e425b2d2b5469e5",
+        "planning": "62e704ade0166aac9f532e9d9036d5e852d4dd72e39de4dc96e891d4be141055",
+        "source": "d2ced1ae5e694e3f508abf74dce14a5205a8e73a5b28f69f0a41a59a15c7b353",
+        "web_platform-integration_failure-design": "d9e168207f15b127396c3355a178efd027e7a2827a78e09bba114a2ee902224d",
+        "web_platform-integration_failure-implementation": "8d4db3cf107232f7c4cfa82ed0c3b7fdc99644c40b202d6a7c95dc92e4510381",
+        "web_platform-integration_failure-requirement": "12f32268db6e466df20f96e91854689fd4065c2aa6c8a27b65b7bb72af46a107",
+        "web_platform-integration_failure-scenario": "e1077340da00e33163ef2be90fa44bc5d2ea4d3c0c9201f2818e1b0cf5657e79",
+        "web_platform-integration_failure-test": "e8905de4373ba31216898db90a76423bd3c20ddb8808c3eff772141b3c3d21ad"
+      }
+    }
+  ]
+}

@@ -36,6 +36,12 @@ The product is in core hardening. The active surface centers on continuity,
 evidence, task and workflow records, product-initiative traceability, bounded
 research, and local verification. Initiative readiness is an advisory evidence
 inventory, not a judgment that a product is fit for release.
+Repository-owned product delivery v1 additionally connects execution manifests,
+typed requirement/scenario dependency graphs, focused briefs, selective change
+impact and general/web/game/platform check profiles. Local-only delivery
+verification binds successful runner output to directly observed pre/post
+declared input bytes. This is execution provenance, not semantic test adequacy,
+browser quality, deployment or product readiness; see `docs/product-delivery.md`.
 The current product question is:
 
 > Can a small local continuity and evidence core preserve current context,

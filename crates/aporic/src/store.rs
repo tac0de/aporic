@@ -50,6 +50,7 @@ const SCHEMA: &str = include_str!("../../../migrations/0001_initial.sql");
 mod core_event_audit;
 mod core_flow;
 mod delegation;
+mod delivery;
 mod initiative;
 mod intake;
 mod memory_use;

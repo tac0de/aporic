@@ -55,6 +55,25 @@ impl Hub {
         self.store.path()
     }
 
+    pub(crate) fn delivery_session_workspace(&self, session_id: &str) -> Result<String> {
+        self.store.delivery_session_workspace(session_id)
+    }
+    pub(crate) fn delivery_command(&self, spec_id: &str) -> Result<crate::domain::CommandSpec> {
+        self.store.delivery_command(spec_id)
+    }
+    pub(crate) fn delivery_binding(
+        &self,
+        run_id: &str,
+    ) -> Result<Option<crate::delivery_receipts::DeliveryRunBinding>> {
+        self.store.delivery_binding(run_id)
+    }
+    pub(crate) fn bind_delivery_run(
+        &self,
+        binding: &crate::delivery_receipts::DeliveryRunBinding,
+    ) -> Result<()> {
+        self.store.bind_delivery_run(binding)
+    }
+
     pub fn backup_to(&self, target: &Path) -> Result<()> {
         self.store.backup_to(target)
     }

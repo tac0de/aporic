@@ -85,9 +85,15 @@ explicit available model, and reasoning effort. Use `gpt-6.1-sol` for ordinary
 implementation and Astra for difficult or consequential analysis. Use a lighter
 model only for a clearly mechanical, low-impact task where delegation itself is
 worthwhile. When overriding the primary model, send a concise work packet with
-bounded fork history as required by the host collaboration tool. Do not silently
-downgrade. The Aporic route table is advice, and the host may select a different
-model when task risk warrants it.
+bounded fork history as required by the host collaboration tool. Set the host
+spawn tool's model and effort arguments explicitly; naming them only in the
+task message does not select them. With the current Codex tool, use `fork_turns`
+of `"none"` or a bounded turn count when setting overrides, because full-history
+forks do not accept them. Distinguish configured defaults, requested selection,
+observed host metadata, and independently attested execution; thread metadata
+alone does not prove backend execution. See `docs/subagent-model-selection.md`.
+Do not silently downgrade. The Aporic route table is advice, and the host may
+select a different model when task risk warrants it.
 After spawning, use `aporic_delegation_report` to record the actual host agent
 ID, selected model and effort, and start. Report completion or failure after it
 occurs. These are reported observations, not host attestations. Record the
