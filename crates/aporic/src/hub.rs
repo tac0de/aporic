@@ -63,6 +63,20 @@ impl Hub {
         Store::validate_backup(path)
     }
 
+    pub fn begin(
+        &self,
+        request: &crate::core_flow::BeginRequest,
+    ) -> Result<crate::core_flow::BeginOutcome> {
+        self.store.begin(request, kernel::EXPECTED_SHA256)
+    }
+
+    pub fn finish(
+        &self,
+        request: &crate::core_flow::FinishRequest,
+    ) -> Result<crate::core_flow::FinishOutcome> {
+        self.store.finish(request)
+    }
+
     pub fn open_session(&self, request: &OpenRequest) -> Result<OpenOutcome> {
         self.store.open_session(request, kernel::EXPECTED_SHA256)
     }
@@ -379,14 +393,14 @@ impl Hub {
                 "high",
                 "frontier_or_high_consequence_ambiguity",
             )
-        } else if bounded {
+        } else if bounded && request.work_kind != WorkKind::Implementation {
             ("gpt-6-luna", "medium", "bounded_well_specified_work")
         } else {
             (
                 "gpt-6.1-sol",
                 "high",
                 match request.work_kind {
-                    WorkKind::Implementation => "default_complex_implementation",
+                    WorkKind::Implementation => "default_implementation",
                     _ => "default_complex_agentic_work",
                 },
             )

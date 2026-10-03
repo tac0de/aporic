@@ -8,6 +8,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let arguments = std::env::args().skip(1).collect::<Vec<_>>();
     match arguments.as_slice() {
         [command] if command == "doctor" => doctor(),
+        [command] if command == "identity" => identity(),
+        [release, validate, checkout_flag, checkout]
+            if release == "release" && validate == "validate" && checkout_flag == "--checkout" =>
+        {
+            validate_release(checkout)
+        }
         [command, flag, workspace] if command == "export" && flag == "--workspace" => {
             export(workspace)
         }
@@ -118,7 +124,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         }
         _ => {
             eprintln!(
-                "usage: aporic doctor | aporic design validate --workspace PATH --manifest RELATIVE_PATH | aporic backup --to PATH | aporic backup prune --dir DIR --keep COUNT | aporic restore --dry-run PATH | aporic restore --from BACKUP --to DATABASE | aporic research sync --workspace PATH --source github|stackoverflow --query TEXT | aporic export --workspace PATH | aporic trace export --workspace PATH | aporic git inspect --workspace PATH | aporic tokens report --workspace PATH | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic eval context | aporic eval memory | aporic eval runtime | aporic eval git | aporic eval tokens | aporic executions reconcile --stale-after SECONDS | aporic hook codex | aporic mcp serve --stdio [--profile full]"
+                "usage: aporic doctor | aporic identity | aporic release validate --checkout PATH | aporic design validate --workspace PATH --manifest RELATIVE_PATH | aporic backup --to PATH | aporic backup prune --dir DIR --keep COUNT | aporic restore --dry-run PATH | aporic restore --from BACKUP --to DATABASE | aporic research sync --workspace PATH --source github|stackoverflow --query TEXT | aporic export --workspace PATH | aporic trace export --workspace PATH | aporic git inspect --workspace PATH | aporic tokens report --workspace PATH | aporic verify --spec SPEC_ID | aporic eval simulate --actor calibrated|overclaiming|contrarian | aporic eval context | aporic eval memory | aporic eval runtime | aporic eval git | aporic eval tokens | aporic executions reconcile --stale-after SECONDS | aporic hook codex | aporic mcp serve --stdio [--profile full]"
             );
             std::process::exit(2);
         }
@@ -310,6 +316,7 @@ fn doctor() -> Result<(), Box<dyn Error>> {
             "extensions_ok": extensions_ok,
             "overall_ok": core_ok && extensions_ok,
             "kernel_sha256": aporic::kernel::digest(),
+            "runtime": aporic::runtime::current(),
             "database": hub.database_path(),
             "stats": stats,
             "execution_replay": execution_replay,
@@ -324,6 +331,26 @@ fn doctor() -> Result<(), Box<dyn Error>> {
             "sandbox": aporic::sandbox_backend_status()
         }))?
     );
+    Ok(())
+}
+
+fn identity() -> Result<(), Box<dyn Error>> {
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&aporic::runtime::current())?
+    );
+    Ok(())
+}
+
+fn validate_release(checkout: &str) -> Result<(), Box<dyn Error>> {
+    let report = aporic::runtime::validate_release(checkout)?;
+    println!("{}", serde_json::to_string_pretty(&report)?);
+    if !report.source_matches
+        || !report.package_version_matches
+        || report.git_head_matches == Some(false)
+    {
+        std::process::exit(1);
+    }
     Ok(())
 }
 

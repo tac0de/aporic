@@ -130,7 +130,7 @@ fn planned_memory_is_linked_to_verified_task_criterion_across_restart() {
     let packet = hub.task_work_packet(&packet_request).unwrap();
     assert_eq!(packet.task.task_id, task_id);
     assert_eq!(packet.memory_uses.len(), 1);
-    assert_eq!(packet.route.model, "gpt-6-luna");
+    assert_eq!(packet.route.model, "gpt-6.1-sol");
     assert_eq!(packet.route.verifier_model.as_deref(), Some("gpt-6-astra"));
     assert_eq!(packet.reviewer_reasoning_effort.as_deref(), Some("high"));
     assert!(packet.advisory);

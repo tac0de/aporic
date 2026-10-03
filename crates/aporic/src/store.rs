@@ -48,6 +48,7 @@ use crate::{
 
 const SCHEMA: &str = include_str!("../../../migrations/0001_initial.sql");
 mod core_event_audit;
+mod core_flow;
 mod delegation;
 mod initiative;
 mod intake;
@@ -232,28 +233,39 @@ impl Store {
     }
 
     pub fn open_session(&self, request: &OpenRequest, kernel_sha256: &str) -> Result<OpenOutcome> {
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let outcome = Self::open_session_in(&transaction, request, kernel_sha256, false)?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    fn open_session_in(
+        transaction: &Transaction<'_>,
+        request: &OpenRequest,
+        kernel_sha256: &str,
+        compact: bool,
+    ) -> Result<OpenOutcome> {
         require_text("objective", &request.objective)?;
         require_text("idempotency_key", &request.idempotency_key)?;
         let workspace = canonical_workspace(&request.workspace)?;
         let now = unix_millis()?;
-        let mut connection = self.connection()?;
-        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
 
         if let Some(mut outcome) = duplicate_result::<OpenOutcome, _>(
-            &transaction,
+            transaction,
             &request.idempotency_key,
             "session_opened",
             request,
         )? {
             outcome.duplicate = true;
             outcome.session_delegation = Some(delegation::status_for_session(
-                &transaction,
+                transaction,
                 &outcome.session_id,
             )?);
             return Ok(outcome);
         }
 
-        let project_id = find_or_create_project(&transaction, &workspace, now)?;
+        let project_id = find_or_create_project(transaction, &workspace, now)?;
         let duplicate_objective = transaction
             .query_row(
                 "SELECT session_id FROM sessions
@@ -269,15 +281,20 @@ impl Store {
                 "an active session already has this objective: {session_id}"
             )));
         }
-        let context = recall_for_project(
-            &transaction,
+        let mut context = recall_for_project(
+            transaction,
             &project_id,
             &workspace,
-            20,
+            if compact { 10 } else { 20 },
             Some(&request.objective),
             &[],
-            16_384,
+            if compact { 4096 } else { 16_384 },
         )?;
+        if compact {
+            context.active_sessions.clear();
+            context.recent_handoffs.clear();
+            context.recent_records.clear();
+        }
         let open_repair_count = transaction.query_row(
             "SELECT COUNT(*) FROM accountability_cases
              WHERE project_id = ?1 AND status = 'open'",
@@ -316,11 +333,11 @@ impl Store {
             open_repair_count,
             open_repair_obligations,
             accountability_notice: accountability_authority_notice(),
-            session_delegation: Some(delegation::status_for_session(&transaction, &session_id)?),
+            session_delegation: Some(delegation::status_for_session(transaction, &session_id)?),
             duplicate: false,
         };
         append_event(
-            &transaction,
+            transaction,
             &request.idempotency_key,
             &session_id,
             "session_opened",
@@ -328,7 +345,6 @@ impl Store {
             &outcome,
             now,
         )?;
-        transaction.commit()?;
         Ok(outcome)
     }
 
@@ -826,15 +842,21 @@ impl Store {
     }
 
     pub fn record(&self, request: &RecordRequest) -> Result<RecordOutcome> {
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let outcome = Self::record_in(&transaction, request)?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    fn record_in(transaction: &Transaction<'_>, request: &RecordRequest) -> Result<RecordOutcome> {
         require_text("session_id", &request.session_id)?;
         require_text("content", &request.content)?;
         require_text("idempotency_key", &request.idempotency_key)?;
         let now = unix_millis()?;
-        let mut connection = self.connection()?;
-        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
 
         if let Some(mut outcome) = duplicate_result::<RecordOutcome, _>(
-            &transaction,
+            transaction,
             &request.idempotency_key,
             "record_added",
             request,
@@ -842,8 +864,8 @@ impl Store {
             outcome.duplicate = true;
             return Ok(outcome);
         }
-        require_open_session(&transaction, &request.session_id)?;
-        validate_record_links(&transaction, request)?;
+        require_open_session(transaction, &request.session_id)?;
+        validate_record_links(transaction, request)?;
 
         let record = DurableRecord {
             record_id: Uuid::now_v7().to_string(),
@@ -884,7 +906,7 @@ impl Store {
             duplicate: false,
         };
         append_event(
-            &transaction,
+            transaction,
             &request.idempotency_key,
             &request.session_id,
             "record_added",
@@ -892,7 +914,6 @@ impl Store {
             &outcome,
             now,
         )?;
-        transaction.commit()?;
         Ok(outcome)
     }
 
@@ -1548,6 +1569,17 @@ impl Store {
     }
 
     pub fn close_session(&self, request: &CloseRequest) -> Result<CloseOutcome> {
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let outcome = Self::close_session_in(&transaction, request)?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    fn close_session_in(
+        transaction: &Transaction<'_>,
+        request: &CloseRequest,
+    ) -> Result<CloseOutcome> {
         require_text("session_id", &request.session_id)?;
         require_text("summary", &request.summary)?;
         require_text("idempotency_key", &request.idempotency_key)?;
@@ -1563,10 +1595,8 @@ impl Store {
         }
 
         let now = unix_millis()?;
-        let mut connection = self.connection()?;
-        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         if let Some(mut outcome) = duplicate_result::<CloseOutcome, _>(
-            &transaction,
+            transaction,
             &request.idempotency_key,
             "session_closed",
             request,
@@ -1574,10 +1604,10 @@ impl Store {
             outcome.duplicate = true;
             return Ok(outcome);
         }
-        require_open_session(&transaction, &request.session_id)?;
+        require_open_session(transaction, &request.session_id)?;
         if request.disposition == CloseDisposition::Completed {
-            require_verified_effects(&transaction, &request.session_id)?;
-            require_no_material_unknowns(&transaction, &request.session_id)?;
+            require_verified_effects(transaction, &request.session_id)?;
+            require_no_material_unknowns(transaction, &request.session_id)?;
         }
         transaction.execute(
             "UPDATE sessions
@@ -1600,7 +1630,7 @@ impl Store {
             duplicate: false,
         };
         append_event(
-            &transaction,
+            transaction,
             &request.idempotency_key,
             &request.session_id,
             "session_closed",
@@ -1608,7 +1638,6 @@ impl Store {
             &outcome,
             now,
         )?;
-        transaction.commit()?;
         Ok(outcome)
     }
 

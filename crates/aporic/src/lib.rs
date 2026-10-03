@@ -2,6 +2,7 @@
 
 pub mod brief;
 pub mod context;
+pub mod core_flow;
 pub mod design;
 pub mod discovery;
 pub mod domain;
@@ -14,6 +15,7 @@ pub mod mcp;
 pub mod recovery;
 pub mod research;
 pub mod runner;
+pub mod runtime;
 pub mod store;
 
 mod bounded;

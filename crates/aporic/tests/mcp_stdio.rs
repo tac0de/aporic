@@ -142,8 +142,10 @@ async fn exposes_the_vertical_slice_over_a_real_stdio_process() -> Result<(), Bo
         .into_iter()
         .map(|tool| tool.name.to_string())
         .collect::<Vec<_>>();
-    assert_eq!(tool_names.len(), 51, "default MCP surface changed");
+    assert_eq!(tool_names.len(), 53, "default MCP surface changed");
     for required in [
+        "aporic_begin",
+        "aporic_finish",
         "aporic_open",
         "aporic_recall",
         "aporic_resume",
@@ -614,7 +616,7 @@ async fn full_mcp_profile_is_explicit_and_reveals_optional_diagnostics()
         .into_iter()
         .map(|tool| tool.name.to_string())
         .collect::<Vec<_>>();
-    assert_eq!(names.len(), 65, "full MCP surface changed");
+    assert_eq!(names.len(), 67, "full MCP surface changed");
     assert!(names.iter().any(|name| name == "aporic_trace_list"));
     assert!(
         names
@@ -654,4 +656,108 @@ async fn call_json(
         .and_then(|content| content.as_text())
         .expect("tool result contains text");
     Ok(serde_json::from_str(&text.text)?)
+}
+
+#[test]
+fn basic_flow_over_raw_stdio_is_bounded_and_survives_restart() -> Result<(), Box<dyn Error>> {
+    use std::io::{BufRead, BufReader, Write};
+    use std::process::{Command, Stdio};
+    fn exchange(
+        child: &mut std::process::Child,
+        out: &mut BufReader<std::process::ChildStdout>,
+        id: u32,
+        method: &str,
+        params: Value,
+    ) -> Result<(usize, Value), Box<dyn Error>> {
+        writeln!(
+            child.stdin.as_mut().unwrap(),
+            "{}",
+            json!({"jsonrpc":"2.0","id":id,"method":method,"params":params})
+        )?;
+        child.stdin.as_mut().unwrap().flush()?;
+        loop {
+            let mut line = String::new();
+            if out.read_line(&mut line)? == 0 {
+                return Err("stdio ended".into());
+            }
+            let value: Value = serde_json::from_str(&line)?;
+            if value["id"] == id {
+                return Ok((line.len(), value));
+            }
+        }
+    }
+    let area = tempfile::tempdir()?;
+    let database = area.path().join("state.sqlite");
+    let hub = aporic::Hub::open(&database)?;
+    let legacy = hub.open_session(&aporic::domain::OpenRequest {
+        workspace: area.path().to_string_lossy().into_owned(),
+        objective: "Old context".into(),
+        idempotency_key: "old".into(),
+    })?;
+    for i in 0..20 {
+        hub.record(&aporic::domain::RecordRequest {
+            session_id: legacy.session_id.clone(),
+            kind: aporic::domain::RecordKind::Constraint,
+            content: format!("{i}{}", "\"\\\n".repeat(250)),
+            evidence: None,
+            supersedes_record_id: None,
+            verifies_effect_id: None,
+            idempotency_key: format!("old-{i}"),
+        })?;
+    }
+    hub.close_session(&aporic::domain::CloseRequest {
+        session_id: legacy.session_id,
+        disposition: aporic::domain::CloseDisposition::Completed,
+        summary: "Seeded constraints".into(),
+        next_action: None,
+        idempotency_key: "old-close".into(),
+    })?;
+    let mut session = String::new();
+    for restart in 0..2 {
+        let mut child = Command::new(env!("CARGO_BIN_EXE_aporic"))
+            .args(["mcp", "serve", "--stdio"])
+            .env("APORIC_DATABASE", &database)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .spawn()?;
+        let mut out = BufReader::new(child.stdout.take().unwrap());
+        let (_, init) = exchange(
+            &mut child,
+            &mut out,
+            1,
+            "initialize",
+            json!({"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"raw-flow-test","version":"1"}}),
+        )?;
+        assert_eq!(
+            init["result"]["serverInfo"]["version"],
+            env!("CARGO_PKG_VERSION")
+        );
+        writeln!(
+            child.stdin.as_mut().unwrap(),
+            "{}",
+            json!({"jsonrpc":"2.0","method":"notifications/initialized"})
+        )?;
+        let params = if restart == 0 {
+            json!({"name":"aporic_begin","arguments":{"workspace":area.path(),"objective":"Raw bounded flow","idempotency_key":"raw-begin","work_shape":{"parallel_paths":1,"material_change":false,"worker":{"disposition":"skip","reason":"Sequential raw test"},"reviewer":{"disposition":"skip","reason":"Mechanically verified fixture"}}}})
+        } else {
+            json!({"name":"aporic_finish","arguments":{"session_id":session,"disposition":"completed","summary":"Restart verified","next_action":null,"notes":[{"kind":"observation","content":"Server restarted before finish","evidence":null}],"idempotency_key":"raw-finish"}})
+        };
+        let (bytes, response) = exchange(&mut child, &mut out, 2, "tools/call", params)?;
+        assert!(bytes <= 16_384, "actual stdio frame {bytes} exceeded limit");
+        let body: Value =
+            serde_json::from_str(response["result"]["content"][0]["text"].as_str().unwrap())?;
+        assert_eq!(body["ok"], true);
+        if restart == 0 {
+            session = body["result"]["session_id"].as_str().unwrap().into();
+            assert!(
+                body["result"]["context"]["budget"]["omitted_items"]
+                    .as_u64()
+                    .unwrap()
+                    > 0
+            );
+        }
+        child.kill()?;
+        child.wait()?;
+    }
+    Ok(())
 }

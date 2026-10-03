@@ -427,6 +427,15 @@ fn model_router_uses_luna_sol_and_astra_without_conferring_authority() {
         independent_review: false,
     });
     assert_eq!(sol.model, "gpt-6.1-sol");
+    let bounded_implementation = hub.route_model(&ModelRouteRequest {
+        work_kind: WorkKind::Implementation,
+        complexity: WorkComplexity::Bounded,
+        consequence: Consequence::Medium,
+        ambiguity_high: false,
+        independent_review: false,
+    });
+    assert_eq!(bounded_implementation.model, "gpt-6.1-sol");
+    assert!(bounded_implementation.advisory);
 
     let astra = hub.route_model(&ModelRouteRequest {
         work_kind: WorkKind::Architecture,

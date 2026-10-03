@@ -1,0 +1,29 @@
+binary_sha256 05a0535dad8429558eabfdad73769adf34091fc6ddf75132545ef9e4052315d9
+scope Local stdio only; five lifecycle calls across two durable sessions; excludes host/model/authoring cost
+run 1
+aporic_begin 5.83 2055 1821 493
+aporic_finish 3.48 402 282 381
+aporic_resume 3.22 867 721 189
+aporic_begin 3.03 2738 2442 490
+aporic_finish 2.5 336 220 273
+total 18.06 6398 5486 1826
+run 2
+aporic_begin 4.52 2055 1821 493
+aporic_finish 4.06 402 282 381
+aporic_resume 2.01 867 721 189
+aporic_begin 2.85 2738 2442 490
+aporic_finish 2.67 336 220 273
+total 16.11 6398 5486 1826
+run 3
+aporic_begin 4.46 2055 1821 493
+aporic_finish 3.39 402 282 381
+aporic_resume 3.11 867 721 189
+aporic_begin 4.91 2738 2442 490
+aporic_finish 2.62 336 220 273
+total 18.48 6398 5486 1826
+median by method
+aporic_begin 4.52 2055 1821
+aporic_finish 3.48 402 282
+aporic_resume 3.11 867 721
+aporic_begin 3.03 2738 2442
+aporic_finish 2.62 336 220

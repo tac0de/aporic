@@ -23,7 +23,8 @@ Tools marked as full-only below require `--profile full`.
 
 Continuity:
 
-- `aporic_open`: open an idempotent work session and receive bounded context;
+- `aporic_begin` / `aporic_finish`: the default two-call lifecycle, with atomic host assessment, bounded context, durable notes and close/handoff;
+- `aporic_open`: legacy idempotent session opening;
 - `aporic_recall`: retrieve recent durable project context;
 - `aporic_resume`: select one unfinished task or fresh handoff for a terse
   new-session continuation request, or report ambiguity;
@@ -235,6 +236,8 @@ is available without a network exporter:
 ```console
 cargo run -p aporic -- trace export --workspace /absolute/project/path
 ```
+
+See [the short core workflow](docs/core-flow.md) for request bounds, interrupted-session recovery, runtime validation, and operational evidence.
 
 ## Git evidence and governance
 

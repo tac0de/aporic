@@ -12,8 +12,8 @@ route table.
 
 | Route | Use |
 | --- | --- |
-| `gpt-6-luna` | Bounded, well-specified, low-to-medium consequence work |
-| `gpt-6.1-sol` | Default complex implementation and agentic tool work |
+| `gpt-6-luna` | Bounded, well-specified, low-to-medium consequence work other than implementation |
+| `gpt-6.1-sol` | Default implementation (including bounded work) and complex agentic tool work |
 | `gpt-6-astra` | Frontier complexity, critical consequence, or high-consequence ambiguity |
 
 When independent review is requested, Astra reviews Luna/Sol work and Sol
@@ -34,3 +34,5 @@ behavioral kernel.
 The v0.6 Codex hook may receive the active model slug from the host. Aporic
 labels that value as a non-attested host observation and never uses it to grant
 authority, establish evidence, or mutate this route table.
+
+On 2026-10-03 the implementation default was made consistent for bounded work as well: it recommends `gpt-6.1-sol` rather than silently selecting Luna. This follows the human's preference, not new comparative capability evidence. Host instructions and actual selection still govern.

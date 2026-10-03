@@ -27,16 +27,25 @@ impl Store {
         &self,
         request: &SessionDelegationDecisionRequest,
     ) -> Result<SessionDelegationDecisionOutcome> {
+        let mut connection = self.connection()?;
+        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let outcome = Self::assess_session_delegation_in(&transaction, request)?;
+        transaction.commit()?;
+        Ok(outcome)
+    }
+
+    pub(super) fn assess_session_delegation_in(
+        transaction: &Transaction<'_>,
+        request: &SessionDelegationDecisionRequest,
+    ) -> Result<SessionDelegationDecisionOutcome> {
         validate_ids(&request.session_id, &request.idempotency_key)?;
         if request.parallel_paths > 32 {
             return Err(Error::Invalid("parallel_paths exceeds 32".to_owned()));
         }
         validate_choice("worker", &request.worker, request.parallel_paths >= 2)?;
         validate_choice("reviewer", &request.reviewer, request.material_change)?;
-        let mut connection = self.connection()?;
-        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
         if let Some(mut previous) = duplicate_result::<SessionDelegationDecisionOutcome, _>(
-            &transaction,
+            transaction,
             &request.idempotency_key,
             SESSION_DECISION_EVENT,
             request,
@@ -44,8 +53,8 @@ impl Store {
             previous.duplicate = true;
             return Ok(previous);
         }
-        require_open_session(&transaction, &request.session_id)?;
-        let status = read_session_status(&transaction, &request.session_id)?;
+        require_open_session(transaction, &request.session_id)?;
+        let status = read_session_status(transaction, &request.session_id)?;
         require_session_capacity(&status, 1)?;
         let now = unix_millis()?;
         let outcome = SessionDelegationDecisionOutcome {
@@ -62,7 +71,7 @@ impl Store {
             duplicate: false,
         };
         append_event(
-            &transaction,
+            transaction,
             &request.idempotency_key,
             &request.session_id,
             SESSION_DECISION_EVENT,
@@ -70,7 +79,6 @@ impl Store {
             &outcome,
             now,
         )?;
-        transaction.commit()?;
         Ok(outcome)
     }
 
