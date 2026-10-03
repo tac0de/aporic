@@ -2,3 +2,7 @@
 # inputs byte-identical when Git checks the repository out on Windows.
 /canon/KERNEL.md text eol=lf
 /canon/manifest.json text eol=lf
+
+# Delivery manifests bind the raw bytes of these example artifacts. Prevent
+# platform checkout conversion from invalidating their recorded hashes.
+/examples/product-delivery/** text eol=lf

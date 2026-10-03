@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, fs, path::Path};
+use std::{collections::BTreeSet, fs, path::Path, process::Command};
 
 use aporic::delivery::{
     DeliveryManifest, DeliveryValidateRequest, check_input_fingerprints, validate,
@@ -220,13 +220,67 @@ fn checked_in_packages_have_complete_traces_but_no_execution_credit() {
         }
         let report = validate_example(workspace.path(), &manifest);
         assert!(report.profile_gaps.is_empty(), "{:?}", report.profile_gaps);
-        assert!(report.nodes.iter().all(|node| node.current));
+        assert!(
+            report.nodes.iter().all(|node| node.current),
+            "stale fixture nodes for {profile}: {:?}",
+            report.nodes
+        );
         assert!(
             report
                 .checks
                 .iter()
                 .all(|check| check.coverage_complete && check.inputs_current)
         );
+        assert!(report.checks.iter().all(|check| !check.execution_verified));
+    }
+}
+
+#[test]
+fn autocrlf_checkout_preserves_hash_bound_example_bytes() {
+    let repository = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    for profile in ["web_game", "web_platform"] {
+        let (workspace, manifest) = example(profile);
+        fs::copy(
+            repository.join(".gitattributes"),
+            workspace.path().join(".gitattributes"),
+        )
+        .unwrap();
+        let git = |args: &[&str]| {
+            let output = Command::new("git")
+                .current_dir(workspace.path())
+                .args(args)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "git {args:?}: {}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+        };
+        git(&["init", "--quiet"]);
+        git(&["-c", "core.autocrlf=false", "add", "."]);
+        let paths: BTreeSet<_> = manifest
+            .nodes
+            .iter()
+            .filter_map(|node| node.file.as_ref().map(|file| &file.path))
+            .collect();
+        for path in paths {
+            fs::remove_file(workspace.path().join(path)).unwrap();
+        }
+        git(&[
+            "-c",
+            "core.autocrlf=true",
+            "checkout-index",
+            "--all",
+            "--force",
+        ]);
+        let report = validate_example(workspace.path(), &manifest);
+        assert!(
+            report.nodes.iter().all(|node| node.current),
+            "checkout changed hash-bound {profile} bytes: {:?}",
+            report.nodes
+        );
+        assert!(report.checks.iter().all(|check| check.inputs_current));
         assert!(report.checks.iter().all(|check| !check.execution_verified));
     }
 }
