@@ -119,6 +119,19 @@ async fn rust_repair_lesson_requires_the_completed_tasks_cargo_test_receipt() {
         .join(if cfg!(windows) { "rustc.exe" } else { "rustc" })
         .to_string_lossy()
         .into_owned();
+    // The fixture lives outside the repository's toolchain override. Keep
+    // Cargo's Rustup-shim compiler and rustdoc on the same installed toolchain
+    // as the absolute Cargo executable used by the verification runner.
+    let toolchain = std::path::Path::new(sysroot.trim())
+        .file_name()
+        .unwrap()
+        .to_str()
+        .unwrap();
+    std::fs::write(
+        workspace.join("rust-toolchain.toml"),
+        format!("[toolchain]\nchannel = {toolchain:?}\n"),
+    )
+    .unwrap();
     let diagnostic = std::process::Command::new(&rustc)
         .current_dir(&workspace)
         .args([
@@ -343,10 +356,56 @@ async fn rust_repair_lesson_requires_the_completed_tasks_cargo_test_receipt() {
     .unwrap();
     std::fs::write(&source, "pub fn answer() -> i32 { 42 }\n#[cfg(test)] mod tests { #[test] fn repaired() { assert_eq!(super::answer(), 42); } }\n").unwrap();
     let verified = hub.verify(&spec.spec_id).await.unwrap();
-    let claim_id = verified
-        .verified_claim_id
-        .clone()
-        .unwrap_or_else(|| panic!("repaired fixture cargo test did not succeed: {verified:?}"));
+    let claim_id = if let Some(claim_id) = verified.verified_claim_id.clone() {
+        claim_id
+    } else {
+        // A runner receipt deliberately retains hashes rather than output.
+        // Reproduce only this owned fixture's failed command for CI diagnostics.
+        let receipt = verified.receipt.as_ref().unwrap();
+        let mut command =
+            tokio::process::Command::new(receipt.resolved_executable.as_ref().unwrap());
+        command
+            .args(&spec.args)
+            .current_dir(&workspace)
+            .env_clear()
+            .kill_on_drop(true);
+        for name in [
+            "PATH",
+            "HOME",
+            "TMPDIR",
+            "LANG",
+            "LC_ALL",
+            "CARGO_HOME",
+            "RUSTUP_HOME",
+            "SYSTEMROOT",
+            "WINDIR",
+            "COMSPEC",
+            "PATHEXT",
+            "TEMP",
+            "TMP",
+            "USERPROFILE",
+            "INCLUDE",
+            "LIB",
+            "LIBPATH",
+        ] {
+            if let Some(value) = std::env::var_os(name) {
+                command.env(name, value);
+            }
+        }
+        let diagnostic =
+            tokio::time::timeout(std::time::Duration::from_secs(30), command.output()).await;
+        let diagnostic = match diagnostic {
+            Ok(Ok(output)) => output,
+            other => panic!(
+                "repaired fixture cargo test did not succeed: {verified:?}\nDiagnostic retry failed: {other:?}"
+            ),
+        };
+        panic!(
+            "repaired fixture cargo test did not succeed: {verified:?}\nDiagnostic retry: {}\n{}",
+            diagnostic.status,
+            String::from_utf8_lossy(&diagnostic.stderr),
+        );
+    };
     hub.complete_task(&TaskCompleteRequest {
         task_id,
         worker_id: "worker".into(),
